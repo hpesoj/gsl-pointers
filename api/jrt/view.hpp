@@ -156,6 +156,18 @@ constexpr bool operator==(T1 const& lhs, view<T2> const& rhs) noexcept
 }
 
 template <typename T1, typename T2>
+constexpr bool operator==(view<T1> const& lhs, T2* rhs) noexcept
+{
+    return lhs.get() == rhs;
+}
+
+template <typename T1, typename T2>
+constexpr bool operator==(T1* lhs, view<T2> const& rhs) noexcept
+{
+    return lhs == rhs.get();
+}
+
+template <typename T1, typename T2>
 constexpr bool operator!=(view<T1> const& lhs, view<T2> const& rhs) noexcept
 {
     return !(lhs == rhs);
@@ -171,6 +183,18 @@ template <typename T1, typename T2>
 constexpr bool operator!=(T1 const& lhs, view<T2> const& rhs) noexcept
 {
     return &lhs != rhs.get();
+}
+
+template <typename T1, typename T2>
+constexpr bool operator!=(view<T1> const& lhs, T2* rhs) noexcept
+{
+    return lhs.get() != rhs;
+}
+
+template <typename T1, typename T2>
+constexpr bool operator!=(T1* lhs, view<T2> const& rhs) noexcept
+{
+    return lhs != rhs.get();
 }
 
 template <typename T1, typename T2>
@@ -355,10 +379,8 @@ public:
         {
             throw bad_optional_view_access();
         }
-        else
-        {
-            return **this;
-        }
+
+        return **this;
     }
 
     template <typename U, typename = std::enable_if_t<std::is_convertible<element_type*, U*>::value>>
