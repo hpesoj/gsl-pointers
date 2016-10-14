@@ -110,8 +110,7 @@ public:
         return **this;
     }
 
-    template <typename U>
-    constexpr operator U() const noexcept = delete;
+    constexpr operator element_type() const noexcept = delete;
 
     template <typename U, typename = std::enable_if_t<std::is_convertible<element_type&, U&>::value>>
     constexpr operator U&() const noexcept
