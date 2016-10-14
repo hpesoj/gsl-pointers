@@ -47,7 +47,8 @@ private:
     element_type* element;
 
 public:
-    constexpr view(element_type& r) noexcept : element(&r)
+    constexpr view(element_type& r) noexcept :
+        element(&r)
     {
     }
 
@@ -61,7 +62,8 @@ public:
     view& operator=(element_type&& r) noexcept = delete;
 
     template <typename U, typename = std::enable_if_t<std::is_convertible<U&, element_type&>::value>>
-    constexpr view(view<U> const& v) noexcept : element(v.get())
+    constexpr view(view<U> const& v) noexcept :
+        element(v.get())
     {
     }
 
@@ -176,25 +178,25 @@ constexpr bool operator!=(view<T1> const& lhs, view<T2> const& rhs) noexcept
 template <typename T1, typename T2>
 constexpr bool operator!=(view<T1> const& lhs, T2 const& rhs) noexcept
 {
-    return lhs.get() != &rhs;
+    return !(lhs == rhs);
 }
 
 template <typename T1, typename T2>
 constexpr bool operator!=(T1 const& lhs, view<T2> const& rhs) noexcept
 {
-    return &lhs != rhs.get();
+    return !(lhs == rhs);
 }
 
 template <typename T1, typename T2>
 constexpr bool operator!=(view<T1> const& lhs, T2* rhs) noexcept
 {
-    return lhs.get() != rhs;
+    return !(lhs == rhs);
 }
 
 template <typename T1, typename T2>
 constexpr bool operator!=(T1* lhs, view<T2> const& rhs) noexcept
 {
-    return lhs != rhs.get();
+    return !(lhs == rhs);
 }
 
 template <typename T1, typename T2>
@@ -446,13 +448,13 @@ constexpr bool operator==(T1* lhs, optional_view<T2> const& rhs) noexcept
 template <typename T>
 constexpr bool operator==(optional_view<T> const& lhs, std::nullptr_t) noexcept
 {
-    return !lhs;
+    return lhs.get() == nullptr;
 }
 
 template <typename T>
 constexpr bool operator==(std::nullptr_t, optional_view<T> const& rhs) noexcept
 {
-    return rhs == nullptr;
+    return nullptr == rhs.get();
 }
 
 template <typename T1, typename T2>
@@ -470,13 +472,13 @@ constexpr bool operator==(T1 const& lhs, optional_view<T2> const& rhs) noexcept
 template <typename T>
 constexpr bool operator==(optional_view<T> const& lhs, nullopt_t) noexcept
 {
-    return !lhs;
+    return lhs.get() == nullptr;
 }
 
 template <typename T>
 constexpr bool operator==(nullopt_t, optional_view<T> const& rhs) noexcept
 {
-    return rhs == nullopt;
+    return nullptr == rhs.get();
 }
 
 template <typename T1, typename T2>
@@ -500,13 +502,13 @@ constexpr bool operator!=(view<T1> const& lhs, optional_view<T2> const& rhs) noe
 template <typename T1, typename T2>
 constexpr bool operator!=(optional_view<T1> const& lhs, T2* rhs) noexcept
 {
-    return lhs.get() != rhs;
+    return !(lhs == rhs);
 }
 
 template <typename T1, typename T2>
 constexpr bool operator!=(T1* lhs, optional_view<T2> const& rhs) noexcept
 {
-    return lhs != rhs.get();
+    return !(lhs == rhs);
 }
 
 template <typename T>
@@ -524,13 +526,13 @@ constexpr bool operator!=(std::nullptr_t, optional_view<T> const& rhs) noexcept
 template <typename T1, typename T2>
 constexpr bool operator!=(optional_view<T1> const& lhs, T2 const& rhs) noexcept
 {
-    return lhs.get() != &rhs;
+    return !(lhs == rhs);
 }
 
 template <typename T1, typename T2>
 constexpr bool operator!=(T1 const& lhs, optional_view<T2> const& rhs) noexcept
 {
-    return &lhs != rhs.get();
+    return !(lhs == rhs);
 }
 
 template <typename T>
@@ -606,7 +608,7 @@ constexpr view<T> static_view_cast(view<U> const& v) noexcept
 template <typename T, typename U>
 constexpr optional_view<T> dynamic_view_cast(view<U> const& v) noexcept
 {
-    return make_optional_view(dynamic_cast<T*>(v.get()));
+    return dynamic_cast<T*>(v.get());
 }
 
 template <typename T, typename U>
