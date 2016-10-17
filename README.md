@@ -163,11 +163,26 @@ auto a0 = b.get_parent();
 auto& b0 = a.get_child(0);
 ```
 
-Conversely, with `view` and `optional_view`, you must explicitly state that you want to allow copying by using either `operator*` or `value`:
+Conversely, with `view`, the referenced object will not even be copied if you explicitly specify the type of the new object:
 
 ```c++
-auto a0 = b.get_parent().value(); // throws if optional_view<T> is null
-auto b0 = *a.get_child(0); // is safe for view<T>
+node c = a.get_child(0); // error: attempt to call deleted function
+```
+
+To copy the referenced object, you must explicitly access it by "dereferencing" the `view`:
+
+```c++
+auto c = *a.get_child(0);
+```
+
+To copy the value of an `optional_view`, you should either ensure the `optional_view` is not null before "dereferencing" it, or call `value`, which will throw if the `optional_view` is null:
+
+```c++
+if (b) {
+    auto d = *b.get_parent();
+}
+
+auto e = b.get_parent().value();
 ```
 
 It's worth noting that it is probably impossible to define sensible copy behaviour for our `node` class, since each node can have only one parent, so we would probably want to delete the copy constructor and assignment operator. The example was chosen for simplicity as well as to showcase `optional_node`; it _would_ be possible to have sensible copy behaviour if each node could have multiple parents, so the benefit of explicit copy syntax _is_ real.
