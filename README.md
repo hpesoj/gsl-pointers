@@ -1,8 +1,8 @@
-# `view` and `optional_view`: reference types for C++
+## `view` and `optional_view`: const-correct references for C++
 
-`view<T>` and `optional_view<T>` are wrappers intended to replace `T&` and `T*` wherever they are used as non-owning references.
+`view<T>` and `optional_view<T>` are const-correct wrappers intended to replace `T&` and `T*` wherever they are used as non-owning references.
 
-## Tutorial
+### Tutorial
 
 For this demonstration, we will create a type that can be used to create a tree of connected nodes. Nodes will not own other nodes, but will instead keep non-owning references to other nodes. Each node will have zero or one parent and zero or more children. For simplicity, we will not attempt to prevent cycles from being formed.
 
@@ -18,11 +18,7 @@ public:
         parent = new_parent;
     }
     
-    node const* get_parent() const {
-        return parent;
-    }
-
-    node* get_parent() {
+    node* get_parent() const {
         return parent;
     }
 };
@@ -49,27 +45,54 @@ private:
     
 public:
     void set_parent(optional_view<node> new_parent) {
-        parent = new_parent;
+        parent = new_parent; // error: calling deleted copy constructor
     }
     
-    optional_view<node const> get_parent() const {
-        return parent;
-    }
-
-    optional_view<node> get_parent() {
-        return parent;
+    optional_view<node> get_parent() const {
+        return parent; // error: calling deleted copy constructor
     }
 };
 ```
 
-An additional nicety is that `optional_view<T>` can be implicitly constructed from `T&` (note: it will not implicitly convert _to_ `T&`, for reasons of safety). This means that we call `set_parent` without having to take the address of the new parent:
+Oh dear, `optional_view` isn't copyable? Well, not strictly, and for good reason. Unlike `T*`, `optional_view<T>` is _const-correct_: it forwards its "constness" to the object it references. This ensures that, for example, if I have a const reference to a `node` (I cannot modify its value), that I can only acquire a const reference to its parent (so I cannot modify its value either). Of course, you _can_ cast the constness away using `const_view_cast`, but keep in mind this may enable incorrect and unsafe behaviour:
+
+    optional_view<node> get_parent() const {
+        return const_view_cast<node>(parent); // here be dragons
+    }    
+
+Unfortunately for reference-like types, enforcing const-correctness means that the copy constructor and assignment operator must be deleted, otherwise it would be possible to defeat const-correctness without casting:
+
+```c++
+    optional_view<node> get_parent() const {
+        return optional_view<node>(parent); // a-okay: copy constructor takes reference to const
+    }    
+```
+
+Fortunately, there is no reason why `optional_node` should not be copyable in theory; we just can't allow it via the standard C++ copy mechanisms; we have to be _explicit_. The utility function `copy_view` will return a copy of your `optional_view` (or `view`) with the correct constness; if you pass a non-const `optional_view<T>`, it will return an `optional_view<T>`; if you pass a _const_ `optional_view<T>`, it will return an `optional_view<T const>`. Since `optional_view` _is_ movable, the result can be assigned freely.
+
+Let's modify our example so that it compiles:
+
+```c++
+    optional_view<node const> get_parent() const {
+        return copy_view(parent);
+    }
+
+    optional_view<node> get_parent() {
+        return copy_view(parent);
+    }
+```
+
+We provide both const and non-const versions of `get_parent` that return const and non-const views of the parent respectively. Notice that by using `optional_view`, our API has automatically become const-correct itself. This is a really nice feature, the importance of which cannot be overstated!
+
+An additional nicety when using `optional_view` is that `optional_view<T>` can be implicitly constructed from `T&` (note: it will not implicitly convert _to_ `T&`, for reasons of safety) and compared to `T&`. This means that we call `set_parent` and test the result of a call to `get_parent` without having to take the addresses of the `node` objects:
 
 ```c++
 node a, b;
-b.set_parent(a);
+b.set_parent(a)
+assert(b.get_parent() == a);
 ```
 
-Not only this the calling syntax nicer, but it discourages the use of raw pointers in client code, reducing the potential for `nullptr` bugs. Of course, we could have overloaded `set_parent` to take both `node*` _and_ `node&`, but who wants to do the extra work, or indeed, can remember to do it consistently for all APIs?
+Not only is the syntax nicer, but it discourages the use of raw pointers in client code, reducing the potential for `nullptr` bugs. Of course, we could have overloaded `set_parent` to take both `node*` _and_ `node&`, but who wants to do the extra work, or indeed, can remember to do it consistently for all APIs? And anyway, `get_parent` could not be overloaded to return `T&` as well (that would be both unsafe _and_ impossible by C++ overloading rules; and anyway, using `==` on a reference compares the referenced object, not the reference itself).
 
 Now, it would be nice if `node` kept track of its children, so we can navigate both up _and_ down the tree. If we were using references and pointers, we might initially consider storing a `std::vector` of references:
 
@@ -109,17 +132,7 @@ private:
     }
 ```
 
-This works, but the fact that we are using a pointer because we _have_ to, rather than because it makes sense, should set alarm bells ringing. Using a pointer for `parent` makes sense, because `nullptr` can represent the "no parent" state, but "no children" is indicated by an empty vector. There is no reason for a child to be null; indeed, it would probably be a bug if a child _were_ to somehow become null.
-
-In addition to being unable to use store references in STL containers, the meaning of `node const&` (and to a lesser extent, `node&`) is not 100% clear either. We want it to mean "_non-owning_, _mandatory_ reference to a _single_ `node` object", but references to const are often used as an optimization technique, to avoid making unnecessary copies. Consider this function signature:
-
-```c++
-    node const& get_child(std::size_t index) const;
-```
-
-Does the use of `node const&` mean we should be storing [TODO: complete]
-
-Instead of `node&` or `node*`, we can use `view<node>`, the non-optional counterpart to `optional_view<node>`. In addition to all the documentation benefits and compile-time assurances that `optional_view` provides, `view` _must_ always reference an object. An `optional_view<T>` _is_ a __non-owning__, ___mandatory___ reference to a __single__ object of type `T`. And it can be copied and stored in a container, just like `optional_view<T>` or `T*`.
+Instead of `node&` or `node*`, we can use `view<node>`, the non-optional counterpart to `optional_view<node>`. In addition to all the documentation benefits and compile-time assurances that `optional_view` provides, `view` _must_ always reference an object. An `optional_view<T>` _is_ a __const-correct__, __non-owning__, ___mandatory___ reference to a __single__ object of type `T`. And it can be stored in STL containers, just like `optional_view<T>` or `T*`.
 
 Let's replace all instances of `node&` and `node*` with `view<node>`, and add the calls to `add_child` and `remove_child` to `set_parent`:
 
@@ -131,7 +144,7 @@ private:
 public:
     void set_parent(optional_view<node> new_parent) {
         if (parent) parent->remove_child(*this);
-        parent = new_parent;
+        parent = copy_view(new_parent);
         if (parent) parent->add_child(*this);
     }
     
@@ -140,16 +153,16 @@ public:
     }
 
     view<node> get_child(std::size_t index) {
-        return children[index];
+        return copy_view(children[index]);
     }
 
     view<node const> get_child(std::size_t index) const {
-        return children[index];
+        return copy_view(children[index]);
     }
 
 private:
     void add_child(view<node> child) {
-        children.push_back(child);
+        children.push_back(copy_view(child));
     }
 
     void remove_child(view<node> child) {
@@ -158,50 +171,31 @@ private:
 };
 ```
 
-As well as the implementation being simpler and safer (no use of `&` or `*` – except for `*this`, but `this` probably [should have been a reference](http://www.stroustrup.com/bs_faq2.html#this) anyway), the API has become more consistent and harder to misuse. Consider this example:
+As well as the implementation being safer, the way the API is used has become more consistent. Previously, different syntax would have been required to store and access `node&` and `node*`:
 
 ```c++
-node a, b;
-b.set_parent(a);
+auto aa = b.get_parent();
+auto& bb = a.get_child(0);
 
-auto a0 = b.get_parent();
-auto b0 = a.get_child(0);
+bb.set_parent(nullptr);
+aa->set_parent(&bb);
 ```
 
-What are the types of `a0` and `b0`? With the implementation using `view` and `optional_view`, the answer is simple: `a0` is of type `optional_view<node>` and `b0` is of type `view<node>`. On the other hand, when using references and pointers, `a0` is of type `node*` and `b0` is of type… `node`. Due to the `auto` type deduction rules, `b0` is in fact a copy of `b`. In our case, this is unlikely to have been intentional. To prevent a copy, you must state explicitly that you want a reference:
+With `view<node>` and `optional_view<node>`, the syntax is more consistent:
 
 ```c++
-auto a0 = b.get_parent();
-auto& b0 = a.get_child(0);
+auto aa = b.get_parent();
+auto bb = a.get_child(0);
+
+bb->set_parent(nullptr);
+aa->set_parent(bb);
 ```
 
-Conversely, with `view`, the referenced object will not be copied, even if you explicitly specify the type of the target object:
+Of course, it is subjective as to whether or not this is an improvement; the requirement to use `operator->` instead of `operator.` where `view<T>` replaces `T&` could be considered a burden. Since `view<T>` and `operator_view<T>` implicitly convert to and from `T&` and `T*`, it is perfectly possible to restrict their use to your implementation, while using only `T&` and `T*` in your API.
 
-```c++
-node c = a.get_child(0); // error: attempt to call deleted function
-```
+### FAQ
 
-To copy the referenced object, you must explicitly access it by "dereferencing" the `view`:
-
-```c++
-auto c = *a.get_child(0);
-```
-
-To copy the value of an `optional_view`, you should either ensure the `optional_view` is not null before "dereferencing" it, or call `value`, which will throw if the `optional_view` is null:
-
-```c++
-if (b) {
-    auto d = *b.get_parent();
-}
-
-auto e = b.get_parent().value();
-```
-
-It's worth noting that it is probably impossible to define sensible copy behaviour for our `node` class, since each node can have only one parent, so we would probably want to delete the copy constructor and assignment operator. The example was chosen for simplicity as well as to showcase `optional_node`; it _would_ be possible to have sensible copy behaviour if each node could have multiple parents, so the benefit of explicit copy syntax is not just theoretical.
-
-## FAQ
-
-### Isn't `view` practically the same as `std::reference_wrapper`?
+#### Isn't `view` practically the same as `std::reference_wrapper`?
 
 Both types perform a similar function but have very different behaviour.
 
