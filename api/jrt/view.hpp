@@ -80,11 +80,6 @@ public:
         return *this;
     }
 
-    constexpr explicit operator bool() const noexcept
-    {
-        return true;
-    }
-
     constexpr element_type const& operator*() const noexcept
     {
         return *element;
@@ -129,11 +124,6 @@ public:
     operator U*() noexcept
     {
         return element;
-    }
-
-    constexpr bool has_value() const noexcept
-    {
-        return true;
     }
 
     constexpr element_type const& value() const noexcept
@@ -442,18 +432,6 @@ public:
     element_type* get() noexcept
     {
         return element;
-    }
-
-    element_type* release() noexcept
-    {
-        element_type* p = element;
-        element = nullptr;
-        return p;
-    }
-
-    void reset(element_type* p = nullptr) noexcept
-    {
-        element = p;
     }
 
     void swap(optional_view& other) noexcept
