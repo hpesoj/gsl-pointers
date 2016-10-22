@@ -87,6 +87,11 @@ public:
         return *this;
     }
 
+    constexpr explicit operator bool() const noexcept
+    {
+        return true;
+    }
+
     constexpr element_type& operator*() const noexcept
     {
         return *element;
@@ -111,12 +116,16 @@ public:
         return element;
     }
 
+    constexpr bool has_value() const noexcept
+    {
+        return static_cast<bool>(*this);
+    }
+
     constexpr element_type& value() const noexcept
     {
         return *element;
     }
 
-    // Exists to support std::propagate_const.
     constexpr element_type* get() const noexcept
     {
         return element;
