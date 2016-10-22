@@ -61,11 +61,18 @@ public:
     constexpr view(element_type&&) noexcept = delete;
     view& operator=(element_type&&) noexcept = delete;
 
-    constexpr view(view const&) noexcept = delete;
-    view& operator=(view const&) noexcept = delete;
+    template <typename U, typename = std::enable_if_t<std::is_convertible<U&, element_type&>::value>>
+    constexpr view(view<U> const& v) noexcept :
+        element(v.get())
+    {
+    }
 
-    constexpr view(view&&) noexcept = default;
-    view& operator=(view&&) noexcept = default;
+    template <typename U, typename = std::enable_if_t<std::is_convertible<U&, element_type&>::value>>
+    view& operator=(view<U> const& v) noexcept
+    {
+        element = v.get();
+        return *this;
+    }
 
     template <typename U, typename = std::enable_if_t<std::is_convertible<U&, element_type&>::value>>
     constexpr view(view<U>&& v) noexcept :
@@ -80,22 +87,12 @@ public:
         return *this;
     }
 
-    constexpr element_type const& operator*() const noexcept
+    constexpr element_type& operator*() const noexcept
     {
         return *element;
     }
 
-    element_type& operator*() noexcept
-    {
-        return *element;
-    }
-
-    constexpr element_type const* operator->() const noexcept
-    {
-        return element;
-    }
-
-    element_type* operator->() noexcept
+    constexpr element_type* operator->() const noexcept
     {
         return element;
     }
@@ -103,45 +100,24 @@ public:
     constexpr operator element_type() const noexcept = delete;
 
     template <typename U, typename = std::enable_if_t<std::is_convertible<element_type&, U&>::value>>
-    constexpr operator U const&() const noexcept
-    {
-        return *element;
-    }
-
-    template <typename U, typename = std::enable_if_t<std::is_convertible<element_type&, U&>::value>>
-    operator U&() noexcept
+    constexpr operator U&() const noexcept
     {
         return *element;
     }
 
     template <typename U, typename = std::enable_if_t<std::is_convertible<element_type*, U*>::value>>
-    constexpr operator U const*() const noexcept
+    constexpr operator U*() const noexcept
     {
         return element;
     }
 
-    template <typename U, typename = std::enable_if_t<std::is_convertible<element_type*, U*>::value>>
-    operator U*() noexcept
-    {
-        return element;
-    }
-
-    constexpr element_type const& value() const noexcept
+    constexpr element_type& value() const noexcept
     {
         return *element;
     }
 
-    element_type& value() noexcept
-    {
-        return *element;
-    }
-
-    constexpr element_type const* get() const noexcept
-    {
-        return element;
-    }
-
-    element_type* get() noexcept
+    // Exists to support std::propagate_const.
+    constexpr element_type* get() const noexcept
     {
         return element;
     }
@@ -222,7 +198,7 @@ constexpr bool operator!=(T1* lhs, view<T2> const& rhs) noexcept
 template <typename T1, typename T2>
 constexpr bool operator<(view<T1> const& lhs, view<T2> const& rhs) noexcept
 {
-    return std::less<std::common_type_t<T1 const*, T2 const*>>()(lhs.get(), rhs.get());
+    return std::less<std::common_type_t<T1*, T2*>>()(lhs.get(), rhs.get());
 }
 
 template <typename T1, typename T2>
@@ -324,11 +300,18 @@ public:
     constexpr optional_view(element_type&&) noexcept = delete;
     optional_view& operator=(element_type&&) noexcept = delete;
 
-    constexpr optional_view(optional_view const&) noexcept = delete;
-    optional_view& operator=(optional_view const&) noexcept = delete;
+    template <typename U, typename = std::enable_if_t<std::is_convertible<U&, element_type&>::value>>
+    constexpr optional_view(optional_view<U> const& v) noexcept :
+        element(v.get())
+    {
+    }
 
-    constexpr optional_view(optional_view&&) noexcept = default;
-    optional_view& operator=(optional_view&&) noexcept = default;
+    template <typename U, typename = std::enable_if_t<std::is_convertible<U&, element_type&>::value>>
+    optional_view& operator=(optional_view<U> const& v) noexcept
+    {
+        element = v.get();
+        return *this;
+    }
 
     template <typename U, typename = std::enable_if_t<std::is_convertible<U&, element_type&>::value>>
     constexpr optional_view(optional_view<U>&& v) noexcept :
@@ -338,6 +321,19 @@ public:
 
     template <typename U, typename = std::enable_if_t<std::is_convertible<U&, element_type&>::value>>
     optional_view& operator=(optional_view<U>&& v) noexcept
+    {
+        element = v.get();
+        return *this;
+    }
+
+    template <typename U, typename = std::enable_if_t<std::is_convertible<U&, element_type&>::value>>
+    constexpr optional_view(view<U> const& v) noexcept :
+        element(v.get())
+    {
+    }
+
+    template <typename U, typename = std::enable_if_t<std::is_convertible<U&, element_type&>::value>>
+    optional_view& operator=(view<U> const& v) noexcept
     {
         element = v.get();
         return *this;
@@ -361,34 +357,18 @@ public:
         return element != nullptr;
     }
 
-    constexpr element_type const& operator*() const noexcept
+    constexpr element_type& operator*() const noexcept
     {
         return *element;
     }
 
-    element_type& operator*() noexcept
-    {
-        return *element;
-    }
-
-    constexpr element_type const* operator->() const noexcept
-    {
-        return element;
-    }
-
-    element_type* operator->() noexcept
+    constexpr element_type* operator->() const noexcept
     {
         return element;
     }
 
     template <typename U, typename = std::enable_if_t<std::is_convertible<element_type*, U*>::value>>
-    constexpr operator U const*() const noexcept
-    {
-        return element;
-    }
-
-    template <typename U, typename = std::enable_if_t<std::is_convertible<element_type*, U*>::value>>
-    operator U*() noexcept
+    constexpr operator U*() const noexcept
     {
         return element;
     }
@@ -398,17 +378,7 @@ public:
         return static_cast<bool>(*this);
     }
 
-    constexpr element_type const& value() const
-    {
-        if (!element)
-        {
-            throw bad_optional_view_access();
-        }
-
-        return *element;
-    }
-
-    element_type& value()
+    constexpr element_type& value() const
     {
         if (!element)
         {
@@ -424,12 +394,7 @@ public:
         return element ? *element : static_cast<element_type>(std::forward<U>(default_value));
     }
 
-    constexpr element_type const* get() const noexcept
-    {
-        return element;
-    }
-
-    element_type* get() noexcept
+    constexpr element_type* get() const noexcept
     {
         return element;
     }
@@ -582,7 +547,7 @@ constexpr bool operator!=(nullopt_t, optional_view<T> const& rhs) noexcept
 template <typename T1, typename T2>
 constexpr bool operator<(optional_view<T1> const& lhs, optional_view<T2> const& rhs) noexcept
 {
-    return std::less<std::common_type_t<T1 const*, T2 const*>>()(lhs.get(), rhs.get());
+    return std::less<std::common_type_t<T1*, T2*>>()(lhs.get(), rhs.get());
 }
 
 template <typename T1, typename T2>
@@ -625,38 +590,8 @@ constexpr optional_view<T> make_optional_view(T* p) noexcept
     return optional_view<T>(p);
 }
 
-template <typename T>
-constexpr view<T const> copy_view(view<T> const& v) noexcept
-{
-    return *v;
-}
-
-template <typename T>
-constexpr view<T> copy_view(view<T>& v) noexcept
-{
-    return *v;
-}
-
-template <typename T>
-constexpr optional_view<T const> copy_view(optional_view<T> const& v) noexcept
-{
-    return v.get();
-}
-
-template <typename T>
-constexpr optional_view<T> copy_view(optional_view<T>& v) noexcept
-{
-    return v.get();
-}
-
 template <typename T, typename U>
 constexpr view<T> static_view_cast(view<U> const& v) noexcept
-{
-    return static_cast<T&>(*v);
-}
-
-template <typename T, typename U>
-constexpr view<T> static_view_cast(view<U>& v) noexcept
 {
     return static_cast<T&>(*v);
 }
@@ -668,19 +603,7 @@ constexpr optional_view<T> dynamic_view_cast(view<U> const& v) noexcept
 }
 
 template <typename T, typename U>
-constexpr optional_view<T> dynamic_view_cast(view<U>& v) noexcept
-{
-    return dynamic_cast<T*>(v.get());
-}
-
-template <typename T, typename U>
 constexpr view<T> const_view_cast(view<U> const& v) noexcept
-{
-    return const_cast<T&>(*v);
-}
-
-template <typename T, typename U>
-constexpr view<T> const_view_cast(view<U>& v) noexcept
 {
     return const_cast<T&>(*v);
 }
@@ -692,19 +615,7 @@ constexpr view<T> reinterpret_view_cast(view<U> const& v) noexcept
 }
 
 template <typename T, typename U>
-constexpr view<T> reinterpret_view_cast(view<U>& v) noexcept
-{
-    return reinterpret_cast<T&>(*v);
-}
-
-template <typename T, typename U>
 constexpr optional_view<T> static_view_cast(optional_view<U> const& v) noexcept
-{
-    return static_cast<T*>(v.get());
-}
-
-template <typename T, typename U>
-constexpr optional_view<T> static_view_cast(optional_view<U>& v) noexcept
 {
     return static_cast<T*>(v.get());
 }
@@ -716,31 +627,13 @@ constexpr optional_view<T> dynamic_view_cast(optional_view<U> const& v) noexcept
 }
 
 template <typename T, typename U>
-constexpr optional_view<T> dynamic_view_cast(optional_view<U>& v) noexcept
-{
-    return dynamic_cast<T*>(v.get());
-}
-
-template <typename T, typename U>
 constexpr optional_view<T> const_view_cast(optional_view<U> const& v) noexcept
 {
     return const_cast<T*>(v.get());
 }
 
 template <typename T, typename U>
-constexpr optional_view<T> const_view_cast(optional_view<U>& v) noexcept
-{
-    return const_cast<T*>(v.get());
-}
-
-template <typename T, typename U>
 constexpr optional_view<T> reinterpret_view_cast(optional_view<U> const& v) noexcept
-{
-    return reinterpret_cast<T*>(v.get());
-}
-
-template <typename T, typename U>
-constexpr optional_view<T> reinterpret_view_cast(optional_view<U>& v) noexcept
 {
     return reinterpret_cast<T*>(v.get());
 }
@@ -787,7 +680,7 @@ struct hash<jrt::view<T>>
 {
     constexpr std::size_t operator()(jrt::view<T> const& v) const noexcept
     {
-        return hash<T const*>()(v.get());
+        return hash<T*>()(v.get());
     }
 };
 
@@ -796,7 +689,7 @@ struct hash<jrt::optional_view<T>>
 {
     constexpr std::size_t operator()(jrt::optional_view<T> const& v) const noexcept
     {
-        return hash<T const*>()(v.get());
+        return hash<T*>()(v.get());
     }
 };
 
