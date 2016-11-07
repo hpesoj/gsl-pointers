@@ -1,12 +1,60 @@
-## `view` and `optional_view`: const-correct references for C++
+## `view` and `optional_view`: reference types for C++
 
-`view<T>` and `optional_view<T>` are const-correct wrappers intended to replace `T&` and `T*` wherever they are used as non-owning references.
+`view` and `optional_view` are types used to indirectly reference other objects without implying ownership. They offer a number of advantages over raw pointers and references, including:
+
+* Increased safety
+* Clearer semantics
+* A more natural API 
+
+### Quick Example
+
+Take an example where a pointer might be used to represent an optional relationship between a person and their pet animal:
+
+```c++
+struct person {
+    animal* pet = nullptr;
+};
+
+animal fluffy;
+person bob;
+bob.pet = &fluffy;
+```
+
+An `optional_view` can be used in place of the pointer:
+
+```c++
+struct person {
+    optional_view<animal> pet;
+};
+
+animal fluffy;
+person bob;
+bob.pet = fluffy;
+```
+
+A mandatory relationship can be expressed by using `view<T>` instead of `optional_view<T>`:
+
+```c++
+struct person {
+    view<animal> pet;
+};
+
+animal fluffy;
+person bob{fluffy}; 
+```
+
+Like pointers, both `view` and `optional_view` use the indirection operators (`*` and `->`) to access the referenced object:
+
+```c++
+bob.pet->sleep();
+auto dolly = *bob.pet;
+```
 
 ### Tutorial
 
 For this demonstration, we will create a type that can be used to create a tree of connected nodes. Nodes will not own other nodes, but will instead keep non-owning references to other nodes. Each node will have zero or one parent and zero or more children. For simplicity, we will not attempt to prevent cycles from being formed.
 
-With only references and pointers in our arsenal, we might start with something like this:
+With only pointers and references in our arsenal, we might start with something like this:
 
 ```c++
 class node {
@@ -32,11 +80,11 @@ We make `parent` a pointer because it is natural to use `nullptr` to represent t
 
 With all this potential undefined behaviour, it is important that a client of our API knows exactly what `node*` _means_. We could provide additional documentation to tell the user what we mean when we say `node*`, but if we replace `node*` with `optional_view<node>`, we can convey that information automatically. An `optional_view<T>` _is_ a __non-owning__, __optional__ reference to a __single__ object of type `T`. In addition, we get compile-time assurances that we didn't with `T*`:
 
-* `optional_view<T>` is always default initialized
+* `optional_view<T>` is always default initialized (to its empty state)
 * `optional_view<T>` does not define arithmetic operations
 * `optional_view<T>` does not implicitly convert to `void*` (you cannot `delete` it)
 
-What's more, `optional_view<T>` implicitly converts to and from `T*`, so most client code should be completely unchanged. Let's replace `node*` with `optional_view<node>`:
+What's more, `T*` implicitly converts to and compares with `optional_view<T>`, so much client code should be completely unchanged. Let's replace `node*` with `optional_view<node>`:
 
 ```c++
 class node {
@@ -45,46 +93,16 @@ private:
     
 public:
     void set_parent(optional_view<node> new_parent) {
-        parent = new_parent; // error: calling deleted copy constructor
+        parent = new_parent;
     }
     
     optional_view<node> get_parent() const {
-        return parent; // error: calling deleted copy constructor
+        return parent;
     }
 };
 ```
 
-Oh dear, `optional_view` isn't copyable? Well, not strictly, and for good reason. Unlike `T*`, `optional_view<T>` is _const-correct_: it forwards its "constness" to the object it references. This ensures that, for example, if I have a const reference to a `node` (I cannot modify its value), that I can only acquire a const reference to its parent (so I cannot modify its value either). Of course, you _can_ cast the constness away using `const_view_cast`, but keep in mind this may enable incorrect and unsafe behaviour:
-
-    optional_view<node> get_parent() const {
-        return const_view_cast<node>(parent); // here be dragons
-    }    
-
-Unfortunately for reference-like types, enforcing const-correctness means that the copy constructor and assignment operator must be deleted, otherwise it would be possible to defeat const-correctness without casting:
-
-```c++
-    optional_view<node> get_parent() const {
-        return optional_view<node>(parent); // a-okay: copy constructor takes reference to const
-    }    
-```
-
-Fortunately, there is no reason why `optional_node` should not be copyable in theory; we just can't allow it via the standard C++ copy mechanisms; we have to be _explicit_. The utility function `copy_view` will return a copy of your `optional_view` (or `view`) with the correct constness; if you pass a non-const `optional_view<T>`, it will return an `optional_view<T>`; if you pass a _const_ `optional_view<T>`, it will return an `optional_view<T const>`. Since `optional_view` _is_ movable, the result can be assigned freely.
-
-Let's modify our example so that it compiles:
-
-```c++
-    optional_view<node const> get_parent() const {
-        return copy_view(parent);
-    }
-
-    optional_view<node> get_parent() {
-        return copy_view(parent);
-    }
-```
-
-We provide both const and non-const versions of `get_parent` that return const and non-const views of the parent respectively. Notice that by using `optional_view`, our API has automatically become const-correct itself. This is a really nice feature, the importance of which cannot be overstated!
-
-An additional nicety when using `optional_view` is that `optional_view<T>` can be implicitly constructed from `T&` (note: it will not implicitly convert _to_ `T&`, for reasons of safety) and compared to `T&`. This means that we call `set_parent` and test the result of a call to `get_parent` without having to take the addresses of the `node` objects:
+An additional nicety of `optional_view` is that `T&` _also_ implicitly converts to and compares with `optional_view<T>`. This means that we call `set_parent` and test the result of a call to `get_parent` without having to take the address of the other `node` object:
 
 ```c++
 node a, b;
@@ -100,7 +118,7 @@ Now, it would be nice if `node` kept track of its children, so we can navigate b
     std::vector<node&> children;
 ```
 
-Alas, this will not compile. References behave unusually: unlike pointers, copy assigning to a reference will modify the referenced object, not the reference itself. This behaviour precludes storage of references in STL containers like `std::vector`. Instead, we are forced to store pointers:
+Alas, this will not compile. References behave irregularly: unlike pointers, copy assigning to a reference will modify the referenced object, not the reference itself. This behaviour precludes storage of references in STL containers like `std::vector`. Instead, we are forced to store pointers:
 
 ```c++
 private:
@@ -114,11 +132,7 @@ public:
         return children.size();
     }
 
-    node& get_child(std::size_t index) {
-        return *children[index];
-    }
-
-    node const& get_child(std::size_t index) const {
+    node& get_child(std::size_t index) const {
         return *children[index];
     }
 
@@ -132,7 +146,7 @@ private:
     }
 ```
 
-Instead of `node&` or `node*`, we can use `view<node>`, the non-optional counterpart to `optional_view<node>`. In addition to all the documentation benefits and compile-time assurances that `optional_view` provides, `view` _must_ always reference an object. An `optional_view<T>` _is_ a __const-correct__, __non-owning__, ___mandatory___ reference to a __single__ object of type `T`. And it can be stored in STL containers, just like `optional_view<T>` or `T*`.
+Instead of `node&` or `node*`, we can use `view<node>`, the mandatory counterpart to `optional_view<node>`. In addition to all the documentation benefits and compile-time assurances that `optional_view` provides, `view` _must_ always reference an object. An `optional_view<T>` _is_ a __non-owning__, ___mandatory___ reference to a __single__ object of type `T`. And it can be stored in STL containers, just like `optional_view<T>` or `T*`.
 
 Let's replace all instances of `node&` and `node*` with `view<node>`, and add the calls to `add_child` and `remove_child` to `set_parent`:
 
@@ -144,7 +158,7 @@ private:
 public:
     void set_parent(optional_view<node> new_parent) {
         if (parent) parent->remove_child(*this);
-        parent = copy_view(new_parent);
+        parent = new_parent;
         if (parent) parent->add_child(*this);
     }
     
@@ -152,17 +166,13 @@ public:
         return children.size();
     }
 
-    view<node> get_child(std::size_t index) {
-        return copy_view(children[index]);
-    }
-
-    view<node const> get_child(std::size_t index) const {
+    view<node> get_child(std::size_t index) const {
         return copy_view(children[index]);
     }
 
 private:
     void add_child(view<node> child) {
-        children.push_back(copy_view(child));
+        children.push_back(child);
     }
 
     void remove_child(view<node> child) {
@@ -175,7 +185,7 @@ As well as the implementation being safer, the way the API is used has become mo
 
 ```c++
 auto aa = b.get_parent();
-auto& bb = a.get_child(0);
+auto& bb = a.get_child(0); // omitting the `&` would perform a copy
 
 bb.set_parent(nullptr);
 aa->set_parent(&bb);
@@ -191,76 +201,72 @@ bb->set_parent(nullptr);
 aa->set_parent(bb);
 ```
 
-Of course, it is subjective as to whether or not this is an improvement; the requirement to use `operator->` instead of `operator.` where `view<T>` replaces `T&` could be considered a burden. Since `view<T>` and `operator_view<T>` implicitly convert to and from `T&` and `T*`, it is perfectly possible to restrict their use to your implementation, while using only `T&` and `T*` in your API.
+Of course, it is subjective as to whether or not this is an improvement; the requirement to use `->` instead of `.` where `view<T>` replaces `T&` could also be considered a syntactic burden. It is always possible to use `view<T>` and `operator_view<T>` only in your implementation, while using `T&` and `T*` in your API.
 
 ### FAQ
 
-#### Isn't `view` practically the same as `std::reference_wrapper`?
+#### Isn't `view` the same as `std::reference_wrapper`?
 
-Both types perform a similar function but have very different behaviour.
+No. They are not the same at all.
 
-Say we have a type, `foo`, which contains a single integer and provides an equality comparison operator:
+The key difference between `view<T>` and `std::reference_wrapper<T>` is in assignment and comparison. While both types behave the same on construction:
 
 ```c++
-struct foo {
-  int bar = 0;
-};
-
-bool operator==(foo const& lhs, foo const& rhs) {
-  return lhs.bar == rhs.bar;
-}
+int i = 42;
+std::reference_wrapper<int> r = i; // `r` indirectly references `i`
+view<int> v = i; // `v` indirectly references `i`
 ```
 
-Now imagine we have the following code:
+They have different behaviour on assignment:
 
 ```c++
-foo a, b, c;
-std::vector<foo*> refs = { &a, &b, &c };
-erase_first(refs, &b));
+int j = 21;
+r = j; // `r` still indirectly references `i`; `i` and `j` are now equal
+v = i; // `v` now indirectly references `i`; `i` and `j` are not equal
 ```
 
-The implementation of `erase_first` looks like this:
+And on comparison:
 
 ```c++
-template <typename Container, typename T>
-void erase_first(Container& c, T const& value) {
-    c.erase(std::find(std::begin(c), std::end(c), value));
-}
+if (r == i) { … } // true if the object `r` indirectly references is equal to `i`
+if (v == i) { … } // true if v indirectly references `j`
 ```
 
-So we create a vector of pointers to instances of `foo` then erase the first (and only in this case) instance of `b`. But perhaps we don't like the idea of a null pointer slipping into our vector: we want strong assurance that this _cannot_ happen. Perhaps we can use a vector of `std::reference_wrapper<foo>` instead of `foo*`?
+In other words, `std::reference_wrapper` is designed to behave like a reference, while `view` is designed to behave more like a pointer. The difference between a reference and a `std::reference_wrapper` is that copy assigning the latter will rebind it to indirectly reference whatever the other `std::reference_wrapper` referenced. 
 
 ```c++
-std::vector<std::reference_wrapper<foo>> refs = { a, b, c };
-erase_first(refs, b));
+r = std::ref(i); // `r` now indirectly references `i`
+v = make_view(j); // `v` now indirectly references `j`
 ```
 
-Great, it compiles! But unfortunately, the behaviour of our code has changed: the reference to `a`, not `b`, is erased. This is because `operator==` is not defined for `std::reference_wrapper<T>`, but it does implicitly convert to `T&`: the call to `std::find` is comparing the referenced `foo` objects rather than the reference wrappers themselves; since `a` is equal to `b` and comes before it in the vector, `a` is erased.
-
-This behaviour is intentional: `std::reference_wrapper` mimics the behaviour of C++ references, but allows them to be copy assigned, and therefore stored in containers. We _can_ get the behaviour we want by replacing the call to `erase_first` with a call to `erase_first_ref`, a function which explicitly compares addresses instead of values:
+This slightly modified behaviour allows `std::reference_wrapper`, among other things, to be stored in an STL container. `view` can also be stored in an STL container, but just as a stand-alone `view` behaves very differently than a stand-alone `std::reference_wrapper`, so too do STL containers of these types. Take, for example, the `remove_child` member function from the tutorial:
 
 ```c++
-template <typename Container, typename T>
-void erase_first_ref(Container& c, T const& value) {
-    auto it = std::find_if(std::begin(c), std::end(c), [&value](T const& x) {
-        return &x == &value;
-    });
-
-    if (it != std::end(c)) {
-        c.erase(it);
+private:
+    …
+    std::vector<view<node>> children;
+    
+public:
+    …
+    void remove_child(view<node> child) {
+        children.erase(std::find(children.begin(), children.end(), child));
     }
-}
 ```
 
-But a better solution is to use a vector of `view<foo>`:
+A call to `remove_child` will erase from the container any `view` which indirectly references the same `node` as `child`. Now say we were to use `std::reference_wrapper` instead of `view`:
 
 ```c++
-std::vector<view<foo>> refs = { a, b, c };
-erase_first(refs, b);
+private:
+    …
+    std::vector<std::reference_wrapper<node>> children;
+    
+public:
+    …
+    void remove_child(node& child) {
+        children.erase(std::find(children.begin(), children.end(), child));
+    }
 ```
 
-This just works, because `operator==` is defined for comparison of `view<T>` and `T const&`, and compares the addresses of the referenced objects. Note that it is important that `erase_first` take its second argument by reference, or the address compared will be that of a local variable (and `erase_first` would never erase anything).
+If `operator==` isn't defined for `node`, then this code won't compile. If we _do_ define `operator==` for `node`, then this code won't have the same effect as before. A call to `remove_child` will now erase from the container any `view` which indirectly references a `node` which _is equal_ to the `node` indirectly referenced by `child`.
 
-The value of `view<T>` is defined by the address of the referenced object. All implicit operations on a `view` refer to the `view` itself rather than the referenced object; a `view` must be explicitly "dereferenced" to access the value of the referenced object. Even conversion from `view<T>` to `T` is prohibited, though implicit conversion from `view<T>` to `T&` _is_ allowed. In this way, `view<T>` behaves like a `T*` that cannot be null.
-
-In summary, `std::reference_wrapper` is a transparent reference wrapper whose behaviour mimics that of references as closely as possible. Conversely, `view` is a reference wrapper whose behaviour more closely mimics that of pointers, but with conversion from and comparison to references.
+In short, operations on `view` tend to modify or inspect the `view` itself (like a pointer), while operations on `std::reference_wrapper` tend to modify or inspect the indirectly referenced object (like a reference). There are times when `view` is appropriate and times where `std::reference_wrapper` is what you need, but they are certainly not interchangeable.
