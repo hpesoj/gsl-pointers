@@ -1,4 +1,4 @@
-## `view` and `optional_view`: reference types for C++
+## `view` and `optional_view`: indirection types for C++
 
 `view` and `optional_view` are types used to indirectly reference other objects without implying ownership. They offer a number of advantages over raw pointers and references, including:
 
@@ -270,3 +270,28 @@ public:
 If `operator==` isn't defined for `node`, then this code won't compile. If we _do_ define `operator==` for `node`, then this code won't have the same effect as before. A call to `remove_child` will now erase from the container any `view` which indirectly references a `node` which _is equal_ to the `node` indirectly referenced by `child`.
 
 In short, operations on `view` tend to modify or inspect the `view` itself (like a pointer), while operations on `std::reference_wrapper` tend to modify or inspect the indirectly referenced object (like a reference). There are times when `view` is appropriate and times where `std::reference_wrapper` is what you need, but they are certainly not interchangeable.
+
+#### Isn't `view` the same as `gsl::not_null`?
+
+It depends. The design goals of `gsl::not_null` seem to be in flux.
+
+As currently documented, `gsl::not_null` claims to be usable with owning smart pointer types, like `std::unique_ptr` and `std::shared_ptr`, as well as with raw pointers. `view`, on the other hand, is explicitly _non-owning_. This difference of design is reflected in the interface of each type; with `view<T>`, `T` is the type of object it indirectly references, while with `gsl::not_null<T>`, `T` is the pointer-like type it adapts:
+
+```c++
+gsl::not_null<int*> n = i;
+view<int> v = i;
+```
+
+However, removing the null state from owning smart pointers is not trivial. For example, a moved-from `std::unique_ptr` is necessarily null, since ownership of the managed object has been transferred. This means that a "not null" `std::unique_ptr` is neither copyable _nor_ movable, which arguably limits its usefulness. This issue has been recognized on the GSL GitHub page on a number of different threads, and it seem that current efforts are focused on the raw pointer use case. If support for smart pointers is dropped in the future, it would arguably make sense for `gsl::not_null<T>` to take the type of object it references, just like `view<T>`:
+
+```c++
+gsl::not_null<int> n = i;
+```
+
+At this point, the difference between `view` and `gsl::not_null` becomes less clear. Probably the biggest difference between `view` and `gsl::not_null` is the existence of `optional_view`. At one point, there existed a `gsl::maybe_null` counterpart to `gsl::not_null`. However, this [was removed](https://github.com/isocpp/CppCoreGuidelines/issues/271) because it _"makes code verbose"_. As far as I am aware, the designers of `gsl::not_null` are of the opinion that raw pointers are just fine to use as non-owning, optional reference types; indeed, I have been told by a number of people that once all other uses of pointers have been covered by other high-level types (e.g. `std::unique_ptr`, `std::string`, `std::string_view`, `std::array`, `std::array_view`, …) the only use case that will be left for raw pointers will be as non-owning, optional reference types, so it will be safe to assume that wherever you see `T*` it means "non-owning, optional reference". This is demonstrably false for a number of reasons:
+
+* This is only a convention; people are not obliged to use `T*` only to mean "non-owning, optional reference".
+* Plenty of existing code doesn't follow this convention; even if everyone followed convention from this point forward, you still cannot make the assumption that `T*` always means "non-owning, optional reference".
+* Low-level code (new and existing) necessarily uses `T*` to mean all sorts of things; even if all new and old code followed the convention where appropriate, there would still be code where `T*` does not mean "non-owning, optional reference", so you _still_ cannot make that assumption.
+
+Conversely, wherever you see `optional_view<T>` in some code, you _know_ that it means "non-owning, optional reference" (unless the author of the code was being perverse).
