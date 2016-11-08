@@ -224,7 +224,7 @@ Of course, it is subjective as to whether or not this is an improvement; the req
 
 ### FAQ
 
-#### Aren't `T*` and `T&` good enough?
+#### <a name="FAQ-good-enough"></a> Aren't `T*` and `T&` good enough?
 
 The suggestion has been made that raw pointers work just fine as non-owning, optional reference types, and there is no need to introduce new types when we already have long-established types that are well-suited to this role.
 
@@ -255,7 +255,7 @@ r = j; // modifies `i`; does not make `r` reference `j`
 
 `view` and `optional_view` are _as_ efficient as pointers and references, and have APIs that have been _purpose-designed_ as non-owning reference types to be minimal, expressive and hard to use incorrectly.
 
-#### Why does `view` use pointer-like syntax when it can't be null? Typing `*` or `->` is a hassle. Shouldn't you wait until some form of `operator.` overloading has been standardized?
+#### <a name="FAQ-operator-dot"></a> Why does `view` use pointer-like syntax when it can't be null? Typing `*` or `->` is a hassle. Shouldn't you wait until some form of `operator.` overloading has been standardized?
 
 Even with some form of `operator.` overloading, `view` would have the same design.
 
@@ -372,24 +372,17 @@ In short, operations on `view` tend to modify or inspect the `view` itself (like
 
 #### Isn't `view` the same as `gsl::not_null`?
 
-It depends. The design goals of `gsl::not_null` seem to be in flux.
+It depends. The design goals of `gsl::not_null` are not 100% clear.
 
-As currently documented, `not_null` claims to be usable with owning smart pointer types, like `std::unique_ptr` and `std::shared_ptr`, as well as with raw pointers. `view`, on the other hand, is explicitly _non-owning_. This difference of design is reflected in the interface of each type; with `view<T>`, `T` is the type of object it indirectly references, while with `not_null<T>`, `T` is the pointer-like type it adapts:
+According to the current documentation in the C++ Core Guidelines, the purpose of `not_null` is simply to indicate to the compiler and the reader that a pointer should not be null. The current design of `not_null` allows optional run-time checks, but the C++ Core Guidelines suggest enforcement via a static analysis tool. The examples given include use with C-style strings (`char const*`) so it seems that `not_null` is intended to be a transparent pointer-like adapter that helps ensure the wrapped pointer does not become null. If this is the case, then no, `view` and `not_null` are not the same at all. They perform complementary functions and could be used side-by-side in the same codebase, no problem.
 
-```c++
-not_null<int*> n = i;
-view<int> v = i;
-```
+However, the [current implementation](https://github.com/Microsoft/GSL/blob/master/gsl/gsl) contradicts the C++ Core Guidelines, stating that `not_null` should be used only with pointers that reference stand-alone objects (i.e. not arrays of objects), and explicitly `delete`s a number of pointer arithmetic operations. If this is the case, then the function of `not_null` does overlap somewhat with `view`. However, I would suggest that `not_null` is not particularly well designed for this purpose, for a few reasons:
 
-However, removing the null state from owning smart pointers is without its consequences. For example, a moved-from `unique_ptr` is necessarily null, since ownership of the managed object has been transferred. This means that a "not null" `unique_ptr` is neither copyable _nor_ movable, which arguably limits its usefulness. This issue has been recognized by the GSL project in a number of different issues, and it seem that current efforts are focused on the raw pointer use case. If support for smart pointers were dropped in the future, it would arguably make sense for `not_null<T>` to take the type of object it references, just like `view<T>`:
+* The name `not_null<T*>` simply suggests a pointer that cannot be null; nowhere is it suggested that `not_null<T*>` cannot be used with pointers to arrays; this is misleading.
+* There is no `maybe_null` counterpart to `not_null` (`maybe_null` did exist once upon a time, but [was removed](https://github.com/isocpp/CppCoreGuidelines/issues/271) because it "[made] code verbose"; this document clearly outlines the case for `optional_view`; if the designers of `not_null` feel it is important to restrict `not_null` to use with pointers to stand-alone objects (e.g. by omitting pointer arithmetic operations) then they should feel it is important to have a `maybe_null` type to do the same for nullable pointers.
+* There are a number of other differences between the designs of `not_null` and `view` that I won't go over here.
 
-```c++
-not_null<int> n = i;
-```
-
-At this point, the difference between `view` and `not_null` would be less clear. The next biggest difference between `view` and `not_null` is probably the existence of `optional_view`. At one point, there existed a `maybe_null` counterpart to `not_null`. However, this [was removed](https://github.com/isocpp/CppCoreGuidelines/issues/271) because it _"makes code verbose"_. As far as I am aware, the designers of `not_null` are of the opinion that
-
-Even if 
+In short, if `not_null` _is_ intended to reference only stand-alone objects, it largely redundant in the presence of `view` and `optional_view`, which do a far better job as it stands.
 
 #### Isn't `optional_view` the same as `std::experimental::observer_ptr`?
 
