@@ -210,11 +210,15 @@ Of course, it is subjective as to whether or not this is an improvement; the req
 
 ### Design Rationale
 
-#### Conversion to and from `T*` and `T&`
+#### Conversion from `T&` and `T*` to `view` and `optional_view`
 
-#### Named member functions (`has_value`, `value` and `value_or`)
+#### Conversion from `view` and `optional_view` to `T&` and `T*`
 
 #### Conversion from `view` to `bool`
+
+#### Use of `nullopt`
+
+#### Named member functions (`has_value`, `value` and `value_or`)
 
 #### Naming
 
@@ -232,7 +236,7 @@ Some argue that once all other uses of pointers have been covered by other high-
 
 Conversely, wherever you see `optional_view<T>` in some code, you _know_ that it means "non-owning, optional reference" (unless the author of the code was being perverse). Explicitly documenting intent is generally better than letting readers of your code make assumptions.
 
-Aside from the case for documenting intent, it can be argued that pointers and references are not optimally designed for use as non-owning reference types. A well-designed type is efficient and has an API that is minimal yet expressive and hard to use incorrectly. Pointers as optional, mandatory reference types may be efficient and have an expressive API, but their API is not minimal and is very easy to use incorrectly. Case in point, this is syntactically correct but semantically incorrect code:
+Aside from the case for documenting intent, it can be argued that pointers and references are not optimally designed for use as non-owning reference types. A well-designed type is __efficient__ and has an API that is __minimal__ yet __expressive__ and __hard to use incorrectly__. Pointers as optional, mandatory reference types may be efficient and do have an expressive API, but their API is not minimal and is very easy to use incorrectly. Case in point, this is syntactically correct but semantically incorrect code:
 
 ```c++
 int i = 0;
@@ -241,7 +245,7 @@ p += 1;
 *p = 42; // undefined behaviour
 ```
 
-On the other hand, references as non-owning, mandatory reference types are efficient and have a minimal API that is generally hard to use incorrectly. However, the references API is not as expressive as it could be, since references cannot be reassigned to refer to a different object after construction:
+On the other hand, references as non-owning, mandatory reference types are efficient and have a minimal API that is generally hard to use incorrectly. However, the reference API is not as expressive as it could be, since references cannot be reassigned to refer to a different object after construction:
 
 ```c++
 int i = 0, j = 42;
@@ -249,13 +253,56 @@ int& r = i;
 r = j; // modifies `i`; does not make `r` reference `j`
 ```
 
-To overcome this lack of functionality, we must instead use pointers, which means we have to account for the null state, or use something like `std::reference_wrapper`, which still has reference-like behaviour and is unlikely to be what we want.
-
-`view` and `optional_view` fix all of these problems since they have been designed for-purpose.
+`view` and `optional_view` are _as_ efficient as pointers and references, and have APIs that have been _purpose-designed_ as non-owning reference types to be minimal, expressive and hard to use incorrectly.
 
 #### Why does `view` use pointer-like syntax when it can't be null? Typing `*` or `->` is a hassle. Shouldn't you wait until some form of `operator.` overloading has been standardized?
 
 Even with some form of `operator.` overloading, `view` would have the same design.
+
+The various `operator.` "overloading" proposals present C++ language features that could be introduced to allow one type to "inherit" the API of another type without using traditional inheritance. Such mechanisms _could_ be used to implement `view` such that instead of writing `(*v).bar` (or `v->bar`), where `v` is of type `view<foo>` and `foo` has a member `bar`, we would instead write `v.bar`. At first glance, this makes sense: since a `view` cannot be null, why not model it after a reference instead of a pointer?
+
+Alas, there is no such thing as a free lunch. The question is, what should `view::operator=(T& t)` do? There are two possibilities: either the `view` is reassigned to reference the object referenced by `t`, or the `view` indirectly assigns the object referenced by `t` to the object the `view` references.
+
+If our design specifies the former, then we have potentially surprising asymmetrical behaviour:
+
+```c++
+f.bar = g.bar; // modifies `f`
+f = g; // modifies `f`
+
+v.bar = g.bar; // modifies `f`
+v = g; // modifies `v`
+```
+
+If our design specifies the latter, then we have _different_ potentially surprising asymmetrical behaviour:
+
+```c++
+f = g; // modifies `f`
+f = u; // modifies `f`
+
+v = g; // modifies `f`
+v = u; // modifies `v`
+```
+
+In both cases, there is an "exceptional" case that the programmer has to remember. These are also not behaviours that they are already likely to be familiar with. The chance of programming error with either design is high. Thankfully, `view` avoids these problems by leveraging the "indirection" semantics used by pointers and pointer-like types:
+
+```c++
+f.bar = g.bar; // modifies `f`
+f = g; // modifies `f`
+f = u; // error: no conversion from `view<foo>` to `foo`
+f = *u; // modifies `f`
+
+v.bar = g.bar; // error: `view<foo>` has no member `bar`
+v = g; // modifies `v`
+v = u; // modifies `v`
+v = *u; // modifies `v`
+
+(*v).bar = g.bar; // modifies `f`
+(*v) = g; // modifies `f`
+(*v) = u; // error: no conversion from `view<foo>` to `foo`
+(*v) = *u; // modifies `f`
+```
+
+This behaviour is both symmetrical _and_ familiar to experienced programmers. Of course, `operator.` "overloading" does have uses, but this is not one of them.
 
 #### Isn't `view` the same as `std::reference_wrapper`?
 
@@ -347,4 +394,3 @@ Even if
 #### Isn't `optional_view` the same as `std::experimental::observer_ptr`?
 
 #### Couldn't the job of `view` and `optional_view` be done by `gsl::not_null` and `std::experimental::observer_ptr`?
-
