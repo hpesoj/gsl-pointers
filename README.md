@@ -386,4 +386,26 @@ In short, if `not_null` _is_ intended to reference only stand-alone objects, it 
 
 #### Isn't `optional_view` the same as `std::experimental::observer_ptr`?
 
-#### Couldn't the job of `view` and `optional_view` be done by `gsl::not_null` and `std::experimental::observer_ptr`?
+Both `optional_view` and `std::experimental::observer_ptr` have essentially the same purpose (high-level non-owning reference types) but significantly different APIs. While the API of `observer_ptr` is based on existing standard library smart pointer types, the API of `optional_view` is not modelled on any specific existing type, but is intended to be whatever best suits its purpose. This tends to make code using `optional_view` feel more natural and less verbose than `observer_ptr`. For example, `observer_ptr` might be used like so:
+
+```c++
+foo f;
+observer_ptr<foo> p;
+p = make_observer(&f);
+if (p == make_observer(&f))
+{
+    p->bar();
+}
+```
+
+While equivalent code using `optional_view` would look like this:
+
+```c++
+foo f;
+optional_view<foo> v;
+v = f;
+if (o == f)
+{
+    o->bar();
+}
+```
