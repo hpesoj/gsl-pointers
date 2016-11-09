@@ -1,4 +1,4 @@
-## `view` and `optional_view`: indirection types for C++
+# `view` and `optional_view`: indirection types for C++
 
 `view` and `optional_view` are types used to indirectly reference other objects without implying ownership. They offer a number of advantages over raw pointers and references, including:
 
@@ -6,7 +6,7 @@
 * Clearer intent
 * A more natural API 
 
-### Quick Example
+## Quick Example
 
 Take an example where a pointer might be used to represent an optional relationship between a person and their pet animal:
 
@@ -64,7 +64,7 @@ view<animal> pet = bob.pet;
 optional_view<animal> maybe_pet = pet;
 ```
 
-### Tutorial
+## Tutorial
 
 For this demonstration, we will create a type that can be used to create a tree of connected nodes. Nodes will not own other nodes, but will instead keep non-owning references to other nodes. Each node will have zero or one parent and zero or more children. For simplicity, we will not attempt to prevent cycles from being formed.
 
@@ -222,23 +222,27 @@ aa->set_parent(bb);
 
 Of course, it is subjective as to whether or not this is an improvement; the requirement to use `->` instead of `.` where `view<T>` replaces `T&` could also be considered a syntactic burden. It is always possible to use `view<T>` and `operator_view<T>` only in your implementation, while using `T&` and `T*` in your API.
 
-### Design Rationale
+## Design Rationale
 
-#### Conversion from `T&` and `T*` to `view` and `optional_view`
+### <a name="rationale-conversion-from"></a>Conversion from `T&` and `T*` to `view` and `optional_view`
 
-#### Conversion from `view` and `optional_view` to `T&` and `T*`
+Both `view` and `optional_view` are implicitly constructible and assignable from `T&`, while only `optional_view` is explicitly constructible from `T*`. This design decision is based on the idea that implicit conversions should be semantically correct practically all of the time, while explicit conversions are semantically correct only some of the time. `T&` always represents 
 
-#### Conversion from `view` to `bool`
+### <a name="rationale-conversion-to"></a>Conversion from `view` and `optional_view` to `T&` and `T*`
 
-#### Use of `nullopt`
+### <a name="rationale-get"></a>The `get` member function
 
-#### Named member functions (`has_value`, `value` and `value_or`)
+### <a name="rationale-view-bool"></a>Conversion from `view` to `bool`
 
-#### Naming
+### <a name="rationale-nullopt"></a>Use of `nullopt`
 
-### FAQ
+### <a name="rationale-named-member-functions"></a>Named member functions (`has_value`, `value` and `value_or`)
 
-#### <a name="FAQ-good-enough"></a> Aren't `T*` and `T&` good enough?
+### <a name="rationale-naming"></a>Naming
+
+## FAQ
+
+### <a name="faq-good-enough"></a>Aren't `T*` and `T&` good enough?
 
 The suggestion has been made that raw pointers work just fine as non-owning, optional reference types, and there is no need to introduce new types when we already have long-established types that are well-suited to this role.
 
@@ -269,7 +273,7 @@ r = j; // modifies `i`; does not make `r` reference `j`
 
 `view` and `optional_view` are _as_ efficient as pointers and references, and have APIs that have been _purpose-designed_ as non-owning reference types to be minimal, expressive and hard to use incorrectly.
 
-#### <a name="FAQ-operator-dot"></a> Why does `view` use pointer-like syntax when it can't be null? Typing `*` or `->` is a hassle. Shouldn't you wait until some form of `operator.` overloading has been standardized?
+### <a name="faq-operator-dot"></a>Why does `view` use pointer-like syntax when it can't be null? Typing `*` or `->` is a hassle. Shouldn't you wait until some form of `operator.` overloading has been standardized?
 
 Even with some form of `operator.` overloading, `view` would have the same design.
 
@@ -318,7 +322,7 @@ v = *u; // modifies `v`
 
 This behaviour is both symmetrical _and_ familiar to experienced programmers. Of course, `operator.` "overloading" does have uses, but this is not one of them.
 
-#### Isn't `view` the same as `std::reference_wrapper`?
+### <a name="faq-reference-wrapper"></a>Isn't `view` the same as `std::reference_wrapper`?
 
 No. They are very different.
 
@@ -384,7 +388,7 @@ If `operator==` isn't defined for `node`, then this code won't compile. If we _d
 
 In short, operations on `view` tend to modify or inspect the `view` itself (like a pointer), while operations on `reference_wrapper` tend to modify or inspect the indirectly referenced object (like a reference). There are times when `view` is appropriate and times where `reference_wrapper` is what you need, but they are certainly not interchangeable.
 
-#### Isn't `view` the same as `gsl::not_null`?
+### <a name="faq-not-null"></a>Isn't `view` the same as `gsl::not_null`?
 
 It depends. The design goals of `gsl::not_null` are not 100% clear.
 
@@ -398,7 +402,7 @@ However, the [current implementation](https://github.com/Microsoft/GSL/blob/mast
 
 In short, if `not_null` _is_ intended to reference only stand-alone objects, it is largely redundant in the presence of `view` and `optional_view`, which do a far better job as it stands.
 
-#### Isn't `optional_view` the same as `std::experimental::observer_ptr`?
+### <a name="faq-observer-ptr"></a>Isn't `optional_view` the same as `std::experimental::observer_ptr`?
 
 Both `optional_view` and [`std::experimental::observer_ptr`](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n4282.pdf) have essentially the same purpose (high-level non-owning reference types that document intent) but slightly different designs. While `observer_ptr` takes the API from the existing standard library smart pointer types largely unchanged, `optional_view` is intended have whatever API best suits its purpose. The fact that pointers are already _pretty good_ as non-owning reference types means that there isn't a great deal of difference between `optional_view` and `observer_ptr`; however, there are a couple of things worth noting.
 
