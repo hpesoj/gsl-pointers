@@ -32,7 +32,14 @@ person bob;
 bob.pet = fluffy;
 ```
 
-A mandatory relationship can be expressed by using `view<T>` instead of `optional_view<T>`:
+The "empty" status of an `optional_view` can be tested for as if it were a `bool`, and the `optional_view` can be "emptied" by assigning `nullopt`:
+
+```c++
+if (bob.pet)
+    bob.pet = nullopt;
+```
+
+A mandatory relationship can be expressed by using `view` instead of `optional_view`:
 
 ```c++
 struct person {
@@ -47,7 +54,14 @@ Like pointers, both `view` and `optional_view` use the indirection operators (`*
 
 ```c++
 bob.pet->sleep();
-auto dolly = *bob.pet;
+animal dolly = *bob.pet;
+```
+
+Both `view` and `optional_view` can be copied freely, and `view` implicitly converts to `optional_view`:
+
+```c++
+view<animal> pet = bob.pet;
+optional_view<animal> maybe_pet = pet;
 ```
 
 ### Tutorial
@@ -379,33 +393,43 @@ According to the [current documentation](https://github.com/isocpp/CppCoreGuidel
 However, the [current implementation](https://github.com/Microsoft/GSL/blob/master/gsl/gsl) contradicts the C++ Core Guidelines, stating that `not_null` should be used only with pointers that reference stand-alone objects (i.e. not arrays of objects), and explicitly `delete`s a number of pointer arithmetic operations. If this is the case, then the function of `not_null` does overlap with `view`. However, I would suggest that `not_null` is not particularly well designed for this purpose, for a few reasons:
 
 * The name `not_null<T*>` simply suggests a pointer that cannot be null; nowhere is it suggested that `not_null<T*>` cannot be used with pointers to arrays; this is misleading.
-* There is no `maybe_null` counterpart to `not_null` (`maybe_null` did exist once upon a time, but [was removed](https://github.com/isocpp/CppCoreGuidelines/issues/271) because it "[made] code verbose"; this document clearly outlines the case for `optional_view`; if the designers of `not_null` feel it is important to restrict `not_null` to use with pointers to stand-alone objects (e.g. by omitting pointer arithmetic operations) then they should feel it is important to have a `maybe_null` type to do the same for nullable pointers.
+* There is no `maybe_null` counterpart to `not_null` (`maybe_null` did exist once upon a time, but [was removed](https://github.com/isocpp/CppCoreGuidelines/issues/271) because it "[made] code verbose"); this document clearly outlines the case for `optional_view`; if the designers of `not_null` feel it is important to restrict `not_null` to use with pointers to stand-alone objects (e.g. by omitting pointer arithmetic operations) then they should feel it is important to have a `maybe_null` type to do the same for nullable pointers.
 * There are a number of other differences between the designs of `not_null` and `view` that I won't go over here, because it is likely that `not_null` is not intended to perform the same function as `view`.
 
 In short, if `not_null` _is_ intended to reference only stand-alone objects, it is largely redundant in the presence of `view` and `optional_view`, which do a far better job as it stands.
 
 #### Isn't `optional_view` the same as `std::experimental::observer_ptr`?
 
-Both `optional_view` and `std::experimental::observer_ptr` have essentially the same purpose (high-level non-owning reference types) but significantly different APIs. While the API of `observer_ptr` is based on existing standard library smart pointer types, the API of `optional_view` is not modelled on any specific existing type, but is intended to be whatever best suits its purpose. This tends to make code using `optional_view` feel more natural and less verbose than `observer_ptr`. For example, `observer_ptr` might be used like so:
+Both `optional_view` and [`std::experimental::observer_ptr`](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n4282.pdf) have essentially the same purpose (high-level non-owning reference types that document intent) but slightly different designs. While `observer_ptr` takes the API from the existing standard library smart pointer types largely unchanged, `optional_view` is intended have whatever API best suits its purpose. The fact that pointers are already _pretty good_ as non-owning reference types means that there isn't a great deal of difference between `optional_view` and `observer_ptr`; however, there are a couple of things worth noting.
+
+First, `observer_ptr` has to be explicitly constructed from a pointer:
 
 ```c++
-foo f;
-observer_ptr<foo> p;
-p = make_observer(&f);
-if (p == make_observer(&f))
-{
-    p->bar();
-}
+foo f, g;
+observer_ptr<foo> p{&f};
+p = make_observer(&g);
+assert(p == make_observer(&g));
+p->bar();
+p = nullptr;
 ```
 
-While equivalent code using `optional_view` would look like this:
+On the other hand, while `optional_view` too allows explicit construction from a pointer, it also allows _implicit_ construction from a _reference_ (or `nullopt`). This tends to mean using `optional_view` feels slightly more natural to use and slightly less verbose than `observer_ptr`:
 
 ```c++
-foo f;
-optional_view<foo> v;
-v = f;
-if (o == f)
-{
-    o->bar();
-}
+foo f, g;
+optional_view<foo> v = f;
+v = g;
+assert(v == g);
+v->bar();
+v = nullopt;
 ```
+
+Second, `observer_ptr` lacks a "not null" counterpart. While the case for a so-called "vocabulary" type to replace references is weaker than that for non-owning pointers (the meaning of `T&` is not as heavily overloaded as `T*`), the irregular copying behaviour of references makes the case for a complementary "not null" non-owning reference type fairly clear. 
+
+There are a number of other differences between `optional_view` and `observer_ptr`, but they are less significant:
+
+* `observer_ptr` has the "ownership" operations `reset` and `release`, presumably because it its API is modelled on the owning smart pointer types.
+* `optional_view` has the "safe" accessor function `value` which throws if called on an empty `optional_view`, as well as the named function `has_value` to check for empty status. This part of the API is modelled after `std::optional`.
+* `optional_view` has cast operations `static_view_cast`, `dynamic_view_cast` and `const_view_cast`.
+
+The question is, is there room for both `optional_view`/`view` _and_ `observer_ptr` in the C++ programmer's toolkit? If a separate case can be made for an "owning smart pointer"-like non-owning "smart" pointer, then perhaps there is. Otherwise, maybe we have two different designs for two competing types trying to solve the same problem. The case for `optional_view` has been laid out here, but the best design for such a type is of course up for discussion.
