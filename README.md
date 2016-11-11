@@ -46,7 +46,7 @@ struct person {
 };
 
 animal fluffy;
-person bob{fluffy}; 
+person bob = {fluffy}; 
 ```
 
 Like pointers, both `view` and `optional_view` use the indirection operators (`*` and `->`) to access the referenced object:
@@ -263,7 +263,7 @@ Note that there is no overload of `make_view` that takes a pointer, as `make_vie
 
 ### <a name="rationale-conversion-to"></a>Conversion from `view` and `optional_view` to `T&` and `T*`
 
-### Assignment operators and the `v = {}` idiom
+### <a name="rationale-assignment"></a>Assignment operators and the `v = {}` idiom
 
 Neither `view` nor `optional_view` explicitly define any assignment operators. This enables automatic support of the `v = {}` idiom for resetting an object to its default state:
 
@@ -272,20 +272,43 @@ optional_view<int> v1 = i;
 v1 = {}; // `v1` is now empty
 
 view<int const> v2 = i;
-v2 = {}; // compile error
+v2 = {}; // compile error (`view` has no default state)
 ```
 
 If assignment operators were explicitly implemented, care would need to be taken to ensure that `v = {}` compiled for `optional_view` and didn't compile for `view`. Since both types are very lightweight, the compiler should be able to easily elide the additional copy, so there should be no performance penalty for this design choice.
 
+### <a name="rationale-move"></a>Move behaviour
+
+Neither `view` not `optional_view` define distinct move behaviour; moving is equivalent to copying. It could be argued that a moved-from `optional_view` should become empty, but in reality we have no way of knowing how client code wants a moved-from `optional_view` to behave, and such behaviour would incur a potentially unnecessary run-time cost. In addition, a moved-from `view` cannot be empty, so such behaviour would be potentially surprising. An additional advantage of keeping the compiler-generated move operations is that `view` and `optional_view` can be [trivially copyable](http://en.cppreference.com/w/cpp/concept/TriviallyCopyable) (they can be copied using [`std::memcpy`](http://en.cppreference.com/w/cpp/string/byte/memcpy), a performance optimization that some library components employ).  
+
 ### <a name="rationale-get"></a>The `get` member function
 
+Given that `view` and `optional_view` are not smart pointer types, `get` is an awfully undescriptive name for a function which returns a pointer to whatever `view` or `optional_view` are referencing. A better name might be `ptr`, `get_ptr` or `to_ptr`. However, `std::experimental::propagate_const` currently requires supported types to implement a function called `get` that returns a pointer to the referenced object. If `propagate_const` allowed supported types to _either_ provide a `get` function _or_ pointer conversion (which `view` and `optional_view` already support), then the `get` function could be changed. In fact, since `propagate_const` cannot be expected to "propagate constness" to every function which returns a pointer to the referenced object (as it does with `get`), the `get` function could be removed from `view` and `optional_view` entirely, leaving explicit pointer conversion as the only way to obtain a pointer to the referenced object.
+
 ### <a name="rationale-view-bool"></a>Conversion from `view` to `bool`
+
+Unlike `optional_view`, `view` cannot be empty, so it doesn't make much sense for `view` to convert to `bool`. However, `view` implements `operator bool` so that it can be used with `std::experimental::propagate_const`. If the design of `propagate_const` were changed so that it worked with types that do not implement `operator bool`, then `view` would remove this feature.
 
 ### <a name="rationale-nullopt"></a>Use of `nullopt`
 
 ### <a name="rationale-named-member-functions"></a>Named member functions (`has_value`, `value` and `value_or`)
 
 ### <a name="rationale-naming"></a>Naming
+
+The names `view` and `optional_view` are based on conventions already set by the C++ standard library, namely:
+
+* `std::string_view` – a non-owning "view" onto a string
+* `std::optional` – an optional value type
+
+The term "view" seems to be used to refer to an object that allows the whole or part of another object or data structure to be examined without controlling the lifetime of said object or data structure (much like a reference). This seems like an accurate description `view` and `optional_view`.
+
+The terms "reference" and "pointer" are inappropriate since they are overly general and already have established meaning in the C++ lexicon. The term "view" seems more appropriate as it describes the function of the feature rather than how it is likely to be implemented.
+
+The term "observer" could potentially be used (as in `std::experimental::observer_ptr`); there is no arguing that it is descriptive of what the classes do. However, the term "view" has already been enshrined in the C++ standard, and there is also the concern that there will be confusion with the unrelated ["observer pattern"](https://en.wikipedia.org/wiki/Observer_pattern), a software design pattern that is widely used in C++ codebases. There is also the minor benefit that "view" is four characters less to type than "observer".
+
+The term "optional" has an obvious meaning. Indeed, an `optional_view<T>` is pretty much functionally equivalent to an `optional<view<T>>`; the former is simply a bit nicer to use.
+
+One possible question is, should the "optional" type be the default? In other words, should `optional_view` be named `view` and `view` be named something like `mandatory_view` or `compulsory_view`? Aside from the precident set by `std::optional` (which I believe is pretty strong by itself), I think the answer is "no": `view` is an inherently simpler type; there is no need to account for the additional "empty" state which, like null pointers, is a major source of potential programming errors. The mandatory type should be the default choice, and the optional type should be opted-into. The naming of the types should reflect this.
 
 ## FAQ
 
