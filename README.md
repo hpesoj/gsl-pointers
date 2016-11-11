@@ -4,11 +4,11 @@
 
 * Increased safety
 * Clearer intent
-* A more natural API 
+* An improved API 
 
 ## Quick Example
 
-Take an example where a pointer might be used to represent an optional relationship between a person and their pet animal:
+Take an example where a pointer might be used to represent an optional, non-owning relationship between a person and their pet (you can't, like, _own_ an animal, man):
 
 ```c++
 struct person {
@@ -79,7 +79,11 @@ public:
         parent = new_parent;
     }
     
-    node* get_parent() const {
+    node const* get_parent() const {
+        return parent;
+    }
+
+    node* get_parent() {
         return parent;
     }
 };
@@ -109,7 +113,11 @@ public:
         parent = new_parent;
     }
     
-    optional_view<node> get_parent() const {
+    optional_view<node const> get_parent() const {
+        return parent;
+    }
+
+    optional_view<node> get_parent() {
         return parent;
     }
 };
@@ -150,7 +158,11 @@ public:
         return children.size();
     }
 
-    node& get_child(std::size_t index) const {
+    node const& get_child(std::size_t index) const {
+        return *children[index];
+    }
+
+    node& get_child(std::size_t index) {
         return *children[index];
     }
 
@@ -184,8 +196,12 @@ public:
         return children.size();
     }
 
-    view<node> get_child(std::size_t index) const {
-        return copy_view(children[index]);
+    view<node const> get_child(std::size_t index) const {
+        return children[index];
+    }
+
+    view<node> get_child(std::size_t index) {
+        return children[index];
     }
 
 private:
@@ -219,8 +235,6 @@ bb->set_parent(nullptr);
 aa->set_parent(bb);
 ```
 
-Of course, it is subjective as to whether or not this is an improvement; the requirement to use `->` instead of `.` where `view<T>` replaces `T&` could also be considered a syntactic burden. It is always possible to use `view<T>` and `operator_view<T>` only in your implementation, while using `T&` and `T*` in your API.
-
 ## Design Rationale
 
 ### <a name="rationale-conversion-from"></a>Implicit and explicit construction from `T&` and `T*`
@@ -235,7 +249,7 @@ In none of these cases would it be correct to allow the pointer to convert the p
 
 ### <a name="rationale-construction-from-pointer-to-view"></a>Construction of `view` from `T*` or `optional_view`
 
-Explicit construction of `view` from a pointer or an `optional_view` is supported, and throws a `std::invalid_argument` if the pointer is null or the `optional_view` is empty. It could be argued that such a feature encourages the programming errors as the user may not realize that constructing a `view` from a pointer is not `nothrow`. This is, however, unlikely, as implicit conversion is forbidden; for example, this will not compile:
+Explicit construction of `view` from a pointer or an `optional_view` is supported, and throws a `std::invalid_argument` if the pointer is null or the `optional_view` is empty. It could be argued that such a feature is not strictly required as part of a minimal and efficient APU (the user could implement equivalent behaviour just as efficiently as a non-member function) and encourages programming errors as the user may not realize that constructing a `view` from a pointer is not `nothrow`. However, misuse of this feature is unlikely, since implicit conversion is forbidden; for example, this will not compile:
 
 ```c++
 void foo(view<int> v) { … }
@@ -247,19 +261,37 @@ void bar(int* p)
 }
 ```
 
-The user would have to explicitly call the constructor of `view` in order to convert the pointer, which should set alarm bells ringing:
+The user would have to explicitly call the constructor of `view` in order to convert the pointer, which should make them think twice about what they are doing:
 
 ```c++
     foo(view<int>(p));
 ```
 
-Thus, allowing explicit construction from a pointer is a convenient way to safely (i.e. without invoking undefined behaviour) convert a pointer or `optional_view` to a `view`.
+Thus, even though such functionality isn't strictly necessary, it is a convenient way to safely (i.e. without invoking undefined behaviour) convert a pointer or `optional_view` to a `view`. It also seems appropriate to support such operations given the inclusion of the [throwing accessor function](#rationale-named-member-functions) `value` in `optional_view`, a function which is also strictly not required and is taken from the design of `std::optional`.
 
 Note that there is no overload of `make_view` that takes a pointer, as `make_view` is intended to facilitate automatic type deduction. If such an overload existed, it would be all too easy for the user to forget that passing a pointer rather than a reference may throw:
 
 ```c++
     auto v = make_view(x); // may or may not be `nothrow`, depending on the type of `x`
 ```
+
+### <a name="rationale-conversion-from-rvalue"></a>Construction from `T&&`
+
+Lvalue references to const can extend the lifetime of temporary objects. For example:
+
+```c++
+int const& i = 42; // temporary created and lifetime extended by `i`
+std::cout << i; // a-okay
+```
+
+If it were possible to assign `view` or `optional_view` a temporary, they would not be able to exist its lifetime:
+
+```c++
+view<int const> i = 42; // temporary created and destroyed after `view` constructor returns
+std::cout << *i; // undefined behaviour!
+```
+
+Thus, construction of `view` and `optional_view` from rvalues is prohibited. Note that this limitation arises as a natural consequence of adding regular copy behaviour of "reference-like" types, since C++ lacks a mechanism to transfer ownership of such temporary values (`std::reference_wrapper` prohibits construction from rvalues as well).
 
 ### <a name="rationale-conversion-to"></a>Conversion from `view` and `optional_view` to `T&` and `T*`
 
@@ -289,9 +321,13 @@ Given that `view` and `optional_view` are not smart pointer types, `get` is an a
 
 Unlike `optional_view`, `view` cannot be empty, so it doesn't make much sense for `view` to convert to `bool`. However, `view` implements `operator bool` so that it can be used with `std::experimental::propagate_const`. If the design of `propagate_const` were changed so that it worked with types that do not implement `operator bool`, then `view` would remove this feature.
 
-### <a name="rationale-nullopt"></a>Use of `nullopt`
+### <a name="rationale-nullopt"></a>Reuse of `std::nullopt` and `std::bad_optional_access`
 
-### <a name="rationale-named-member-functions"></a>Named member functions (`has_value`, `value` and `value_or`)
+Reuse of the std::nullopt
+
+### <a name="rationale-named-member-functions"></a>Supplementary accessors (`value` and `value_or`)
+
+The optional value type [`std::optional`](http://en.cppreference.com/w/cpp/utility/optional) provides the throwing accessor function `value` and the convenience accessor function `value_or`. Neither of these functions are necessarily part of a minimal and efficient API (they could be just as efficiently implemented as non-member functions), but presumably they were felt to be useful enough to include anyway. `optional_view` implements corresponding functions which work in roughly the same way. The only difference is that `optional` has rvalue overloads that move the contained value out of the `optional` (e.g. `t = std::move(op).value()` will move the value out of `op` and into `t`). `optional_view` does not own the value it references, so it does not assist in such operations. Thus, `value` always returns an lvalue reference and `value_or` always performs a copy. 
 
 ### <a name="rationale-naming"></a>Naming
 
@@ -508,4 +544,25 @@ There are a number of other differences between `optional_view` and `observer_pt
 
 The question is, is there room for both `optional_view`/`view` _and_ `observer_ptr` in the C++ programmer's toolkit? If a separate case can be made for an "owning smart pointer"-like non-owning "smart" pointer, then perhaps there is. Otherwise, maybe we have two different designs for two competing types trying to solve the same problem. The case for `optional_view` has been laid out here, but the best design for such a type is of course up for discussion.
 
-### Is there any reason to use `optional_view<T>` 
+### Do `view` and `optional_view` make lvalue references redundant?
+
+No. Lvalue references must still be used for the "pass-by-reference-to-const" optimization.
+
+The big difference is that lvalue references to const can bind to rvalues, while `view` and `optional_view` cannot. Because `view` and `optional_view` cannot extend the lifetime of temporary objects as lvalue references can, it would be dangerous to allow them to be constructed from rvalues.
+
+When you see an lvalue reference-to-const as a parameter, it can mean one of two things; either:
+
+* it represents a non-owning, mandatory, indirect, non-mutating reference to a non-temporary object; or
+* it is being used as a way to directly pass arguments while avoiding expensive copies.
+
+A `view` could happily be used in the first case, but would not be suitable in the second case. The inability to bind to rvalues means you cannot pass temporary objects as function arguments of `view` type. This makes APIs awkward to use:
+
+```c++
+void foo(view<int const> v) { … }
+
+int i = 42;
+foo(i); // okay
+foo(42); // error: cannot convert `int&&` to `view<int const>`
+```
+
+If you are passing a parameter by reference-to-const as an optimization technique to avoid making a copy, continue using an lvalue reference. If you are using an lvalue reference-to-const because you want to store or otherwise manipulate a reference to a non-temporary object, consider using `view` or `optional_view`.
