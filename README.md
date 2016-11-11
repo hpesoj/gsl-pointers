@@ -12,7 +12,7 @@ Take an example where a pointer might be used to represent an optional relations
 
 ```c++
 struct person {
-    animal* pet = nullptr;
+    animal* pet = {};
 };
 
 animal fluffy;
@@ -32,11 +32,10 @@ person bob;
 bob.pet = fluffy;
 ```
 
-The "empty" status of an `optional_view` can be tested for as if it were a `bool`, and the `optional_view` can be "emptied" by assigning `nullopt`:
+The "empty" status of an `optional_view` can be tested for as if it were a `bool`, and the `optional_view` can be "emptied" by assigning `{}`:
 
 ```c++
-if (bob.pet)
-    bob.pet = nullopt;
+if (bob.pet) bob.pet = {};
 ```
 
 A mandatory relationship can be expressed by using `view` instead of `optional_view`:
@@ -124,10 +123,10 @@ b.set_parent(a)
 assert(b.get_parent() == a);
 ```
 
-Not only is the syntax nicer, but it discourages the use of raw pointers in client code, reducing the potential for `nullptr` bugs. To set the empty state, we use `nullopt`, and to test for the empty state we can test `optional_view` as if it were a `bool`:
+Not only is the syntax nicer, but it discourages the use of raw pointers in client code, reducing the potential for `nullptr` bugs. To set the empty state, we use `{}`, and to test for the empty state we can test `optional_view` as if it were a `bool`:
 
 ```c++
-b.set_parent(nullopt)
+b.set_parent({})
 assert(!b.get_parent());
 ```
 
@@ -224,11 +223,59 @@ Of course, it is subjective as to whether or not this is an improvement; the req
 
 ## Design Rationale
 
-### <a name="rationale-conversion-from"></a>Conversion from `T&` and `T*` to `view` and `optional_view`
+### <a name="rationale-conversion-from"></a>Implicit and explicit construction from `T&` and `T*`
 
-Both `view` and `optional_view` are implicitly constructible and assignable from `T&`, while only `optional_view` is explicitly constructible from `T*`. This design decision is based on the idea that implicit conversions should be semantically correct practically all of the time, while explicit conversions are semantically correct only some of the time. `T&` always represents 
+Both `view` and `optional_view` are _implicitly_ constructible and assignable from `T&`, while they are only is _explicitly_ constructible from `T*`. The idea is that conversions should be implicit if they are semantically correct and safe virtually all of the time, while they should be explicit if they are semantically correct or safe only some of the time. `T&` should always represent a valid reference to an object in a well-formed program, so implicit conversion is correct in this case. Conversely, `T*` may or may not be a valid reference to an object; for example:
+
+* `T*` may have ownership semantics
+* `T*` may represent an array
+* `T*` may be a "past-the-end" iterator
+
+In none of these cases would it be correct to allow the pointer to convert the pointer to an `optional_view`. It is up to the programmer to explicitly make this conversion when they are sure it is correct to do so.
+
+### <a name="rationale-construction-from-pointer-to-view"></a>Construction of `view` from `T*` or `optional_view`
+
+Explicit construction of `view` from a pointer or an `optional_view` is supported, and throws a `std::invalid_argument` if the pointer is null or the `optional_view` is empty. It could be argued that such a feature encourages the programming errors as the user may not realize that constructing a `view` from a pointer is not `nothrow`. This is, however, unlikely, as implicit conversion is forbidden; for example, this will not compile:
+
+```c++
+void foo(view<int> v) { … }
+
+void bar(int* p)
+{
+    foo(p); // error: cannot convert from `int*` to `view<int>`
+    …
+}
+```
+
+The user would have to explicitly call the constructor of `view` in order to convert the pointer, which should set alarm bells ringing:
+
+```c++
+    foo(view<int>(p));
+```
+
+Thus, allowing explicit construction from a pointer is a convenient way to safely (i.e. without invoking undefined behaviour) convert a pointer or `optional_view` to a `view`.
+
+Note that there is no overload of `make_view` that takes a pointer, as `make_view` is intended to facilitate automatic type deduction. If such an overload existed, it would be all too easy for the user to forget that passing a pointer rather than a reference may throw:
+
+```c++
+    auto v = make_view(x); // may or may not be `nothrow`, depending on the type of `x`
+```
 
 ### <a name="rationale-conversion-to"></a>Conversion from `view` and `optional_view` to `T&` and `T*`
+
+### Assignment operators and the `v = {}` idiom
+
+Neither `view` nor `optional_view` explicitly define any assignment operators. This enables automatic support of the `v = {}` idiom for resetting an object to its default state:
+
+```c++
+optional_view<int> v1 = i;
+v1 = {}; // `v1` is now empty
+
+view<int const> v2 = i;
+v2 = {}; // compile error
+```
+
+If assignment operators were explicitly implemented, care would need to be taken to ensure that `v = {}` compiled for `optional_view` and didn't compile for `view`. Since both types are very lightweight, the compiler should be able to easily elide the additional copy, so there should be no performance penalty for this design choice.
 
 ### <a name="rationale-get"></a>The `get` member function
 
@@ -414,10 +461,10 @@ observer_ptr<foo> p{&f};
 p = make_observer(&g);
 assert(p == make_observer(&g));
 p->bar();
-p = nullptr;
+p = {};
 ```
 
-On the other hand, while `optional_view` too allows explicit construction from a pointer, it also allows _implicit_ construction from a _reference_ (or `nullopt`). This tends to mean using `optional_view` feels slightly more natural to use and slightly less verbose than `observer_ptr`:
+On the other hand, while `optional_view` too allows explicit construction from a pointer, it also allows _implicit_ construction from a _reference_. This tends to mean using `optional_view` feels slightly more natural to use and slightly less verbose than `observer_ptr`:
 
 ```c++
 foo f, g;
@@ -425,7 +472,7 @@ optional_view<foo> v = f;
 v = g;
 assert(v == g);
 v->bar();
-v = nullopt;
+v = {};
 ```
 
 Second, `observer_ptr` lacks a "not null" counterpart. While the case for a so-called "vocabulary" type to replace references is weaker than that for non-owning pointers (the meaning of `T&` is not as heavily overloaded as `T*`), the irregular copying behaviour of references makes the case for a complementary "not null" non-owning reference type fairly clear. 
@@ -437,3 +484,5 @@ There are a number of other differences between `optional_view` and `observer_pt
 * `optional_view` has cast operations `static_view_cast`, `dynamic_view_cast` and `const_view_cast`.
 
 The question is, is there room for both `optional_view`/`view` _and_ `observer_ptr` in the C++ programmer's toolkit? If a separate case can be made for an "owning smart pointer"-like non-owning "smart" pointer, then perhaps there is. Otherwise, maybe we have two different designs for two competing types trying to solve the same problem. The case for `optional_view` has been laid out here, but the best design for such a type is of course up for discussion.
+
+### Is there any reason to use `optional_view<T>` 
