@@ -79,11 +79,7 @@ public:
         parent = new_parent;
     }
     
-    node const* get_parent() const {
-        return parent;
-    }
-
-    node* get_parent() {
+    node* get_parent() const {
         return parent;
     }
 };
@@ -113,11 +109,7 @@ public:
         parent = new_parent;
     }
     
-    optional_view<node const> get_parent() const {
-        return parent;
-    }
-
-    optional_view<node> get_parent() {
+    optional_view<node> get_parent() const {
         return parent;
     }
 };
@@ -158,11 +150,7 @@ public:
         return children.size();
     }
 
-    node const& get_child(std::size_t index) const {
-        return *children[index];
-    }
-
-    node& get_child(std::size_t index) {
+    node& get_child(std::size_t index) const {
         return *children[index];
     }
 
@@ -196,11 +184,7 @@ public:
         return children.size();
     }
 
-    view<node const> get_child(std::size_t index) const {
-        return children[index];
-    }
-
-    view<node> get_child(std::size_t index) {
+    view<node> get_child(std::size_t index) const {
         return children[index];
     }
 
