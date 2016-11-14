@@ -13,7 +13,7 @@ Modern C++ best practices recommend the use of high-level abstractions such as `
 | String   | `string`                                   | `string_view`                  |
 | Iterator | —                                          | _assorted_                     |
 
-An existing proposal for `unique_ptr`-esque "dumb" pointer type `observer_ptr` tries to fill the "non-owned single" use case, but `view` and `optional_view`, rather than being based on the types that were designed to fill the "owned single" gap, are designed specifically to for purpose. The result is an API that:
+An [existing proposal](https://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd=4&cad=rja&uact=8&ved=0ahUKEwjhk8zH0KfQAhUKo48KHS80BA8QFgg1MAM&url=http%3A%2F%2Fwww.open-std.org%2Fjtc1%2Fsc22%2Fwg21%2Fdocs%2Fpapers%2F2014%2Fn4282.pdf&usg=AFQjCNERsxVdyqKaN9WSoUfMkQM-6LGEdQ&sig2=MGpUtRM0As5RYm4I4oZkYg) for `unique_ptr`-esque "dumb" pointer type `observer_ptr` tries to fill the "non-owned single" use case, but `view` and `optional_view`, rather than being based on the types that were designed to fill the "owned single" gap, are designed specifically for their intended purpose. The result is an API that:
 
 * Improves code correctness
 * More clearly documents intent
@@ -93,12 +93,12 @@ With only pointers and references in our arsenal, we might start with something 
 class node {
 private:
     node* parent;
-    
+
 public:
     void set_parent(node* new_parent) {
         parent = new_parent;
     }
-    
+
     node* get_parent() const {
         return parent;
     }
@@ -125,12 +125,12 @@ Let's replace `node*` with `optional_view<node>`:
 class node {
 private:
     optional_view<node> parent;
-    
+
 public:
     void set_parent(optional_view<node> new_parent) {
         parent = new_parent;
     }
-    
+
     optional_view<node> get_parent() const {
         return parent;
     }
@@ -164,10 +164,10 @@ Alas, this will not compile. References behave irregularly: unlike pointers, cop
 private:
     …
     std::vector<node*> children;
-    
+
 public:
     …
-    
+
     std::size_t get_child_count() const {
         return children.size();
     }
@@ -194,14 +194,14 @@ Let's replace all instances of `node&` and `node*` with `view<node>`, and add th
 private:
     …
     std::vector<view<node>> children;
-    
+
 public:
     void set_parent(optional_view<node> new_parent) {
         if (parent) parent->remove_child(*this);
         parent = new_parent;
         if (parent) parent->add_child(*this);
     }
-    
+
     std::size_t get_child_count() const {
         return children.size();
     }
@@ -260,7 +260,7 @@ Both `view` and `optional_view` are constructible from and convertible to `T&` a
 
 In none of these cases would it be correct to allow either `view<T>` or `optional_view<T>` to be implicitly constructed from  or converted to `T*`. It is up to the programmer to explicitly specify these conversions when they are sure it is correct to do so.
 
-It's worth noting that if conversion from `optional_view<T>` to `T*` were implicit, then array-like operations such as `v[i]`, iterator-like operations such as `v++`, and ownership operations such as `delete v` would automatically be enabled. This is reflective of the fact that implicit conversion implies functional equivalence.
+It's worth noting that if conversion from `optional_view<T>` to `T*` were implicit, then array-like operations such as `v[i]`, iterator-like operations such as `v++`, and ownership operations such as `delete v` would automatically be enabled. This could be considered reflective of the fact that implicit conversion implies functional equivalence.
 
 ### <a name="rationale-construction-from-pointer-to-view"></a>Construction of `view` from `T*` or `optional_view`
 
@@ -340,7 +340,7 @@ If assignment operators were explicitly implemented, extra measures would need t
 
 ### <a name="rationale-move"></a>Move behaviour
 
-Neither `view` not `optional_view` define distinct move behaviour: moving is equivalent to copying. It could be argued that a moved-from `optional_view` should become empty, but in reality we have no way of knowing how client code wants a moved-from `optional_view` to behave, and such behaviour would incur a potentially unnecessary run-time cost. In addition, a moved-from `view` cannot be empty, so having different behaviour for `optional_view` would be potentially surprising. An additional advantage of keeping the compiler-generated move operations is that `view` and `optional_view` can be [trivially copyable](http://en.cppreference.com/w/cpp/concept/TriviallyCopyable) (they can be copied using [`std::memcpy`](http://en.cppreference.com/w/cpp/string/byte/memcpy), a performance optimization that some library components employ).  
+Neither `view` not `optional_view` define distinct move behaviour: moving is equivalent to copying. It could be argued that a moved-from `optional_view` should become empty, but in reality we have no way of knowing how client code wants a moved-from `optional_view` to behave, and such behaviour would incur a potentially unnecessary run-time cost. In addition, a moved-from `view` cannot be empty, so having different behaviour for `optional_view` would be potentially surprising. An additional advantage of keeping the compiler-generated move operations is that `view` and `optional_view` can be [trivially copyable](http://en.cppreference.com/w/cpp/concept/TriviallyCopyable) (they can be copied using [`std::memcpy`](http://en.cppreference.com/w/cpp/string/byte/memcpy), a performance optimization that some library components employ).
 
 ### <a name="rationale-get"></a>The `get` member function
 
@@ -372,7 +372,7 @@ The current implementation provides its own `nullopt_t`, `nullopt` and `bad_opti
 
 ### <a name="rationale-named-member-functions"></a>Supplementary accessors (`value` and `value_or`)
 
-The optional value type [`std::optional`](http://en.cppreference.com/w/cpp/utility/optional) provides the throwing accessor function `value` and the convenience accessor function `value_or`. Neither of these functions are necessarily part of a minimal and efficient API (they could be just as efficiently implemented as non-member functions), but presumably they were felt to be useful enough to include anyway. `optional_view` implements corresponding functions which work in roughly the same way. The only difference is that `optional` has rvalue overloads that move the contained value out of the `optional` (e.g. `t = std::move(op).value()` will move the value out of `op` and into `t`). `optional_view` does not own the value it references, so it does not assist in such operations. Thus, `value` always returns an lvalue reference and `value_or` always performs a copy. 
+The optional value type [`std::optional`](http://en.cppreference.com/w/cpp/utility/optional) provides the throwing accessor function `value` and the convenience accessor function `value_or`. Neither of these functions are necessarily part of a minimal and efficient API (they could be just as efficiently implemented as non-member functions), but presumably they were felt to be useful enough to include anyway. `optional_view` implements corresponding functions which work in roughly the same way. The only difference is that `optional` has rvalue overloads that move the contained value out of the `optional` (e.g. `t = std::move(op).value()` will move the value out of `op` and into `t`). `optional_view` does not own the value it references, so it does not assist in such operations. Thus, `value` always returns an lvalue reference and `value_or` always performs a copy.
 
 ### <a name="rationale-naming"></a>Naming
 
@@ -502,7 +502,7 @@ if (r == i) { … } // true if the object `r` indirectly references is equal to 
 if (v == i) { … } // true if v indirectly references `i`
 ```
 
-In other words, `reference_wrapper` is designed to behave like a reference, while `view` is designed to behave more like a pointer. The difference between a reference and a `reference_wrapper` is that copy assigning the latter will rebind it to indirectly reference whatever the other `reference_wrapper` referenced. 
+In other words, `reference_wrapper` is designed to behave like a reference, while `view` is designed to behave more like a pointer. The difference between a reference and a `reference_wrapper` is that copy assigning the latter will rebind it to indirectly reference whatever the other `reference_wrapper` referenced.
 
 ```c++
 r = std::ref(j); // `r` now indirectly references `j`
@@ -515,7 +515,7 @@ This slightly modified behaviour allows `reference_wrapper`, among other things,
 private:
     …
     std::vector<view<node>> children;
-    
+
 public:
     …
     void remove_child(view<node> child) {
@@ -529,7 +529,7 @@ A call to `remove_child` will erase from the container any `view` which indirect
 private:
     …
     vector<reference_wrapper<node>> children;
-    
+
 public:
     …
     void remove_child(node& child) {
@@ -577,12 +577,13 @@ v->bar();
 v = {};
 ```
 
-Second, `observer_ptr` lacks a "not null" counterpart. While the case for a so-called "vocabulary" type to replace references is weaker than that for non-owning pointers (the meaning of `T&` is not as heavily overloaded as `T*`), the irregular copying behaviour of references makes the case for a complementary "not null" non-owning reference type fairly clear. 
+Second, `observer_ptr` lacks a "not null" counterpart. While the case for a so-called "vocabulary" type to replace references is weaker than that for non-owning pointers (the meaning of `T&` is not as heavily overloaded as `T*`), the irregular copying behaviour of references makes the case for a complementary "not null" non-owning reference type fairly strong.
 
 There are a number of other differences between `optional_view` and `observer_ptr`, but they are less significant:
 
 * `observer_ptr` has the "ownership" operations `reset` and `release`, presumably because it its API is modelled on the owning smart pointer types.
-* `optional_view` has the "safe" accessor function `value` which throws if called on an empty `optional_view`, as well as the named function `has_value` to check for empty status. This part of the API is modelled after `std::optional`.
+* `optional_view` has "safe" construction from `T*` which throws if called with a null `T*`.
+* `optional_view` has the "safe" accessor function `value` which throws if called on an empty `optional_view`. This part of the API is modelled after `std::optional`.
 * `optional_view` has cast operations `static_view_cast`, `dynamic_view_cast` and `const_view_cast`.
 
 The question is, is there room for both `optional_view`/`view` _and_ `observer_ptr` in the C++ programmer's toolkit? If a separate case can be made for an "owning smart pointer"-like non-owning "smart" pointer, then perhaps there is. Otherwise, maybe we have two different designs for two competing types trying to solve the same problem. The case for `optional_view` has been laid out here, but the best design for such a type is of course up for discussion.
@@ -622,7 +623,7 @@ bar({}); // error: cannot convert from `{}` to `view<int const>`
 The minor advantage of using `view` here is that client code won't break if you switch to `optional_view` (with which `{}` represents the "empty" state) at some point in the future. Other than this, there is little difference between the two. When used as a function return type, `view<T>` and `T&` are more obviously different:
 
 ```c++
-int& foo() { … } 
+int& foo() { … }
 
 int i = 42;
 foo() = i; // assigns 42 to whatever `foo` returned a reference to
@@ -633,7 +634,7 @@ auto x = foo(); // `decltype(x)` is `int`
 view<int> foo() { … }
 
 int i = 42;
-foo() = i; // modifies the temporary `view` returned by `foo` to reference `i` 
+foo() = i; // modifies the temporary `view` returned by `foo` to reference `i`
 auto x = foo(); // `decltype(x)` is `view<int>`
 ```
 
