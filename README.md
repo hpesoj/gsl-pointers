@@ -4,7 +4,7 @@
 
 * Increased safety
 * Clearer intent
-* An improved API 
+* An improved API
 
 ## Quick Example
 
@@ -46,7 +46,7 @@ struct person {
 };
 
 animal fluffy;
-person bob = {fluffy}; 
+person bob = { fluffy };
 ```
 
 Like pointers, both `view` and `optional_view` use the indirection operators (`*` and `->`) to access the referenced object:
@@ -219,17 +219,21 @@ bb->set_parent(nullptr);
 aa->set_parent(bb);
 ```
 
+`view<node>` implicitly converts to `node&`, so 
+
 ## Design Rationale
 
-### <a name="rationale-conversion-from"></a>Implicit and explicit construction from `T&` and `T*`
+### <a name="rationale-construction-from"></a>Construction from and conversion to `T&` and `T*`
 
-Both `view` and `optional_view` are _implicitly_ constructible and assignable from `T&`, while they are only is _explicitly_ constructible from `T*`. The idea is that conversions should be implicit if they are semantically correct and safe virtually all of the time, while they should be explicit if they are semantically correct or safe only some of the time. `T&` should always represent a valid reference to an object in a well-formed program, so implicit conversion is correct in this case. Conversely, `T*` may or may not be a valid reference to an object; for example:
+Both `view` and `optional_view` are constructible from and convertible to `T&` and `T*`, but only construction of `view<T>` and `optional_view<T>` from `T&` and conversion from `view<T>` to `T&` are _implicit_. The idea is that conversions should be implicit if they are functionally equivalent and conversion is safe virtually all of the time, while they should be explicit if the types are not always functionally equivalent or conversion is safe only some of the time ("safe" here means not invoking undefined behaviour and being `nothrow`). `T&` should always represent a valid reference to an object in a well-formed program, so implicit construction of `view<T>` and `optional_view<T>` from `T&` is correct; conversion from `optional_view<T>` to `T&` is not safe, so conversion must be explicitly specified. Conversely, `T*` may or may not be a valid reference to an object; for example:
 
 * `T*` may have ownership semantics
 * `T*` may represent an array
-* `T*` may be a "past-the-end" iterator
+* `T*` may be an iterator (and maybe a "past-the-end" iterator)
 
-In none of these cases would it be correct to allow the pointer to convert the pointer to an `optional_view`. It is up to the programmer to explicitly make this conversion when they are sure it is correct to do so.
+In none of these cases would it be correct to allow either `view<T>` or `optional_view<T>` to be implicitly constructed from  or converted to `T*`. It is up to the programmer to explicitly specify these conversions when they are sure it is correct to do so.
+
+It's worth noting that if conversion from `optional_view<T>` to `T*` were implicit, then array-like operations such as `v[i]` and iterator-like operations such as `v++` would automatically be enabled. This is reflective of the fact that implicit conversion implies functional equivalence.
 
 ### <a name="rationale-construction-from-pointer-to-view"></a>Construction of `view` from `T*` or `optional_view`
 
@@ -259,25 +263,49 @@ Note that there is no overload of `make_view` that takes a pointer, as `make_vie
     auto v = make_view(x); // may or may not be `nothrow`, depending on the type of `x`
 ```
 
-### <a name="rationale-conversion-from-rvalue"></a>Construction from `T&&`
+### <a name="rationale-construction-from-rvalue"></a>Construction from `T&&`
 
-Lvalue references to const can extend the lifetime of temporary objects. For example:
+Initialization of `view` and `optional_view` from rvalues is allowed. This means that it is possible to pass temporary objects to functions taking `view<T const>` or `optional_view<T const>`:
+
+```c++
+void foo(view<int const> i) { … }
+
+int i = 42;
+
+foo(i); // okay
+foo(42); // also okay
+```
+
+However, unlike a reference-to-const, a `view<T const>` does not extend the lifetime of the temporary from which it is constructed. Thus, while this is safe:
 
 ```c++
 int const& i = 42; // temporary created and lifetime extended by `i`
 std::cout << i; // a-okay
 ```
 
-If it were possible to assign `view` or `optional_view` a temporary, they would not be able to exist its lifetime:
+This is most definitely not safe:
 
 ```c++
-view<int const> i = 42; // temporary created and destroyed after `view` constructor returns
+view<int const> i = 42; // temporary created and destroyed
 std::cout << *i; // undefined behaviour!
 ```
 
-Thus, construction of `view` and `optional_view` from rvalues is prohibited. Note that this limitation arises as a natural consequence of adding regular copy behaviour of "reference-like" types, since C++ lacks a mechanism to transfer ownership of such temporary values (`std::reference_wrapper` prohibits construction from rvalues as well).
+Note that this behaviour is shared by `std::string_view`:
 
-### <a name="rationale-conversion-to"></a>Conversion from `view` and `optional_view` to `T&` and `T*`
+```c++
+std::string_view v = std::string("hello, world");
+std::cout < v; // undefined behaviour
+```
+
+### <a name="rationale-conversion-to"></a>Conversion to `T&` and `T*`
+
+Both `view` and `optional_view` are convertible to `T&` and `T*`, but only the conversion from `view<T>` to `T&` is _implicit_. The idea is that conversions should be implicit if they are semantically correct and safe virtually all of the time, while they should be explicit if they are semantically correct or safe only some of the time. `T&` should always represent a valid reference to an object in a well-formed program, so implicit conversion is correct in this case. Conversely, `T*` may or may not be a valid reference to an object; for example:
+
+* `T*` may have ownership semantics
+* `T*` may represent an array
+* `T*` may be an iterator (and maybe a "past-the-end" iterator)
+
+In none of these cases would it be correct to allow the pointer to convert the pointer to an `optional_view`. It is up to the programmer to explicitly make this conversion when they are sure it is correct to do so.
 
 ### <a name="rationale-assignment"></a>Assignment operators and the `v = {}` idiom
 
@@ -391,7 +419,7 @@ v = g; // modifies `f`
 v = u; // modifies `v`
 ```
 
-In both cases, there is an "exceptional" case that the programmer has to remember. These are also not behaviours that they are already likely to be familiar with. The chance of programming error with either design is high. Thankfully, `view` avoids these problems by leveraging the "indirection" semantics used by pointers and pointer-like types:
+In both cases, there is an "exceptional" case that the programmer has to remember. These are also not behaviours that they are already likely to be familiar with. The chance of programming error with either design is high. Thankfully, `view` avoids these problems by leveraging the "indirection" behaviour used by pointers and pointer-like types:
 
 ```c++
 f.bar = g.bar; // modifies `f`
@@ -410,13 +438,15 @@ v = *u; // modifies `v`
 (*v) = *u; // modifies `f`
 ```
 
-This behaviour is both symmetrical _and_ familiar to experienced programmers. Of course, `operator.` "overloading" does have uses, but this is not one of them.
+This behaviour is both symmetrical _and_ familiar to experienced programmers. An additional benefit of the pointer-like semantics of `view` is that they are compatible with the proposed `std::experimental::propagate_const`.
+
+Of course, `operator.` "overloading" does have its uses, but this is not one of them.
 
 ### <a name="faq-reference-wrapper"></a>Isn't `view` the same as `std::reference_wrapper`?
 
-No. They are very different.
+No. They are very different. In short, `view` has pointer-like indirection semantics, whereas `std::reference_wrapper` has reference-like direct-access semantics.
 
-The key difference between `view` and `std::reference_wrapper` is in assignment and comparison. While both types behave the same on construction:
+The key difference between `view` and `reference_wrapper` is in assignment and comparison. While both types behave the same on construction:
 
 ```c++
 int i = 42;
@@ -528,25 +558,61 @@ There are a number of other differences between `optional_view` and `observer_pt
 
 The question is, is there room for both `optional_view`/`view` _and_ `observer_ptr` in the C++ programmer's toolkit? If a separate case can be made for an "owning smart pointer"-like non-owning "smart" pointer, then perhaps there is. Otherwise, maybe we have two different designs for two competing types trying to solve the same problem. The case for `optional_view` has been laid out here, but the best design for such a type is of course up for discussion.
 
-### Do `view` and `optional_view` make lvalue references redundant?
+### I use `T&` to represent permenant relationships and `T*` for relationships that can be changed. Don't I lose this functionality with `view` and `optional_view`?
 
-No. Lvalue references must still be used for the "pass-by-reference-to-const" optimization.
+The `const` mechanism is the natural way to model permenancy in C++. `view` and `optional_view` provide a natural way to model mandatory and optional relationships. Combining these gives greater flexibility than `T&` or `T*` can alone:
 
-The big difference is that lvalue references to const can bind to rvalues, while `view` and `optional_view` cannot. Because `view` and `optional_view` cannot extend the lifetime of temporary objects as lvalue references can, it would be dangerous to allow them to be constructed from rvalues.
+* `view<T>` – a mandatory, changeable relationship
+* `view<T> const` – a mandatory, permanent relationship (equivalent to `T&`)
+* `optional_view<T>` – an optional, changeable relationship (equivalent to `T*`)
+* `optional view<T> const` – an optional, permanent relationship
 
-When you see an lvalue reference-to-const as a parameter, it can mean one of two things; either:
+### Why would you ever use `view<T>` instead of `T&` in an API?
 
-* it represents a non-owning, mandatory, indirect, non-mutating reference to a non-temporary object; or
-* it is being used as a way to directly pass arguments while avoiding expensive copies.
+Using `optional_view<T>` in an API has a number of clear advantages over `T*`, including:
 
-A `view` could happily be used in the first case, but would not be suitable in the second case. The inability to bind to rvalues means you cannot pass temporary objects as function arguments of `view` type. This makes APIs awkward to use:
+* Documentation of intent
+* Omission of inappropriate operations
+* Natural initialization syntax
+
+The advantages of `view<T>` over `T&` in an API, on the other hand, are not as clear cut. However, they are not always interchangeable.
+
+When used as a function parameter type, `view<T const>` and `T const&` have subtly different behaviour:
 
 ```c++
-void foo(view<int const> v) { … }
+void foo(int const& v) { … }
+void bar(view<int const> v) { … }
 
-int i = 42;
-foo(i); // okay
-foo(42); // error: cannot convert `int&&` to `view<int const>`
+foo(42);
+foo({}); // same as `foo(int{})`, i.e. `foo(0)`
+
+bar(42);
+bar({}); // error: cannot convert from `{}` to `view<int const>`
 ```
 
-If you are passing a parameter by reference-to-const as an optimization technique to avoid making a copy, continue using an lvalue reference. If you are using an lvalue reference-to-const because you want to store or otherwise manipulate a reference to a non-temporary object, consider using `view` or `optional_view`.
+The minor advantage of using `view` here is that client code won't break if you switch to `optional_view` (with which `{}` represents the "empty" state) at some point in the future. Other than this, there is little difference between the two. When used as a function return type, `view<T>` and `T&` are more obviously different:
+
+```c++
+int& foo() { … } 
+
+int i = 42;
+foo() = i; // assigns 42 to whatever `foo` returned a reference to
+auto x = foo(); // `decltype(x)` is `int`
+```
+
+```c++
+view<int> foo() { … }
+
+int i = 42;
+foo() = i; // modifies the temporary `view` returned by `foo` to reference `i` 
+auto x = foo(); // `decltype(x)` is `view<int>`
+```
+
+In this case, `view<T>` has pointer-like indirection semantics, while `T&` has reference-like direct-access semantics. Thus, you would not want to use `view` when you wished to provide _direct_ access to an object, like when implementing `operator[]` for an array type. You _may_ want to use `view` if you wish to provide a pointer-like indirect handle to an object; in this case you may also wish to return a `view<T> const` to prevent the caller from accidentally assigning to the temporary:
+
+```c++
+view<int> const foo() { … }
+
+int i = 42;
+foo() = i; // error: cannot call `operator=` on `view<int> const`
+```
