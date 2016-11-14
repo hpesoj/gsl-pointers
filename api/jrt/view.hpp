@@ -450,19 +450,19 @@ constexpr optional_view<T> make_optional_view(T* p) noexcept
 template <typename T, typename U>
 constexpr view<T> static_view_cast(view<U> const& v) noexcept
 {
-    return view<T>(static_cast<T&>(*v));
+    return static_cast<T&>(*v);
 }
 
 template <typename T, typename U>
-constexpr optional_view<T> dynamic_view_cast(view<U> const& v) noexcept
+constexpr view<T> dynamic_view_cast(view<U> const& v)
 {
-    return optional_view<T>(dynamic_cast<T*>(v.get()));
+    return dynamic_cast<T&>(*v);
 }
 
 template <typename T, typename U>
 constexpr view<T> const_view_cast(view<U> const& v) noexcept
 {
-    return view<T>(const_cast<T&>(*v));
+    return const_cast<T&>(*v);
 }
 
 template <typename T, typename U>
