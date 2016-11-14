@@ -33,6 +33,25 @@
 namespace jrt
 {
 
+struct nullopt_t
+{
+    constexpr explicit nullopt_t(int) {}
+};
+
+constexpr nullopt_t nullopt{0};
+
+class bad_optional_access : public std::logic_error
+{
+public:
+    bad_optional_access() : std::logic_error(
+        "Attempted to access the value of an uninitialized optional.")
+    {
+    }
+};
+
+template <typename>
+class optional_view;
+
 //------
 // view
 //======
@@ -46,45 +65,38 @@ public:
 private:
     element_type* element;
 
+    template <typename U>
+    static constexpr U* throw_if_null(U* p)
+    {
+        if (!p)
+        {
+            throw std::invalid_argument("Cannot convert null pointer to view.");
+        }
+
+        return p;
+    }
+
 public:
     constexpr view(element_type& r) noexcept :
         element(&r)
     {
     }
 
-    view& operator=(element_type& r) noexcept
+    constexpr explicit view(element_type* p) :
+        element(throw_if_null(p))
     {
-        element = &r;
-        return *this;
     }
 
-    constexpr view(element_type&&) noexcept = delete;
-    view& operator=(element_type&&) noexcept = delete;
-
-    template <typename U, typename = std::enable_if_t<std::is_convertible<U&, element_type&>::value>>
+    template <typename U, typename = std::enable_if_t<std::is_convertible<U*, element_type*>::value>>
     constexpr view(view<U> const& v) noexcept :
         element(v.get())
     {
     }
 
-    template <typename U, typename = std::enable_if_t<std::is_convertible<U&, element_type&>::value>>
-    view& operator=(view<U> const& v) noexcept
+    template <typename U, typename = std::enable_if_t<std::is_convertible<U*, element_type*>::value>>
+    constexpr explicit view(optional_view<U> const& v) :
+        element(throw_if_null(v.get()))
     {
-        element = v.get();
-        return *this;
-    }
-
-    template <typename U, typename = std::enable_if_t<std::is_convertible<U&, element_type&>::value>>
-    constexpr view(view<U>&& v) noexcept :
-        element(v.get())
-    {
-    }
-
-    template <typename U, typename = std::enable_if_t<std::is_convertible<U&, element_type&>::value>>
-    view& operator=(view<U>&& v) noexcept
-    {
-        element = v.get();
-        return *this;
     }
 
     constexpr explicit operator bool() const noexcept
@@ -102,23 +114,14 @@ public:
         return element;
     }
 
-    constexpr operator element_type() const noexcept = delete;
-
-    template <typename U, typename = std::enable_if_t<std::is_convertible<element_type&, U&>::value>>
-    constexpr operator U&() const noexcept
+    constexpr operator element_type&() const noexcept
     {
-        return *element;
+        return value();
     }
 
-    template <typename U, typename = std::enable_if_t<std::is_convertible<element_type*, U*>::value>>
-    constexpr operator U*() const noexcept
+    constexpr explicit operator element_type*() const noexcept
     {
         return element;
-    }
-
-    constexpr bool has_value() const noexcept
-    {
-        return static_cast<bool>(*this);
     }
 
     constexpr element_type& value() const noexcept
@@ -163,18 +166,6 @@ constexpr bool operator==(T1 const& lhs, view<T2> const& rhs) noexcept
 }
 
 template <typename T1, typename T2>
-constexpr bool operator==(view<T1> const& lhs, T2* rhs) noexcept
-{
-    return lhs.get() == rhs;
-}
-
-template <typename T1, typename T2>
-constexpr bool operator==(T1* lhs, view<T2> const& rhs) noexcept
-{
-    return lhs == rhs.get();
-}
-
-template <typename T1, typename T2>
 constexpr bool operator!=(view<T1> const& lhs, view<T2> const& rhs) noexcept
 {
     return !(lhs == rhs);
@@ -188,18 +179,6 @@ constexpr bool operator!=(view<T1> const& lhs, T2 const& rhs) noexcept
 
 template <typename T1, typename T2>
 constexpr bool operator!=(T1 const& lhs, view<T2> const& rhs) noexcept
-{
-    return !(lhs == rhs);
-}
-
-template <typename T1, typename T2>
-constexpr bool operator!=(view<T1> const& lhs, T2* rhs) noexcept
-{
-    return !(lhs == rhs);
-}
-
-template <typename T1, typename T2>
-constexpr bool operator!=(T1* lhs, view<T2> const& rhs) noexcept
 {
     return !(lhs == rhs);
 }
@@ -232,21 +211,6 @@ constexpr bool operator>=(view<T1> const& lhs, view<T2> const& rhs) noexcept
 // optional_view
 //===============
 
-struct nullopt_t
-{
-};
-
-constexpr nullopt_t nullopt;
-
-class bad_optional_view_access : public std::logic_error
-{
-public:
-    bad_optional_view_access() : std::logic_error(
-        "Attempted to access the value of an uninitialized optional view.")
-    {
-    }
-};
-
 template <typename T>
 class optional_view
 {
@@ -262,37 +226,9 @@ public:
     {
     }
 
-    constexpr optional_view(std::nullptr_t) noexcept :
-        element()
-    {
-    }
-
-    optional_view& operator=(std::nullptr_t) noexcept
-    {
-        element = nullptr;
-        return *this;
-    }
-
-    constexpr optional_view(element_type* p) noexcept :
-        element(p)
-    {
-    }
-
-    optional_view& operator=(element_type* p) noexcept
-    {
-        element = p;
-        return *this;
-    }
-
     constexpr optional_view(nullopt_t) noexcept :
         element(nullptr)
     {
-    }
-
-    optional_view& operator=(nullopt_t) noexcept
-    {
-        element = nullptr;
-        return *this;
     }
 
     constexpr optional_view(element_type& r) noexcept :
@@ -300,65 +236,26 @@ public:
     {
     }
 
-    optional_view& operator=(element_type& r) noexcept
+    constexpr explicit optional_view(std::nullptr_t) noexcept :
+        element()
     {
-        element = &r;
-        return *this;
     }
 
-    constexpr optional_view(element_type&&) noexcept = delete;
-    optional_view& operator=(element_type&&) noexcept = delete;
+    constexpr explicit optional_view(element_type* p) noexcept :
+        element(p)
+    {
+    }
 
-    template <typename U, typename = std::enable_if_t<std::is_convertible<U&, element_type&>::value>>
+    template <typename U, typename = std::enable_if_t<std::is_convertible<U*, element_type*>::value>>
     constexpr optional_view(optional_view<U> const& v) noexcept :
         element(v.get())
     {
     }
 
-    template <typename U, typename = std::enable_if_t<std::is_convertible<U&, element_type&>::value>>
-    optional_view& operator=(optional_view<U> const& v) noexcept
-    {
-        element = v.get();
-        return *this;
-    }
-
-    template <typename U, typename = std::enable_if_t<std::is_convertible<U&, element_type&>::value>>
-    constexpr optional_view(optional_view<U>&& v) noexcept :
-        element(v.get())
-    {
-    }
-
-    template <typename U, typename = std::enable_if_t<std::is_convertible<U&, element_type&>::value>>
-    optional_view& operator=(optional_view<U>&& v) noexcept
-    {
-        element = v.get();
-        return *this;
-    }
-
-    template <typename U, typename = std::enable_if_t<std::is_convertible<U&, element_type&>::value>>
+    template <typename U, typename = std::enable_if_t<std::is_convertible<U*, element_type*>::value>>
     constexpr optional_view(view<U> const& v) noexcept :
         element(v.get())
     {
-    }
-
-    template <typename U, typename = std::enable_if_t<std::is_convertible<U&, element_type&>::value>>
-    optional_view& operator=(view<U> const& v) noexcept
-    {
-        element = v.get();
-        return *this;
-    }
-
-    template <typename U, typename = std::enable_if_t<std::is_convertible<U&, element_type&>::value>>
-    constexpr optional_view(view<U>&& v) noexcept :
-        element(v.get())
-    {
-    }
-
-    template <typename U, typename = std::enable_if_t<std::is_convertible<U&, element_type&>::value>>
-    optional_view& operator=(view<U>&& v) noexcept
-    {
-        element = v.get();
-        return *this;
     }
 
     constexpr explicit operator bool() const noexcept
@@ -376,28 +273,27 @@ public:
         return element;
     }
 
-    template <typename U, typename = std::enable_if_t<std::is_convertible<element_type*, U*>::value>>
-    constexpr operator U*() const noexcept
+    constexpr explicit operator element_type&() const
     {
-        return element;
+        return value();
     }
 
-    constexpr bool has_value() const noexcept
+    constexpr explicit operator element_type*() const noexcept
     {
-        return static_cast<bool>(*this);
+        return element;
     }
 
     constexpr element_type& value() const
     {
         if (!element)
         {
-            throw bad_optional_view_access();
+            throw bad_optional_access();
         }
 
         return *element;
     }
 
-    template <typename U, typename = std::enable_if_t<std::is_copy_constructible<element_type>::value>>
+    template <typename U, typename E = element_type, std::enable_if_t<std::is_copy_constructible<E>::value, int> = 0>
     constexpr element_type value_or(U&& default_value) const noexcept
     {
         return element ? *element : static_cast<element_type>(std::forward<U>(default_value));
@@ -440,30 +336,6 @@ constexpr bool operator==(view<T1> const& lhs, optional_view<T2> const& rhs) noe
 }
 
 template <typename T1, typename T2>
-constexpr bool operator==(optional_view<T1> const& lhs, T2* rhs) noexcept
-{
-    return lhs.get() == rhs;
-}
-
-template <typename T1, typename T2>
-constexpr bool operator==(T1* lhs, optional_view<T2> const& rhs) noexcept
-{
-    return lhs == rhs.get();
-}
-
-template <typename T>
-constexpr bool operator==(optional_view<T> const& lhs, std::nullptr_t) noexcept
-{
-    return lhs.get() == nullptr;
-}
-
-template <typename T>
-constexpr bool operator==(std::nullptr_t, optional_view<T> const& rhs) noexcept
-{
-    return nullptr == rhs.get();
-}
-
-template <typename T1, typename T2>
 constexpr bool operator==(optional_view<T1> const& lhs, T2 const& rhs) noexcept
 {
     return lhs.get() == &rhs;
@@ -503,30 +375,6 @@ template <typename T1, typename T2>
 constexpr bool operator!=(view<T1> const& lhs, optional_view<T2> const& rhs) noexcept
 {
     return !(lhs == rhs);
-}
-
-template <typename T1, typename T2>
-constexpr bool operator!=(optional_view<T1> const& lhs, T2* rhs) noexcept
-{
-    return !(lhs == rhs);
-}
-
-template <typename T1, typename T2>
-constexpr bool operator!=(T1* lhs, optional_view<T2> const& rhs) noexcept
-{
-    return !(lhs == rhs);
-}
-
-template <typename T>
-constexpr bool operator!=(optional_view<T> const& lhs, std::nullptr_t) noexcept
-{
-    return !(lhs == nullptr);
-}
-
-template <typename T>
-constexpr bool operator!=(std::nullptr_t, optional_view<T> const& rhs) noexcept
-{
-    return !(nullptr == rhs);
 }
 
 template <typename T1, typename T2>
@@ -602,49 +450,37 @@ constexpr optional_view<T> make_optional_view(T* p) noexcept
 template <typename T, typename U>
 constexpr view<T> static_view_cast(view<U> const& v) noexcept
 {
-    return static_cast<T&>(*v);
+    return view<T>(static_cast<T&>(*v));
 }
 
 template <typename T, typename U>
 constexpr optional_view<T> dynamic_view_cast(view<U> const& v) noexcept
 {
-    return dynamic_cast<T*>(v.get());
+    return optional_view<T>(dynamic_cast<T*>(v.get()));
 }
 
 template <typename T, typename U>
 constexpr view<T> const_view_cast(view<U> const& v) noexcept
 {
-    return const_cast<T&>(*v);
-}
-
-template <typename T, typename U>
-constexpr view<T> reinterpret_view_cast(view<U> const& v) noexcept
-{
-    return reinterpret_cast<T&>(*v);
+    return view<T>(const_cast<T&>(*v));
 }
 
 template <typename T, typename U>
 constexpr optional_view<T> static_view_cast(optional_view<U> const& v) noexcept
 {
-    return static_cast<T*>(v.get());
+    return optional_view<T>(static_cast<T*>(v.get()));
 }
 
 template <typename T, typename U>
 constexpr optional_view<T> dynamic_view_cast(optional_view<U> const& v) noexcept
 {
-    return dynamic_cast<T*>(v.get());
+    return optional_view<T>(dynamic_cast<T*>(v.get()));
 }
 
 template <typename T, typename U>
 constexpr optional_view<T> const_view_cast(optional_view<U> const& v) noexcept
 {
-    return const_cast<T*>(v.get());
-}
-
-template <typename T, typename U>
-constexpr optional_view<T> reinterpret_view_cast(optional_view<U> const& v) noexcept
-{
-    return reinterpret_cast<T*>(v.get());
+    return optional_view<T>(const_cast<T*>(v.get()));
 }
 
 //------------------
