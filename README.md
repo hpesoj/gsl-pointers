@@ -1,27 +1,35 @@
-# `view` and `optional_view`: generic views for C++
+# `view` and `optional_view`: single object views for C++
 
-`view` and `optional_view` are types used to indirectly reference other objects without implying ownership. `view<T>` is a mandatory "view" of an object of type `T`, while `optional_view<T>` is an optional "view" of an object of type `T`. Both `view` and `optional_view` have reference-like initialization semantics and pointer-like indirection semantics.
+`view` and `optional_view` are types used to indirectly reference another object without implying ownership. `view<T>` is a mandatory view of an object of arbitrary type `T`, while `optional_view<T>` is an optional view of an object of arbitrary type `T`. Both `view` and `optional_view` have reference-like initialization semantics and pointer-like indirection semantics.
+
+## Contents
+
+* [Motivation](#motivation)
+* [Quick Example](#example)
+* [Tutorial](#tutorial)
+* [Design Rationale](#rationale)
+* [FAQ](#faq)
 
 ## Motivation
 
-Modern C++ best practices recommend the use of high-level abstractions such as `std::vector`, `std::array`, `std::array_view` _(not yet standardized)_, `std::string`, `std::string_view`, `std::unique_ptr`, `std::shared_ptr`, `std::weak_ptr` and `std::optional` instead of raw pointers. However, there is one major use of raw pointers that is currently lacking a corresponding standardized high-level type: non-owning references to single objects. This is the gap filled by `view` and `optional_view`.
+Modern C++ guidelines recommend using high-level abstractions such as [`std::vector`](http://en.cppreference.com/w/cpp/container/vector), [`std::array`](http://en.cppreference.com/w/cpp/container/array), `std::array_view` _(not yet standardized)_, [`std::string`](http://en.cppreference.com/w/cpp/string/basic_string), [`std::string_view`](http://en.cppreference.com/w/cpp/string/basic_string_view), [`std::unique_ptr`](http://en.cppreference.com/w/cpp/memory/unique_ptr), [`std::shared_ptr`](http://en.cppreference.com/w/cpp/memory/shared_ptr), [`std::weak_ptr`](http://en.cppreference.com/w/cpp/memory/weak_ptr) and [`std::optional`](http://en.cppreference.com/w/cpp/utility/optional) instead of raw pointers wherever possible. However, there is one major use of raw pointers that currently lacks a corresponding standardized high-level type: non-owning references to single objects. This is the gap filled by `view` and `optional_view`:
 
 |          | Owned                                      | Non-Owned                      |
 |----------|--------------------------------------------|--------------------------------|
 | Single   | `unique_ptr` `shared_ptr` `optional`       | `view` `optional_view`         |
-| Array    | `unique_ptr` `shared_ptr` `array` `vector` | `weak_ptr` `array_view`        |
+| Array    | `array` `vector` `unique_ptr` `shared_ptr` | `array_view` `weak_ptr`        |
 | String   | `string`                                   | `string_view`                  |
 | Iterator | —                                          | _assorted_                     |
 
-An [existing proposal](https://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd=4&cad=rja&uact=8&ved=0ahUKEwjhk8zH0KfQAhUKo48KHS80BA8QFgg1MAM&url=http%3A%2F%2Fwww.open-std.org%2Fjtc1%2Fsc22%2Fwg21%2Fdocs%2Fpapers%2F2014%2Fn4282.pdf&usg=AFQjCNERsxVdyqKaN9WSoUfMkQM-6LGEdQ&sig2=MGpUtRM0As5RYm4I4oZkYg) for `unique_ptr`-esque "dumb" pointer type `observer_ptr` tries to fill the "non-owned single" use case, but `view` and `optional_view`, rather than being based on the types that were designed to fill the "owned single" gap, are designed specifically for their intended purpose. The result is an API that:
+An [existing proposal](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n4282.pdf) for `unique_ptr`-esque "dumb" pointer type [`observer_ptr`](http://en.cppreference.com/w/cpp/experimental/observer_ptr) aims to address the "non-owned single" use case, but `view` and `optional_view`, rather than being based on the owning smart pointer types that were designed to fill the "owned single" gap, are designed specifically for their intended purpose. The result is an API that:
 
 * Improves code correctness
 * More clearly documents intent
 * Has more natural usage syntax
 
-## Quick Example
+## <a name="example"></a>Quick Example
 
-Take an example where a pointer might be used to represent an optional, non-owning relationship between a person and their pet (you can't, like, _own_ an animal, man):
+Take an example where a pointer might be used to represent an optional, non-owning relationship between a person and their animal companion (you can't, like, _own_ an animal, man):
 
 ```c++
 struct person {
@@ -42,10 +50,10 @@ struct person {
 
 animal fluffy;
 person bob;
-bob.pet = fluffy;
+bob.pet = fluffy; // note: initialized from `animal&` instead of `animal*`
 ```
 
-The "empty" status of an `optional_view` can be tested for as if it were a `bool`, and the `optional_view` can be "emptied" by assigning `{}`:
+The `optional_view` can be tested for "empty" status as if it were a `bool`, and set to "empty" by assigning `{}` just like a pointer or [`std::optional`](http://en.cppreference.com/w/cpp/utility/optional):
 
 ```c++
 assert(bob.pet);
@@ -61,7 +69,7 @@ struct person {
 };
 
 animal fluffy;
-person bob = { fluffy };
+person bob = { fluffy }; // note: initialization required on construction
 ```
 
 Like pointers, both `view` and `optional_view` use the indirection operators (`*` and `->`) to access the referenced object:
@@ -73,7 +81,7 @@ bob.pet->sleep();
 And `view` also implicitly converts to `T&`:
 
 ```c++
-animal dolly = bob.pet; // no need to "dereference"
+animal dolly = bob.pet; // note: no need to "dereference"
 ```
 
 Both `view` and `optional_view` can be copied freely, and `view` implicitly converts to `optional_view`:
@@ -83,9 +91,9 @@ view<animal> pet = bob.pet;
 optional_view<animal> possible_pet = pet;
 ```
 
-## Tutorial
+## <a name="tutorial"></a>Tutorial
 
-For this demonstration, we will create a type that can be used to create a tree of connected nodes. Nodes will not own other nodes, but will instead keep non-owning references to other nodes. The client is in charge of ensuring that references aren't left dangling. Each node will have zero or one parent and zero or more children. For simplicity, we will not attempt to prevent cycles from being formed.
+In this demonstration, we will create a type that can be used to create a tree of connected nodes. Nodes will only keep non-owning references to other nodes. The client is responsible for the lifetime of each node. Each node will have an optional parent and zero or more children. For simplicity, we will not attempt to prevent cycles from being formed.
 
 With only pointers and references in our arsenal, we might start with something like this:
 
@@ -105,14 +113,14 @@ public:
 };
 ```
 
-We make `parent` a pointer because it is natural to use `nullptr` to represent the lack of a parent. However, we already have a bug in our code: we forgot to initialize `parent` to `nullptr`! In addition, the meaning of `node*` is not 100% clear. We want it to mean "_non-owning_, _optional_ reference to a _single_ `node` object". However, pointers have other potential uses:
+We make `parent` a pointer because it is natural to use `nullptr` to represent the lack of a parent. However, we already have a bug in our code: we forgot to initialize `parent` to `nullptr`! In addition, the meaning of `node*` is not 100% clear. We want it to mean "_non-owning_, _optional_ reference to a _single_ `node`". However, pointers have other potential uses:
 
 * Pointers are sometimes used in place of references, where they are assumed to _not_ be null; a violation of this condition is a programming error and may result in undefined behaviour.
 * Pointers are used to represent arrays of objects; indeed, pointers define the subscript operator (e.g. 'p[i]') for indexing into arrays; however, using an index greater than zero with a pointer that references a single object is undefined behaviour.
 * Pointers are used to represent random-access iterators; indeed, pointers define arithmetic operators (e.g. 'p++') for moving iterators; however, changing the value of and then dereferencing a pointer that references a single object is undefined behaviour.
-* Occasionally, ownership of a dynamically created object or array (using keyword `new` or otherwise) may be transferred when calling a function that receives or returns a pointer; that is, the creator of the object is no longer responsible for destroying it (using `delete`, `delete[]` or otherwise); neglecting to destroy an object or array you own will result in a resource leak; attempting to destroying an object or array you don't own can result in undefined behaviour.
+* Ownership of a dynamically created object or array (using keyword `new` or otherwise) may be transferred when calling a function that receives or returns a pointer; that is, the creator of the object is no longer responsible for destroying it (using `delete`, `delete[]` or otherwise); neglecting to destroy an object or array you own will result in a resource leak; attempting to destroying an object or array you don't own can result in undefined behaviour.
 
-With all this potential undefined behaviour, it is important that the reader of our code or API knows exactly what `node*` _means_. We could provide additional documentation to tell the user what we mean when we say `node*`, but if we replace `node*` with `optional_view<node>`, we can convey that information automatically. An `optional_view<T>` _is_ a __non-owning__, __optional__ reference to a __single__ object of type `T`. In addition, we get compile-time assurances that we didn't with `T*`:
+With all this potential undefined behaviour, it is important that the reader of our code or API knows exactly what `node*` _means_. We could provide additional documentation to tell the user what we mean when we say `node*`, but if we replace `node*` with `optional_view<node>`, we can convey that information automatically. An `optional_view<T>` _is_ a _non-owning_, _optional_ reference to a _single_ object of type `T`: an optional view of `T`. In addition, we get compile-time assurances that we didn't with `T*`:
 
 * `optional_view<T>` is always default initialized (to its empty state)
 * `optional_view<T>` does not define the subscript operator
@@ -145,20 +153,20 @@ b.set_parent(a)
 assert(b.get_parent() == a);
 ```
 
-Not only is the syntax nicer, but it discourages the use of raw pointers in client code, reducing the potential for `nullptr` bugs. To set the empty state, we use `{}`, and to test for the empty state we can test `optional_view` as if it were a `bool`:
+This is arguably more natural syntax. To set the empty state, we use `{}`, and to test for the empty state we can test `optional_view` as if it were a `bool`, just like a pointer:
 
 ```c++
 b.set_parent({})
 assert(!b.get_parent());
 ```
 
-Now, it would be nice if `node` kept track of its children, so we can navigate both up _and_ down the tree. If we were using references and pointers, we might initially consider storing a `std::vector` of references:
+It would be nice if `node` also kept track of its children, so we can navigate both up _and_ down the tree. If we were using references and pointers, we might initially consider storing a `std::vector` of references:
 
 ```c++
     std::vector<node&> children;
 ```
 
-Alas, this will not compile. References behave irregularly: unlike pointers, copy assigning to a reference will modify the referenced object, not the reference itself. This behaviour precludes storage of references in STL containers like `std::vector`. Instead, we are forced to store pointers:
+Alas, this will not compile. References behave irregularly: unlike pointers, copy assignment applies directly to the referenced object, not to the reference itself. This behaviour precludes storage of references in STL containers like `std::vector`. Instead, we are forced to store pointers:
 
 ```c++
 private:
@@ -186,7 +194,7 @@ private:
     }
 ```
 
-Instead of `node&` or `node*`, we can use `view<node>`, the mandatory counterpart to `optional_view<node>`. In addition to all the documentation benefits and compile-time assurances that `optional_view` provides, `view` _must_ always reference an object. An `optional_view<T>` _is_ a __non-owning__, ___mandatory___ reference to a __single__ object of type `T`. And it can be stored in STL containers, just like `optional_view<T>` or `T*`.
+Now, we could replace `node*` with `optional_view<node>`, but this is misleading since children are _not_ optional. Instead of `node&` or `node*`, we can use `view<node>`, the mandatory counterpart to `optional_view<node>`. In addition to all the documentation benefits and compile-time assurances that `optional_view` provides, `view` _must_ always reference an object. A `view<T>` _is_ a _non-owning_, _mandatory_ reference to a _single_ object of type `T`: a view of `T`. And it can be stored in STL containers, just like `optional_view<T>` or `T*`.
 
 Let's replace all instances of `node&` and `node*` with `view<node>`, and add the calls to `add_child` and `remove_child` to `set_parent`:
 
@@ -221,13 +229,13 @@ private:
 };
 ```
 
-As well as the implementation being safer, the semantics have changed. Previously, when using `auto` type deduction, different syntax would have been required to store and access `node&` and `node*`:
+As well as the implementation being safer, note that the semantics have changed. Previously, when using `auto` type deduction, different syntax would have been required to store and access `node&` and `node*`:
 
 ```c++
 auto aa = b.get_parent();
 auto& bb = a.get_child(0); // omitting the `&` would perform a copy
 
-bb.set_parent({});
+bb.set_parent({}); // `.` operator used to access reference
 aa->set_parent(&bb);
 ```
 
@@ -241,14 +249,14 @@ bb->set_parent({});
 aa->set_parent(bb);
 ```
 
-`view<node>` _can_ implicitly convert to `node&`, though indirection syntax must still be used to access the referenced object if conversion doesn't happen:
+`view<node>` _can_ implicitly convert to `node&`, though indirection syntax must still be used to access the referenced object if conversion isn't triggered:
 
 ```c++
 node& bb = a.get_child(0);
 a.get_child(0)->set_parent({});
 ```
 
-## Design Rationale
+## <a name="rationale"></a>Design Rationale
 
 ### <a name="rationale-construction-from"></a>Construction from and conversion to `T&` and `T*`
 
@@ -391,7 +399,7 @@ The term "optional" has an obvious meaning. Indeed, an `optional_view<T>` is pre
 
 One possible question is, should the "optional" type be the default? In other words, should `optional_view` be named `view` and `view` be named something like `mandatory_view` or `compulsory_view`? Aside from the precident set by `std::optional` (which I believe is pretty strong by itself), I think the answer is "no": `view` is inherently a simpler type; there is no need to account for the additional "empty" state which, like null pointers, is a major source of potential programming errors. The mandatory type should be the default choice, and the optional type should be opted-into. The naming of the types should reflect this.
 
-## FAQ
+## <a name="faq"></a>FAQ
 
 ### <a name="faq-good-enough"></a>Aren't `T*` and `T&` good enough?
 
