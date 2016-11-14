@@ -1,10 +1,23 @@
 # `view` and `optional_view`: generic views for C++
 
-`view` and `optional_view` are types used to indirectly reference other objects without implying ownership. `view<T>` is a mandatory "view" of an object of type `T`, while `optional_view<T>` is an _optional_ "view" of an object of type `T`. Both `view` and `optional_view` have reference-like initialization semantics, and pointer-like indirection semantics. They offer a number of advantages over raw pointers and references, including:
+`view` and `optional_view` are types used to indirectly reference other objects without implying ownership. `view<T>` is a mandatory "view" of an object of type `T`, while `optional_view<T>` is an optional "view" of an object of type `T`. Both `view` and `optional_view` have reference-like initialization semantics and pointer-like indirection semantics.
 
-* Improved code correctness
-* Clearer documentation of intent
-* More natural usage syntax
+## Motivation
+
+Modern C++ best practices recommend the use of high-level abstractions such as `std::vector`, `std::array`, `std::array_view` _(not yet standardized)_, `std::string`, `std::string_view`, `std::unique_ptr`, `std::shared_ptr`, `std::weak_ptr` and `std::optional` instead of raw pointers. However, there is one major use of raw pointers that is currently lacking a corresponding standardized high-level type: non-owning references to single objects. This is the gap filled by `view` and `optional_view`.
+
+|          | Owned                                      | Non-Owned                      |
+|----------|--------------------------------------------|--------------------------------|
+| Single   | `unique_ptr` `shared_ptr` `optional`       | `view` `optional_view`         |
+| Array    | `unique_ptr` `shared_ptr` `array` `vector` | `weak_ptr` `array_view`        |
+| String   | `string`                                   | `string_view`                  |
+| Iterator | —                                          | _assorted_                     |
+
+An existing proposal for `unique_ptr`-esque "dumb" pointer type `observer_ptr` tries to fill the "non-owned single" use case, but `view` and `optional_view`, rather than being based on the types that were designed to fill the "owned single" gap, are designed specifically to for purpose. The result is an API that:
+
+* Improves code correctness
+* More clearly documents intent
+* Has more natural usage syntax
 
 ## Quick Example
 
@@ -55,7 +68,6 @@ Like pointers, both `view` and `optional_view` use the indirection operators (`*
 
 ```c++
 bob.pet->sleep();
-animal dolly = *bob.pet;
 ```
 
 And `view` also implicitly converts to `T&`:
@@ -73,7 +85,7 @@ optional_view<animal> possible_pet = pet;
 
 ## Tutorial
 
-For this demonstration, we will create a type that can be used to create a tree of connected nodes. Nodes will not own other nodes, but will instead keep non-owning references to other nodes. Each node will have zero or one parent and zero or more children. For simplicity, we will not attempt to prevent cycles from being formed.
+For this demonstration, we will create a type that can be used to create a tree of connected nodes. Nodes will not own other nodes, but will instead keep non-owning references to other nodes. The client is in charge of ensuring that references aren't left dangling. Each node will have zero or one parent and zero or more children. For simplicity, we will not attempt to prevent cycles from being formed.
 
 With only pointers and references in our arsenal, we might start with something like this:
 
@@ -410,6 +422,8 @@ int& r = i;
 r = j; // modifies `i`; does not make `r` reference `j`
 ```
 
+As a bonus, `view<T>` is compatible with the current design of `std::experimental::propagate_const`, while `T&` is not.
+
 `view` and `optional_view` are _as_ efficient as pointers and references, and have APIs that have been _purpose-designed_ as non-owning reference types to be minimal, expressive and hard to use incorrectly.
 
 ### <a name="faq-operator-dot"></a>Why does `view` use pointer-like syntax when it can't be null? Typing `*` or `->` is a hassle. Shouldn't you wait until some form of `operator.` overloading has been standardized?
@@ -529,17 +543,13 @@ In short, operations on `view` tend to modify or inspect the `view` itself (like
 
 ### <a name="faq-not-null"></a>Isn't `view` the same as `gsl::not_null`?
 
-It depends. The design goals of `gsl::not_null` are not 100% clear.
+No. The aims of `view` and `not_null` are different. In short, `view` is a non-owning reference to a single object, while `not_null` is simply a pointer that should not be null.
 
-According to the [current documentation](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#i12-declare-a-pointer-that-must-not-be-null-as-not_null) in the C++ Core Guidelines, the purpose of `not_null` is simply to indicate to the compiler and the reader that a pointer should not be null. The current design of `not_null` allows optional run-time checks to be enabled via a pre-processor switch, but the C++ Core Guidelines suggest enforcement via a static analysis tool. The examples given include use with C-style strings (`char const*`) so it seems that `not_null` is intended to be a transparent pointer-like adapter that helps ensure the wrapped pointer does not become null. If this is the case, then no, `view` and `not_null` are not the same at all. They perform complementary functions and could be used side-by-side in the same codebase, no problem.
+According to the [current documentation](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#i12-declare-a-pointer-that-must-not-be-null-as-not_null) in the C++ Core Guidelines, the purpose of `not_null` is simply to indicate to the compiler and the reader that a pointer should not be null. The current design of `not_null` allows optional run-time checks to be enabled via a pre-processor switch, but the C++ Core Guidelines suggest enforcement via a static analysis tool. The examples given include use with C-style strings (`char const*`), something that would never be a use case for `view`.
 
-However, the [current implementation](https://github.com/Microsoft/GSL/blob/master/gsl/gsl) contradicts the C++ Core Guidelines, stating that `not_null` should be used only with pointers that reference stand-alone objects, and explicitly `delete`s a number of arithmetic operations. If this is the case, then the function of `not_null` does overlap with `view`. However, I would suggest that `not_null` is not particularly well designed for this purpose, for a few reasons:
+One possible source of confusion is the fact that the [current implementation](https://github.com/Microsoft/GSL/blob/master/gsl/gsl) of `not_null` explicitly `delete`s a number of pointer arithmetic operations. At first, it may seem like an indication that `not_null` should not be used to store pointers that represent arrays or iterators. However, one of the authors of `not_null` has [clarified](https://github.com/Microsoft/GSL/issues/417) that these restrictions simply aim to encourage the use of the complementary `span` facility (the GSL version of an `array_view`) instead of manually iterating over ranges or indexing into arrays represented by pointers.
 
-* The name `not_null<T*>` simply suggests a pointer that cannot be null; nowhere is it suggested that `not_null<T*>` cannot be used with pointers to arrays; this is misleading.
-* There is no `maybe_null` counterpart to `not_null` (`maybe_null` did exist once upon a time, but [was removed](https://github.com/isocpp/CppCoreGuidelines/issues/271) because it "[made] code verbose"); this document clearly outlines the case for `optional_view`; if the designers of `not_null` feel it is important to restrict `not_null` to use with pointers to stand-alone objects (e.g. by omitting pointer arithmetic operations) then perhaps they should feel it is important to have a `maybe_null` type to do the same for nullable pointers.
-* There are a number of other differences between the designs of `not_null` and `view` that I won't go over here, because it is likely that `not_null` is not in fact intended to perform the same function as `view`.
-
-In short, if `not_null` _is_ intended to reference only stand-alone objects, then it tries to do the same job as `view`, but with a somewhat different API that also lacks an `optional_view` equivalent.
+So `view` and `not_null` are not the same at all. They perform complementary functions and could be used side-by-side in the same codebase, no problem.
 
 ### <a name="faq-observer-ptr"></a>Isn't `optional_view` the same as `std::experimental::observer_ptr`?
 
@@ -627,7 +637,7 @@ foo() = i; // modifies the temporary `view` returned by `foo` to reference `i`
 auto x = foo(); // `decltype(x)` is `view<int>`
 ```
 
-In this case, `view<T>` has pointer-like indirection semantics, while `T&` has reference-like direct-access semantics. Thus, you would not want to use `view` when you wished to provide _direct_ access to an object, like when implementing `operator[]` for an array type. You _may_ want to use `view` if you wish to provide a pointer-like indirect handle to an object; in this case you may also wish to return a `view<T> const` to prevent the caller from accidentally assigning to the temporary:
+`view<T>` has pointer-like indirection semantics, while `T&` has reference-like direct-access semantics. Thus, you would not want to use `view` when you wished to provide _direct_ access to an object, like when implementing `operator[]` for an array type. You _may_ want to use `view` if you wish to provide a pointer-like indirect handle to an object; in this case you may also wish to return a `view<T> const` to prevent the caller from accidentally assigning to the temporary:
 
 ```c++
 view<int> const foo() { … }
