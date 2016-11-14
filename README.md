@@ -1,10 +1,10 @@
-# `view` and `optional_view`: indirection types for C++
+# `view` and `optional_view`: generic views for C++
 
-`view` and `optional_view` are types used to indirectly reference other objects without implying ownership. They offer a number of advantages over raw pointers and references, including:
+`view` and `optional_view` are types used to indirectly reference other objects without implying ownership. `view<T>` is a mandatory "view" of an object of type `T`, while `optional_view<T>` is an _optional_ "view" of an object of type `T`. Both `view` and `optional_view` have reference-like initialization semantics, and pointer-like indirection semantics. They offer a number of advantages over raw pointers and references, including:
 
-* Increased safety
-* Clearer intent
-* An improved API
+* Improved code correctness
+* Clearer documentation of intent
+* More natural usage syntax
 
 ## Quick Example
 
@@ -35,7 +35,9 @@ bob.pet = fluffy;
 The "empty" status of an `optional_view` can be tested for as if it were a `bool`, and the `optional_view` can be "emptied" by assigning `{}`:
 
 ```c++
-if (bob.pet) bob.pet = {};
+assert(bob.pet);
+bob.pet = {};
+assert(!bob.pet);
 ```
 
 A mandatory relationship can be expressed by using `view` instead of `optional_view`:
@@ -56,11 +58,17 @@ bob.pet->sleep();
 animal dolly = *bob.pet;
 ```
 
+And `view` also implicitly converts to `T&`:
+
+```c++
+animal dolly = bob.pet; // no need to "dereference"
+```
+
 Both `view` and `optional_view` can be copied freely, and `view` implicitly converts to `optional_view`:
 
 ```c++
 view<animal> pet = bob.pet;
-optional_view<animal> maybe_pet = pet;
+optional_view<animal> possible_pet = pet;
 ```
 
 ## Tutorial
@@ -88,12 +96,14 @@ public:
 We make `parent` a pointer because it is natural to use `nullptr` to represent the lack of a parent. However, we already have a bug in our code: we forgot to initialize `parent` to `nullptr`! In addition, the meaning of `node*` is not 100% clear. We want it to mean "_non-owning_, _optional_ reference to a _single_ `node` object". However, pointers have other potential uses:
 
 * Pointers are sometimes used in place of references, where they are assumed to _not_ be null; a violation of this condition is a programming error and may result in undefined behaviour.
-* Pointers are used to represent arrays of objects; indeed, pointers define arithmetic operations (e.g. `++` and `--`) operations for navigating arrays, but modifying and then dereferencing a pointer which references a single object is undefined behaviour.
-* Occasionally, ownership of a dynamically created object (using keyword `new` or otherwise) may be transferred when calling a function that receives or returns a pointer; that is, the creator of the object is no longer responsible for destroying it (using keyword `delete` or otherwise). Neglecting to destroy an object you owner will result in a resource leak. Attempting to destroying an object you don't own can result in underfined behaviour.
+* Pointers are used to represent arrays of objects; indeed, pointers define the subscript operator (e.g. 'p[i]') for indexing into arrays; however, using an index greater than zero with a pointer that references a single object is undefined behaviour.
+* Pointers are used to represent random-access iterators; indeed, pointers define arithmetic operators (e.g. 'p++') for moving iterators; however, changing the value of and then dereferencing a pointer that references a single object is undefined behaviour.
+* Occasionally, ownership of a dynamically created object or array (using keyword `new` or otherwise) may be transferred when calling a function that receives or returns a pointer; that is, the creator of the object is no longer responsible for destroying it (using `delete`, `delete[]` or otherwise); neglecting to destroy an object or array you own will result in a resource leak; attempting to destroying an object or array you don't own can result in undefined behaviour.
 
-With all this potential undefined behaviour, it is important that a client of our API knows exactly what `node*` _means_. We could provide additional documentation to tell the user what we mean when we say `node*`, but if we replace `node*` with `optional_view<node>`, we can convey that information automatically. An `optional_view<T>` _is_ a __non-owning__, __optional__ reference to a __single__ object of type `T`. In addition, we get compile-time assurances that we didn't with `T*`:
+With all this potential undefined behaviour, it is important that the reader of our code or API knows exactly what `node*` _means_. We could provide additional documentation to tell the user what we mean when we say `node*`, but if we replace `node*` with `optional_view<node>`, we can convey that information automatically. An `optional_view<T>` _is_ a __non-owning__, __optional__ reference to a __single__ object of type `T`. In addition, we get compile-time assurances that we didn't with `T*`:
 
 * `optional_view<T>` is always default initialized (to its empty state)
+* `optional_view<T>` does not define the subscript operator
 * `optional_view<T>` does not define arithmetic operations
 * `optional_view<T>` does not implicitly convert to `void*` (you cannot `delete` it)
 
@@ -199,27 +209,32 @@ private:
 };
 ```
 
-As well as the implementation being safer, the way the API is used has become more consistent. Previously, different syntax would have been required to store and access `node&` and `node*`:
+As well as the implementation being safer, the semantics have changed. Previously, when using `auto` type deduction, different syntax would have been required to store and access `node&` and `node*`:
 
 ```c++
 auto aa = b.get_parent();
 auto& bb = a.get_child(0); // omitting the `&` would perform a copy
 
-bb.set_parent(nullptr);
+bb.set_parent({});
 aa->set_parent(&bb);
 ```
 
-With `view<node>` and `optional_view<node>`, the syntax is more consistent:
+Both `view<node>` and `optional_view<node>` have pointer-like copying and indirection semantics:
 
 ```c++
 auto aa = b.get_parent();
 auto bb = a.get_child(0);
 
-bb->set_parent(nullptr);
+bb->set_parent({});
 aa->set_parent(bb);
 ```
 
-`view<node>` implicitly converts to `node&`, so 
+`view<node>` _can_ implicitly convert to `node&`, though indirection syntax must still be used to access the referenced object if conversion doesn't happen:
+
+```c++
+node& bb = a.get_child(0);
+a.get_child(0)->set_parent({});
+```
 
 ## Design Rationale
 
@@ -233,11 +248,11 @@ Both `view` and `optional_view` are constructible from and convertible to `T&` a
 
 In none of these cases would it be correct to allow either `view<T>` or `optional_view<T>` to be implicitly constructed from  or converted to `T*`. It is up to the programmer to explicitly specify these conversions when they are sure it is correct to do so.
 
-It's worth noting that if conversion from `optional_view<T>` to `T*` were implicit, then array-like operations such as `v[i]` and iterator-like operations such as `v++` would automatically be enabled. This is reflective of the fact that implicit conversion implies functional equivalence.
+It's worth noting that if conversion from `optional_view<T>` to `T*` were implicit, then array-like operations such as `v[i]`, iterator-like operations such as `v++`, and ownership operations such as `delete v` would automatically be enabled. This is reflective of the fact that implicit conversion implies functional equivalence.
 
 ### <a name="rationale-construction-from-pointer-to-view"></a>Construction of `view` from `T*` or `optional_view`
 
-Explicit construction of `view` from a pointer or an `optional_view` is supported, and throws a `std::invalid_argument` if the pointer is null or the `optional_view` is empty. It could be argued that such a feature is not strictly required as part of a minimal and efficient APU (the user could implement equivalent behaviour just as efficiently as a non-member function) and encourages programming errors as the user may not realize that constructing a `view` from a pointer is not `nothrow`. However, misuse of this feature is unlikely, since implicit conversion is forbidden; for example, this will not compile:
+Explicit construction of `view` from a pointer or an `optional_view` is supported, and throws a `std::invalid_argument` if the pointer is null or the `optional_view` is empty. It could be argued that such a feature is not strictly required as part of a minimal and efficient API (the user could implement equivalent behaviour just as efficiently as a non-member function) and encourages programming errors as the user may not realize that constructing a `view` from a pointer is not `nothrow`. However, misuse of this feature is unlikely, since implicit conversion is forbidden; for example, this will not compile:
 
 ```c++
 void foo(view<int> v) { … }
@@ -255,7 +270,7 @@ The user would have to explicitly call the constructor of `view` in order to con
     foo(view<int>(p));
 ```
 
-Thus, even though such functionality isn't strictly necessary, it is a convenient way to safely (i.e. without invoking undefined behaviour) convert a pointer or `optional_view` to a `view`. It also seems appropriate to support such operations given the inclusion of the [throwing accessor function](#rationale-named-member-functions) `value` in `optional_view`, a function which is also strictly not required and is taken from the design of `std::optional`.
+Thus, even though such functionality isn't strictly necessary, it is a convenient way to safely (i.e. without invoking undefined behaviour) convert a pointer or `optional_view` to a `view`. It also seems appropriate to support such operations given the inclusion of the [throwing accessor function](#rationale-named-member-functions) `value` in `optional_view`, a function which is also strictly not required and is inspired by the design of `std::optional`.
 
 Note that there is no overload of `make_view` that takes a pointer, as `make_view` is intended to facilitate automatic type deduction. If such an overload existed, it would be all too easy for the user to forget that passing a pointer rather than a reference may throw:
 
@@ -279,14 +294,14 @@ foo(42); // also okay
 However, unlike a reference-to-const, a `view<T const>` does not extend the lifetime of the temporary from which it is constructed. Thus, while this is safe:
 
 ```c++
-int const& i = 42; // temporary created and lifetime extended by `i`
+int const& i = 42; // lifetime of temporary extended by `i`
 std::cout << i; // a-okay
 ```
 
 This is most definitely not safe:
 
 ```c++
-view<int const> i = 42; // temporary created and destroyed
+view<int const> i = 42; // temporary destroyed after assignment
 std::cout << *i; // undefined behaviour!
 ```
 
@@ -296,16 +311,6 @@ Note that this behaviour is shared by `std::string_view`:
 std::string_view v = std::string("hello, world");
 std::cout < v; // undefined behaviour
 ```
-
-### <a name="rationale-conversion-to"></a>Conversion to `T&` and `T*`
-
-Both `view` and `optional_view` are convertible to `T&` and `T*`, but only the conversion from `view<T>` to `T&` is _implicit_. The idea is that conversions should be implicit if they are semantically correct and safe virtually all of the time, while they should be explicit if they are semantically correct or safe only some of the time. `T&` should always represent a valid reference to an object in a well-formed program, so implicit conversion is correct in this case. Conversely, `T*` may or may not be a valid reference to an object; for example:
-
-* `T*` may have ownership semantics
-* `T*` may represent an array
-* `T*` may be an iterator (and maybe a "past-the-end" iterator)
-
-In none of these cases would it be correct to allow the pointer to convert the pointer to an `optional_view`. It is up to the programmer to explicitly make this conversion when they are sure it is correct to do so.
 
 ### <a name="rationale-assignment"></a>Assignment operators and the `v = {}` idiom
 
@@ -319,23 +324,39 @@ view<int const> v2 = i;
 v2 = {}; // compile error (`view` has no default state)
 ```
 
-If assignment operators were explicitly implemented, care would need to be taken to ensure that `v = {}` compiled for `optional_view` and didn't compile for `view`. Since both types are very lightweight, the compiler should be able to easily elide the additional copy, so there should be no performance penalty for this design choice.
+If assignment operators were explicitly implemented, extra measures would need to be taken to ensure that `v = {}` compiled for `optional_view` and didn't compile for `view`. Since both types are very lightweight, the compiler should be able to easily elide the additional copy, so there should be no performance penalty for this design choice.
 
 ### <a name="rationale-move"></a>Move behaviour
 
-Neither `view` not `optional_view` define distinct move behaviour; moving is equivalent to copying. It could be argued that a moved-from `optional_view` should become empty, but in reality we have no way of knowing how client code wants a moved-from `optional_view` to behave, and such behaviour would incur a potentially unnecessary run-time cost. In addition, a moved-from `view` cannot be empty, so such behaviour would be potentially surprising. An additional advantage of keeping the compiler-generated move operations is that `view` and `optional_view` can be [trivially copyable](http://en.cppreference.com/w/cpp/concept/TriviallyCopyable) (they can be copied using [`std::memcpy`](http://en.cppreference.com/w/cpp/string/byte/memcpy), a performance optimization that some library components employ).  
+Neither `view` not `optional_view` define distinct move behaviour: moving is equivalent to copying. It could be argued that a moved-from `optional_view` should become empty, but in reality we have no way of knowing how client code wants a moved-from `optional_view` to behave, and such behaviour would incur a potentially unnecessary run-time cost. In addition, a moved-from `view` cannot be empty, so having different behaviour for `optional_view` would be potentially surprising. An additional advantage of keeping the compiler-generated move operations is that `view` and `optional_view` can be [trivially copyable](http://en.cppreference.com/w/cpp/concept/TriviallyCopyable) (they can be copied using [`std::memcpy`](http://en.cppreference.com/w/cpp/string/byte/memcpy), a performance optimization that some library components employ).  
 
 ### <a name="rationale-get"></a>The `get` member function
 
-Given that `view` and `optional_view` are not smart pointer types, `get` is an awfully undescriptive name for a function which returns a pointer to whatever `view` or `optional_view` are referencing. A better name might be `ptr`, `get_ptr` or `to_ptr`. However, `std::experimental::propagate_const` currently requires supported types to implement a function called `get` that returns a pointer to the referenced object. If `propagate_const` allowed supported types to _either_ provide a `get` function _or_ pointer conversion (which `view` and `optional_view` already support), then the `get` function could be changed. In fact, since `propagate_const` cannot be expected to "propagate constness" to every function which returns a pointer to the referenced object (as it does with `get`), the `get` function could be removed from `view` and `optional_view` entirely, leaving explicit pointer conversion as the only way to obtain a pointer to the referenced object.
+Given that `view` and `optional_view` are not smart pointer types, `get` is an awfully undescriptive name for a function which returns a pointer to whatever `view` or `optional_view` are referencing. A better name might be `ptr`, `get_ptr` or `to_ptr`. However, `std::experimental::propagate_const` currently requires supported types to implement a function called `get` that returns a pointer to the referenced object. If `propagate_const` allowed supported types to _either_ provide a `get` function _or_ pointer conversion (which `view` and `optional_view` already support), then the `get` function could be changed. In fact, since `propagate_const` cannot be expected to "propagate constness" to every function which returns a pointer to the referenced object (as it does with `get`), the `get` function could be removed from `view` and `optional_view` entirely, leaving explicit pointer conversion as the only way to obtain a pointer to the referenced object. A non-member convenience function could be provided as an alias for `static_cast<T*>(v)` if such conversions were considered commonly required; this would work fine with `propagate_const`.
 
 ### <a name="rationale-view-bool"></a>Conversion from `view` to `bool`
 
 Unlike `optional_view`, `view` cannot be empty, so it doesn't make much sense for `view` to convert to `bool`. However, `view` implements `operator bool` so that it can be used with `std::experimental::propagate_const`. If the design of `propagate_const` were changed so that it worked with types that do not implement `operator bool`, then `view` would remove this feature.
 
+### <a name="rationale-optional"></a> Use of `optional_view<T>` rather than `std::optional<view<T>>`
+
+It could be argued that the role of an optional "view" should be played by `optional<view<T>>`. After all, there is no `std::optional_string_view` to act as a higher-level version of a `char const*` which represents an optional string; in fact, it could be argued that `char const*` should never be conceptually never be null, which is why types such as `std::optional_string_view` don't exist. Surely the same applies to a `T*` that represents a reference?
+
+In reality, it is common practice to use `T*` as an optional reference and `T&` as a mandatory reference, while a `char const*` that represents a string is more commonly expected to not be null. In addition, the double indirection syntax required when using `optional<view<T>>` is very clunky:
+
+```c++
+foo f;
+auto v = make_optional(make_view(f));
+(*v)->bar = 42;
+```
+
+Also, `optional<view<T>>` generally occupies _twice_ the memory of `optional_view<T>`, which may put people off of using such a simple type.
+
 ### <a name="rationale-nullopt"></a>Reuse of `std::nullopt` and `std::bad_optional_access`
 
-Reuse of the std::nullopt
+Given that `optional_view<T>` is conceptually similar to `std::optional<view<T>>`, it makes sense to reuse features added alongside `std::optional`.
+
+The current implementation provides its own `nullopt_t`, `nullopt` and `bad_optional_access`, since implementations of `std::optional` are not yet widely available.
 
 ### <a name="rationale-named-member-functions"></a>Supplementary accessors (`value` and `value_or`)
 
@@ -356,13 +377,13 @@ The term "observer" could potentially be used (as in `std::experimental::observe
 
 The term "optional" has an obvious meaning. Indeed, an `optional_view<T>` is pretty much functionally equivalent to an `optional<view<T>>`; the former is simply a bit nicer to use.
 
-One possible question is, should the "optional" type be the default? In other words, should `optional_view` be named `view` and `view` be named something like `mandatory_view` or `compulsory_view`? Aside from the precident set by `std::optional` (which I believe is pretty strong by itself), I think the answer is "no": `view` is an inherently simpler type; there is no need to account for the additional "empty" state which, like null pointers, is a major source of potential programming errors. The mandatory type should be the default choice, and the optional type should be opted-into. The naming of the types should reflect this.
+One possible question is, should the "optional" type be the default? In other words, should `optional_view` be named `view` and `view` be named something like `mandatory_view` or `compulsory_view`? Aside from the precident set by `std::optional` (which I believe is pretty strong by itself), I think the answer is "no": `view` is inherently a simpler type; there is no need to account for the additional "empty" state which, like null pointers, is a major source of potential programming errors. The mandatory type should be the default choice, and the optional type should be opted-into. The naming of the types should reflect this.
 
 ## FAQ
 
 ### <a name="faq-good-enough"></a>Aren't `T*` and `T&` good enough?
 
-The suggestion has been made that raw pointers work just fine as non-owning, optional reference types, and there is no need to introduce new types when we already have long-established types that are well-suited to this role.
+The suggestion has been made that raw pointers work just fine as non-owning, optional references, and there is no need to introduce new types when we already have long-established types that are well-suited to this role.
 
 Some argue that once all other uses of pointers have been covered by other high-level types (e.g. `std::unique_ptr`, `std::string`, `std::string_view`, `std::array`, `std::array_view`, …) the only use case that will be left for raw pointers will be as non-owning, optional reference types, so it will be safe to assume that wherever you see `T*` it means "non-owning, optional reference". This is not true for a number of reasons:
 
@@ -372,16 +393,16 @@ Some argue that once all other uses of pointers have been covered by other high-
 
 Conversely, wherever you see `optional_view<T>` in some code, you _know_ that it means "non-owning, optional reference" (unless the author of the code was being perverse). Explicitly documenting intent is generally better than letting readers of your code make assumptions.
 
-Aside from the case for documenting intent, it can be argued that pointers and references are not optimally designed for use as non-owning reference types. A well-designed type is __efficient__ and has an API that is __minimal__ yet __expressive__ and __hard to use incorrectly__. Pointers as optional, mandatory reference types may be efficient and do have an expressive API, but their API is not minimal and is very easy to use incorrectly. Case in point, this is syntactically correct but semantically incorrect code:
+Aside from the case for documenting intent, it can be argued that pointers and references are not optimally designed for use as non-owning reference types. A well-designed type is __efficient__ and has an API that is __minimal__ yet __expressive__ and __hard to use incorrectly__. Pointers as optional, mandatory reference types may be efficient and do have a somewhat expressive API, but their API is not minimal and is very easy to use incorrectly. Case in point, this is syntactically correct but semantically incorrect code:
 
 ```c++
 int i = 0;
 int* p = &i;
-p += 1;
+p += 1; // did I mean `*p += 1`?
 *p = 42; // undefined behaviour
 ```
 
-On the other hand, references as non-owning, mandatory reference types are efficient and have a minimal API that is generally hard to use incorrectly. However, the reference API is not as expressive as it could be, since references cannot be reassigned to refer to a different object after construction:
+On the other hand, references as non-owning, mandatory reference types are efficient and have a minimal API that is generally hard to use incorrectly. However, the reference API is not as expressive as it could be, since references cannot be reassigned after construction to refer to a different object:
 
 ```c++
 int i = 0, j = 42;
@@ -438,9 +459,7 @@ v = *u; // modifies `v`
 (*v) = *u; // modifies `f`
 ```
 
-This behaviour is both symmetrical _and_ familiar to experienced programmers. An additional benefit of the pointer-like semantics of `view` is that they are compatible with the proposed `std::experimental::propagate_const`.
-
-Of course, `operator.` "overloading" does have its uses, but this is not one of them.
+This behaviour is both symmetrical _and_ familiar to experienced programmers. Of course, `operator.` "overloading" does have its uses, but this is not one of them.
 
 ### <a name="faq-reference-wrapper"></a>Isn't `view` the same as `std::reference_wrapper`?
 
@@ -514,13 +533,13 @@ It depends. The design goals of `gsl::not_null` are not 100% clear.
 
 According to the [current documentation](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#i12-declare-a-pointer-that-must-not-be-null-as-not_null) in the C++ Core Guidelines, the purpose of `not_null` is simply to indicate to the compiler and the reader that a pointer should not be null. The current design of `not_null` allows optional run-time checks to be enabled via a pre-processor switch, but the C++ Core Guidelines suggest enforcement via a static analysis tool. The examples given include use with C-style strings (`char const*`) so it seems that `not_null` is intended to be a transparent pointer-like adapter that helps ensure the wrapped pointer does not become null. If this is the case, then no, `view` and `not_null` are not the same at all. They perform complementary functions and could be used side-by-side in the same codebase, no problem.
 
-However, the [current implementation](https://github.com/Microsoft/GSL/blob/master/gsl/gsl) contradicts the C++ Core Guidelines, stating that `not_null` should be used only with pointers that reference stand-alone objects (i.e. not arrays of objects), and explicitly `delete`s a number of pointer arithmetic operations. If this is the case, then the function of `not_null` does overlap with `view`. However, I would suggest that `not_null` is not particularly well designed for this purpose, for a few reasons:
+However, the [current implementation](https://github.com/Microsoft/GSL/blob/master/gsl/gsl) contradicts the C++ Core Guidelines, stating that `not_null` should be used only with pointers that reference stand-alone objects, and explicitly `delete`s a number of arithmetic operations. If this is the case, then the function of `not_null` does overlap with `view`. However, I would suggest that `not_null` is not particularly well designed for this purpose, for a few reasons:
 
 * The name `not_null<T*>` simply suggests a pointer that cannot be null; nowhere is it suggested that `not_null<T*>` cannot be used with pointers to arrays; this is misleading.
-* There is no `maybe_null` counterpart to `not_null` (`maybe_null` did exist once upon a time, but [was removed](https://github.com/isocpp/CppCoreGuidelines/issues/271) because it "[made] code verbose"); this document clearly outlines the case for `optional_view`; if the designers of `not_null` feel it is important to restrict `not_null` to use with pointers to stand-alone objects (e.g. by omitting pointer arithmetic operations) then they should feel it is important to have a `maybe_null` type to do the same for nullable pointers.
-* There are a number of other differences between the designs of `not_null` and `view` that I won't go over here, because it is likely that `not_null` is not intended to perform the same function as `view`.
+* There is no `maybe_null` counterpart to `not_null` (`maybe_null` did exist once upon a time, but [was removed](https://github.com/isocpp/CppCoreGuidelines/issues/271) because it "[made] code verbose"); this document clearly outlines the case for `optional_view`; if the designers of `not_null` feel it is important to restrict `not_null` to use with pointers to stand-alone objects (e.g. by omitting pointer arithmetic operations) then perhaps they should feel it is important to have a `maybe_null` type to do the same for nullable pointers.
+* There are a number of other differences between the designs of `not_null` and `view` that I won't go over here, because it is likely that `not_null` is not in fact intended to perform the same function as `view`.
 
-In short, if `not_null` _is_ intended to reference only stand-alone objects, it is largely redundant in the presence of `view` and `optional_view`, which do a far better job as it stands.
+In short, if `not_null` _is_ intended to reference only stand-alone objects, then it tries to do the same job as `view`, but with a somewhat different API that also lacks an `optional_view` equivalent.
 
 ### <a name="faq-observer-ptr"></a>Isn't `optional_view` the same as `std::experimental::observer_ptr`?
 
