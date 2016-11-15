@@ -275,6 +275,8 @@ In none of these cases would it be correct to allow either `view<T>` or `optiona
 
 It's worth noting that if conversion from `optional_view<T>` to `T*` were implicit, then array-like operations such as `v[i]`, iterator-like operations such as `v++`, and ownership operations such as `delete v` would automatically be enabled. This could be considered reflective of the fact that implicit conversion implies functional equivalence.
 
+Also note that there are no overloads of `make_view` or `make_optional_view` that take a pointer, as they are merely intended to facilitate automatic type deduction, and are conceptually similar to implicit constructors.
+
 ### <a name="rationale-construction-from-pointer-to-view"></a>Construction of `view` from `T*` or `optional_view`
 
 Explicit construction of `view` from a pointer or an `optional_view` _is_ supported and throws a `std::invalid_argument` if the pointer is null or the `optional_view` is empty. It could be argued that such a feature is not strictly required as part of a minimal and efficient API (the user could implement equivalent behaviour just as efficiently as a non-member function) and encourages programming errors as the user may not realize that constructing a `view` from a pointer is not `nothrow`. However, the explicit nature of the conversion means that the user is unlikely to do it by accident:
@@ -284,12 +286,6 @@ Explicit construction of `view` from a pointer or an `optional_view` _is_ suppor
 ```
 
 Thus, even though such functionality isn't strictly necessary, it is a convenient way to safely (i.e. without invoking undefined behaviour) convert a pointer or `optional_view` to a `view`. It also seems appropriate to support such operations given the inclusion of the [throwing accessor function](#rationale-named-member-functions) `value` in `optional_view`, a function which is also strictly not required and is inspired by the design of `std::optional`.
-
-Note that there is no overload of `make_view` that takes a pointer, as `make_view` is intended to facilitate automatic type deduction. If such an overload existed, it would be all too easy for the user to forget that passing a pointer rather than a reference may throw:
-
-```c++
-    auto v = make_view(x); // may or may not be `nothrow`, depending on the type of `x`
-```
 
 ### <a name="rationale-construction-from-rvalue"></a>Construction from `T&&`
 
