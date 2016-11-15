@@ -29,7 +29,9 @@
 #include <array>
 #include <iostream>
 #include <map>
+#include <set>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace
@@ -73,12 +75,14 @@ SCENARIO("`view` and `optional_view` are trivially copyable")
     //CHECK(std::is_trivially_copyable<optional_view<int>>::value);
 }
 
-SCENARIO("`view` can reference objects")
+SCENARIO("`view` constructs from `T&` and `T*`")
 {
     int i = {};
     int j = {};
+    int* p = &i;
+    int* n = {};
 
-    GIVEN("a `view<int>` constructed from an `int&`")
+    GIVEN("a `view<int>` implicitly constructed from an `int&`")
     {
         view<int> v = i;
 
@@ -91,6 +95,62 @@ SCENARIO("`view` can reference objects")
 
             REQUIRE(v == j);
             REQUIRE(v != i);
+        }
+    }
+
+    GIVEN("a `view<int>` explicitly constructed from an `int*`")
+    {
+        view<int> v{p};
+
+        REQUIRE(v == i);
+        REQUIRE(v != j);
+    }
+
+    GIVEN("a `view<int>` explicitly constructed from a null `int*`")
+    {
+        REQUIRE_THROWS(view<int> v{n});
+    }
+
+    GIVEN("a `view<int>` explicitly constructed from a `nullptr`")
+    {
+        REQUIRE_THROWS(view<int> v{nullptr});
+    }
+}
+
+SCENARIO("`view` converts to `T&` and `T*`")
+{
+    int i = 1;
+
+    GIVEN("a `view<int>` constructed from an `int&`")
+    {
+        view<int> v = i;
+
+        THEN("the `view<int>` is implicitly converted to `int&`")
+        {
+            int& r = v;
+
+            REQUIRE(&r == &i);
+        }
+
+        THEN("the `view<int>` is implicitly converted to `int const&`")
+        {
+            int const& r = v;
+
+            REQUIRE(&r == &i);
+        }
+
+        THEN("the `view<int>` is explicitly converted to `int*`")
+        {
+            int* p = static_cast<int*>(v);
+
+            REQUIRE(p == &i);
+        }
+
+        THEN("the `view<int>` is explicitly converted to `int const*`")
+        {
+            int const* p = static_cast<int const*>(v);
+
+            REQUIRE(p == &i);
         }
     }
 }
@@ -263,44 +323,6 @@ SCENARIO("`view` can be used to access the objects it references")
     }
 }
 
-SCENARIO("`view` converts to `T&` and `T*`")
-{
-    int i = 1;
-
-    GIVEN("a `view<int>` constructed from an `int&`")
-    {
-        view<int> v = i;
-
-        THEN("the `view<int>` is implicitly converted to `int&`")
-        {
-            int& r = v;
-
-            REQUIRE(&r == &i);
-        }
-
-        THEN("the `view<int>` is implicitly converted to `int const&`")
-        {
-            int const& r = v;
-
-            REQUIRE(&r == &i);
-        }
-
-        THEN("the `view<int>` is explicitly converted to `int*`")
-        {
-            int* p = static_cast<int*>(v);
-
-            REQUIRE(p == &i);
-        }
-
-        THEN("the `view<int>` is explicitly converted to `int const*`")
-        {
-            int const* p = static_cast<int const*>(v);
-
-            REQUIRE(p == &i);
-        }
-    }
-}
-
 SCENARIO("`view` supports arithmetic comparison")
 {
     std::array<int, 2> is = { 1, 2 };
@@ -313,6 +335,8 @@ SCENARIO("`view` supports arithmetic comparison")
 
         THEN("`operator==` is supported")
         {
+            REQUIRE(v == is[0]);
+            REQUIRE(!(v == is[1]));
             REQUIRE(v == v);
             REQUIRE(u == v);
             REQUIRE(v == u);
@@ -322,6 +346,8 @@ SCENARIO("`view` supports arithmetic comparison")
 
         THEN("`operator!=` is supported")
         {
+            REQUIRE(!(v != is[0]));
+            REQUIRE(v != is[1]);
             REQUIRE(!(v != v));
             REQUIRE(!(u != v));
             REQUIRE(!(v != u));
@@ -427,6 +453,30 @@ SCENARIO("`view` can be const cast")
     }
 }
 
+SCENARIO("`view` can be created using `make_view`")
+{
+    int i = 42;
+    int const c = 21;
+
+    GIVEN("a `view<int>` created with `make_view` from an `int`")
+    {
+        auto v = make_view(i);
+
+        REQUIRE((std::is_same<decltype(v), view<int>>::value));
+        REQUIRE(v == i);
+        REQUIRE(*v == 42);
+    }
+
+    GIVEN("a `view<int>` created with `make_view` from an `int const`")
+    {
+        auto v = make_view(c);
+
+        REQUIRE((std::is_same<decltype(v), view<int const>>::value));
+        REQUIRE(v == c);
+        REQUIRE(*v == 21);
+    }
+}
+
 SCENARIO("`view` can be used in certain constant expressions")
 {
     // !!! Not working on MSVC
@@ -440,191 +490,105 @@ SCENARIO("`view` can be used in certain constant expressions")
     //constexpr derived const& r2 = v.value();
 }
 
-TEST_CASE("view_unordered_map")
+SCENARIO("`view` can be used with STL containers")
 {
     std::array<int, 3> i = { 0, 1, 2 };
-    std::unordered_map<view<int>, int> map;
 
-    map[i[0]] = 1;
-    map[i[1]] = 2;
-    map[i[2]] = 4;
-
-    CHECK(map[i[0]] == 1);
-    CHECK(map[i[1]] == 2);
-    CHECK(map[i[2]] == 4);
-}
-
-TEST_CASE("view_set")
-{
-    std::array<int, 3> i = { 0, 1, 2 };
-    std::map<std::string, optional_view<int>> m;
-
-    m["a"] = i[0];
-    m["b"] = i[1];
-    m["c"] = i[2];
-
-    int* b = get_pointer(m["b"]);
-
-    CHECK(b == &i[1]);
-}
-
-TEST_CASE("view_map")
-{
-    std::array<int, 3> i = { 0, 1, 2 };
-    std::map<view<int>, int> map;
-
-    map[i[0]] = 1;
-    map[i[1]] = 2;
-    map[i[2]] = 4;
-
-    CHECK(map[i[0]] == 1);
-    CHECK(map[i[1]] == 2);
-    CHECK(map[i[2]] == 4);
-}
-
-TEST_CASE("view_vector")
-{
-    std::array<int, 3> i = { 0, 1, 2 };
-    std::vector<view<int>> vec;
-
-    vec.push_back(i[0]);
-    vec.push_back(i[1]);
-    vec.push_back(i[2]);
-
-    CHECK(vec[0] == i[0]);
-    CHECK(vec[1] == i[1]);
-    CHECK(vec[2] == i[2]);
-}
-
-TEST_CASE("implicit conversion")
-{
-    auto fr = [](int& i)
+    GIVEN("a `vector<view<int>>`")
     {
-        i += 1;
-    };
+        std::vector<view<int>> vector;
 
-    int i = 0;
-    view<int> v = i;
+        vector.emplace_back(i[2]);
+        vector.emplace_back(i[1]);
+        vector.emplace_back(i[0]);
 
-    fr(v);
-    CHECK(i == 1);
+        REQUIRE(vector[0] == i[2]);
+        REQUIRE(vector[1] == i[1]);
+        REQUIRE(vector[2] == i[0]);
+    }
+
+    GIVEN("a `map<view<int>, view<int>>`")
+    {
+        std::map<view<int>, view<int>> map;
+
+        map.emplace(i[0], i[2]);
+        map.emplace(i[1], i[1]);
+        map.emplace(i[2], i[0]);
+
+        REQUIRE(map.at(i[0]) == i[2]);
+        REQUIRE(map.at(i[1]) == i[1]);
+        REQUIRE(map.at(i[2]) == i[0]);
+    }
+
+    GIVEN("an `unordered_map<view<int>, view<int>>`")
+    {
+        std::unordered_map<view<int>, view<int>> map;
+
+        map.emplace(i[0], i[2]);
+        map.emplace(i[1], i[1]);
+        map.emplace(i[2], i[0]);
+
+        REQUIRE(map.at(i[0]) == i[2]);
+        REQUIRE(map.at(i[1]) == i[1]);
+        REQUIRE(map.at(i[2]) == i[0]);
+    }
+
+    GIVEN("a `set<view<int>>`")
+    {
+        std::set<view<int>> set;
+
+        set.emplace(i[0]);
+        set.emplace(i[1]);
+        set.emplace(i[2]);
+
+        REQUIRE(set.find(i[0]) != set.end());
+        REQUIRE(set.find(i[1]) != set.end());
+        REQUIRE(set.find(i[2]) != set.end());
+    }
+
+    GIVEN("an `unordered_set<view<int>>`")
+    {
+        std::unordered_set<view<int>> set;
+
+        set.emplace(i[0]);
+        set.emplace(i[1]);
+        set.emplace(i[2]);
+
+        REQUIRE(set.find(i[0]) != set.end());
+        REQUIRE(set.find(i[1]) != set.end());
+        REQUIRE(set.find(i[2]) != set.end());
+    }
 }
 
-TEST_CASE("range-based for loop")
+SCENARIO("containers of `view`s can be used with range-based for loops")
 {
     std::array<int, 3> i = { 0, 1, 2 };
-    std::vector<view<int>> vec;
-    vec.emplace_back(i[0]);
-    vec.emplace_back(i[1]);
-    vec.emplace_back(i[2]);
 
-    for (auto i : vec) {
-        *i *= *i;
+    GIVEN("a `vector<view<int>>`")
+    {
+        std::vector<view<int>> vector;
+
+        vector.emplace_back(i[0]);
+        vector.emplace_back(i[1]);
+        vector.emplace_back(i[2]);
+
+        for (auto i : vector) {
+            *i += 1;
+        }
+
+        CHECK(i[0] == 1);
+        CHECK(i[1] == 2);
+        CHECK(i[2] == 3);
+
+        for (int& i : vector) {
+            i += 1;
+        }
+
+        CHECK(i[0] == 2);
+        CHECK(i[1] == 3);
+        CHECK(i[2] == 4);
     }
-
-    CHECK(i[0] == 0);
-    CHECK(i[1] == 1);
-    CHECK(i[2] == 4);
-
-    for (int& i : vec) {
-        i += 1;
-    }
-
-    CHECK(i[0] == 1);
-    CHECK(i[1] == 2);
-    CHECK(i[2] == 5);
 }
-
-void peanuts(int const& v)
-{
-    std::cout << "peanuts = " << v << std::endl;
-}
-
-void fresh(int const* v)
-{
-    if (v)
-        std::cout << "fresh = " << *v << std::endl;
-    else
-        std::cout << "fresh = {}" << std::endl;
-}
-
-void funky(optional_view<int const> v)
-{
-    if (v)
-        std::cout << "funky = " << *v << std::endl;
-    else
-        std::cout << "funky = {}" << std::endl;
-}
-
-void jam(view<int const> v)
-{
-    std::cout << "jam = " << *v << std::endl;
-}
-
-TEST_CASE("make functions")
-{
-    int i = 0;
-    int j = 0;
-
-    view<int> v0 = i;
-    view<int> v1 = make_view(i);
-
-    CHECK(v0 == v1);
-
-    CHECK(v0 == i);
-    CHECK(v0 != j);
-
-    v0 = j;
-
-    CHECK(v0 != i);
-    CHECK(v0 == j);
-
-    optional_view<int> ov0 = i;
-    optional_view<int> ov1 = make_optional_view(i);
-
-    struct base { virtual ~base() {} };
-    struct derived : base { explicit derived(int foo) : foo(foo) {} int foo; };
-
-    derived d{ 1 };
-
-    optional_view<int> test;
-
-    int const& f = test.value_or(2);
-
-    struct fab {
-        view<int const> toost;
-    };
-
-    fab frab = { i };
-
-    int iii = frab.toost;
-
-    test = {};
-
-    funky({});
-    funky(i);
-    funky(42);
-
-    fresh({});
-    fresh(&i);
-    //fresh(&42);
-
-    //jam({});
-    jam(i);
-    jam(42);
-
-    peanuts({});
-    peanuts(i);
-    peanuts(42);
-
-    CHECK(ov0 == ov1);
-    //CHECK(v0 == ov0);
-}
-
-int gint = 1;
-
-void take_pointer(int* i) {}
-int& return_reference() { return gint; }
 
 template <typename InputIt>
 auto sorted_view(InputIt first, InputIt last) {
@@ -634,38 +598,34 @@ auto sorted_view(InputIt first, InputIt last) {
     return v;
 }
 
-TEST_CASE("proxy sort")
+SCENARIO("`view` can be used to provide sorted views of arrays")
 {
-    int const values[] = { 4, 8, 1, 5, 2, 9, 3 };
-    auto views = sorted_view(std::begin(values), std::end(values));
+    std::array<int, 5> i = { 4, 8, 1, 5, 2 };
 
-    for (int const& v : views) {
-        std::cout << v << "\n";
-    }
+    auto views = sorted_view(std::begin(i), std::end(i));
 
-    struct foo { int bar; };
-
-    foo f;
-
-    std::reference_wrapper<foo> r = f;
-    r.get().bar = 42;
-
-    view<foo> v = f;
-    v->bar = 42;
-
-    take_pointer(&return_reference());
-
-    view<int const> noob = values[0];
-
-    noob == values[0];
+    REQUIRE(views[0] == i[2]);
+    REQUIRE(views[1] == i[4]);
+    REQUIRE(views[2] == i[0]);
+    REQUIRE(views[3] == i[3]);
+    REQUIRE(views[4] == i[1]);
 }
 
-class node {
+class node
+{
 private:
     optional_view<node> parent;
     std::vector<view<node>> children;
 
 public:
+    node() = default;
+
+    node(node const&) = delete;
+    node& operator=(node const&) = delete;
+
+    node(node&&) = delete;
+    node& operator=(node&&) = delete;
+
     void set_parent(optional_view<node> new_parent) {
         if (parent) parent->remove_child(*this);
         parent = new_parent;
@@ -673,24 +633,20 @@ public:
     }
 
     optional_view<node> get_parent() const {
-        return const_view_cast<node>(parent);
+        return parent;
     }
 
-    std::size_t child_count() const {
+    std::size_t get_child_count() const {
         return children.size();
     }
 
-    view<node> get_child(std::size_t index) {
-        return children[index];
-    }
-
-    view<node const> get_child(std::size_t index) const {
+    view<node> get_child(std::size_t index) const {
         return children[index];
     }
 
 private:
     void add_child(view<node> child) {
-        children.emplace_back(child);
+        children.push_back(child);
     }
 
     void remove_child(view<node> child) {
@@ -698,7 +654,7 @@ private:
     }
 };
 
-TEST_CASE("node tree")
+SCENARIO("`view` and `optional_view` can be used to create a `node` type")
 {
     node a, b, c;
 
@@ -714,71 +670,8 @@ TEST_CASE("node tree")
     auto& y = b0.value();
 
     if (b.get_parent() == c) {
-        for (auto i = 0u; i < b.child_count(); ++i) {
+        for (auto i = 0u; i < b.get_child_count(); ++i) {
             auto child = b.get_child(i);
-        }
-    }
-}
-
-class node_old {
-private:
-    std::vector<node_old*> children;
-    node_old* parent = nullptr;
-
-public:
-    node_old() = default;
-    node_old(node_old const&) = delete;
-    node_old& operator=(node_old const&) = delete;
-
-    void set_parent(node_old* node) {
-        if (parent) parent->remove_child(*this);
-        parent = node;
-        if (parent) parent->add_child(*this);
-    }
-
-    node_old* get_parent() {
-        return parent;
-    }
-
-    node_old const* get_parent() const {
-        return parent;
-    }
-
-    std::size_t child_count() const {
-        return children.size();
-    }
-
-    node_old& get_child(std::size_t index) {
-        return *children[index];
-    }
-
-    node_old const& get_child(std::size_t index) const {
-        return *children[index];
-    }
-
-private:
-    void add_child(node_old& node) {
-        children.push_back(&node);
-    }
-
-    void remove_child(node_old& node) {
-        children.erase(std::find(children.begin(), children.end(), &node));
-    }
-};
-
-TEST_CASE("node tree")
-{
-    node_old a, b, c;
-
-    a.set_parent(&b);
-    b.set_parent(&c);
-
-    auto& d = b.get_child(0u);
-
-    if (b.get_parent() == &c) {
-        while (b.child_count() > 0u) {
-            auto& child = b.get_child(0);
-            child.set_parent(&c);
         }
     }
 }
