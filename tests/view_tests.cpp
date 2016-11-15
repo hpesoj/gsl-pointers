@@ -32,221 +32,412 @@
 #include <unordered_map>
 #include <vector>
 
-TEST_CASE("view_traits")
+namespace
+{
+
+struct base
+{
+    virtual ~base() {}
+};
+
+struct derived : base
+{
+    int foo = {};
+
+    derived() = default;
+
+    explicit derived(int foo) :
+        foo(foo)
+    {
+    }
+};
+
+struct derived_other : base
+{
+    int foo = {};
+
+    derived_other() = default;
+
+    explicit derived_other(int foo) :
+        foo(foo)
+    {
+    }
+};
+
+} // namespace
+
+SCENARIO("`view` and `optional_view` are trivially copyable")
 {
     // !!! Not working on MSVC
     //CHECK(std::is_trivially_copyable<view<int>>::value);
     //CHECK(std::is_trivially_copyable<optional_view<int>>::value);
 }
 
-TEST_CASE("view_construct")
+SCENARIO("`view` can reference objects")
 {
-    std::array<int, 2> i = { 0, 1 };
+    int i = {};
+    int j = {};
 
-    view<int> v0 = i[0];
-    view<int> v1 = i[1];
+    GIVEN("a `view<int>` constructed from an `int&`")
+    {
+        view<int> v = i;
 
-    CHECK(v0 == i[0]);
-    CHECK(*v0 == i[0]);
-    CHECK(*v0 == v0.value());
-    CHECK(&*v0 == &i[0]);
-    CHECK(&*v0 == &v0.value());
+        REQUIRE(v == i);
+        REQUIRE(v != j);
 
-    CHECK(v1 == i[1]);
-    CHECK(*v1 == i[1]);
-    CHECK(*v1 == v1.value());
-    CHECK(&*v1 == &i[1]);
-    CHECK(&*v1 == &v1.value());
+        WHEN("is is assigned an `int&`")
+        {
+            v = j;
 
-    CHECK(!(v0 == v1));
-    CHECK(v0 != v1);
-    CHECK(v0 < v1);
-    CHECK(!(v0 > v1));
-    CHECK(v0 <= v1);
-    CHECK(!(v0 >= v1));
-
-    CHECK(!(v1 == v0));
-    CHECK(v1 != v0);
-    CHECK(!(v1 < v0));
-    CHECK(v1 > v0);
-    CHECK(!(v1 <= v0));
-    CHECK(v1 >= v0);
-
-    CHECK(v0 == v0);
-    CHECK(!(v0 != v0));
-    CHECK(!(v0 < v0));
-    CHECK(!(v0 > v0));
-    CHECK(v0 <= v0);
-    CHECK(v0 >= v0);
+            REQUIRE(v == j);
+            REQUIRE(v != i);
+        }
+    }
 }
 
-TEST_CASE("view_reassign")
+SCENARIO("`view` can be copied")
 {
-    std::array<int, 2> i = { 0, 1 };
+    int i = {};
+    int j = {};
 
-    view<int> v0 = i[0];
-    view<int> v1 = i[0];
+    GIVEN("a `view<int>` copy constructed from a `view<int>`")
+    {
+        view<int> v = i;
+        view<int> w = v;
 
-    CHECK(v0 == v1);
-    CHECK(v0 == i[0]);
-    CHECK(*v0 == i[0]);
+        REQUIRE(w == v);
 
-    v0 = i[1];
+        REQUIRE(w == i);
+        REQUIRE(w != j);
 
-    CHECK(v0 != v1);
-    CHECK(v0 == i[1]);
-    CHECK(*v0 == i[1]);
+        REQUIRE(v == i);
+        REQUIRE(v != j);
 
-    v0 = v1;
+        WHEN("it is copy assigned a `view<int>`")
+        {
+            view<int> x = j;
+            w = x;
 
-    CHECK(v0 == v1);
-    CHECK(v0 == i[0]);
-    CHECK(*v0 == i[0]);
+            REQUIRE(w == x);
+
+            REQUIRE(w == j);
+            REQUIRE(w != i);
+
+            REQUIRE(x == j);
+            REQUIRE(x != i);
+
+            REQUIRE(v == i);
+            REQUIRE(v != j);
+        }
+
+        WHEN("it is copy assigned itself")
+        {
+            w = w;
+
+            REQUIRE(w == v);
+
+            REQUIRE(w == i);
+            REQUIRE(w != j);
+
+            REQUIRE(v == i);
+            REQUIRE(v != j);
+        }
+    }
 }
 
-TEST_CASE("view_move")
+SCENARIO("`view` can be moved")
 {
-    std::array<int, 2> i = { 0, 1 };
+    int i = {};
+    int j = {};
 
-    view<int> v0 = i[0];
-    view<int> v1 = std::move(v0);
+    GIVEN("a `view<int>` move constructed from a `view<int>`")
+    {
+        view<int> v = i;
+        view<int> w = std::move(v);
 
-    CHECK(v0 == v1);
-    CHECK(v0 == i[0]);
-    CHECK(*v0 == i[0]);
+        REQUIRE(w == v);
 
-    v1 = i[1];
-    v0 = std::move(v1);
+        REQUIRE(w == i);
+        REQUIRE(w != j);
 
-    CHECK(v0 == v1);
-    CHECK(v0 == i[1]);
-    CHECK(*v0 == i[1]);
+        REQUIRE(v == i);
+        REQUIRE(v != j);
+
+        WHEN("it is move assigned a `view<int>`")
+        {
+            view<int> x = j;
+            w = std::move(x);
+
+            REQUIRE(w == x);
+
+            REQUIRE(w == j);
+            REQUIRE(w != i);
+
+            REQUIRE(x == j);
+            REQUIRE(x != i);
+
+            REQUIRE(v == i);
+            REQUIRE(v != j);
+        }
+
+        WHEN("it is move assigned itself")
+        {
+            w = std::move(w);
+
+            REQUIRE(w == v);
+
+            REQUIRE(w == i);
+            REQUIRE(w != j);
+
+            REQUIRE(v == i);
+            REQUIRE(v != j);
+        }
+    }
 }
 
-TEST_CASE("view_swap")
+SCENARIO("`view` can be swapped")
 {
-    using std::swap;
+    int i = {};
+    int j = {};
 
-    std::array<int, 2> i = { 0, 1 };
+    GIVEN("a `view<int>` swapped with a `view<int>`")
+    {
+        view<int> v = i;
+        view<int> w = j;
 
-    view<int> v0 = i[0];
-    view<int> v1 = i[1];
+        swap(v, w);
 
-    CHECK(v0 != v1);
-    CHECK(v0 == i[0]);
-    CHECK(v1 == i[1]);
+        REQUIRE(v == j);
+        REQUIRE(w == i);
+    }
 
-    swap(v0, v1);
+    GIVEN("a `view<int>` swapped with itself")
+    {
+        view<int> v = i;
 
-    CHECK(v0 != v1);
-    CHECK(v0 == i[1]);
-    CHECK(v1 == i[0]);
+        swap(v, v);
 
-    swap(v0, v0);
-
-    CHECK(v0 == i[1]);
+        REQUIRE(v == i);
+    }
 }
 
-TEST_CASE("view_static_cast")
+SCENARIO("`view` can be used to access the objects it references")
 {
-    struct base { virtual ~base() {} };
-    struct derived : base {};
+    int i = 1;
+    int j = 2;
 
+    GIVEN("a `view<int>` constructed from an `int&`")
+    {
+        view<int> v = i;
+
+        REQUIRE(v == i);
+        REQUIRE(v != j);
+        REQUIRE(*v == 1);
+        REQUIRE(*v == i);
+        REQUIRE(*v != j);
+
+        WHEN("is is assigned an `int&`")
+        {
+            v = j;
+
+            REQUIRE(v == j);
+            REQUIRE(v != i);
+            REQUIRE(*v == 2);
+            REQUIRE(*v == j);
+            REQUIRE(*v != i);
+
+            WHEN("is the referenced object is assigned an `int`")
+            {
+                *v = i;
+
+                REQUIRE(v == j);
+                REQUIRE(v != i);
+                REQUIRE(*v == 1);
+                REQUIRE(*v == i);
+                REQUIRE(*v == j);
+                REQUIRE(i == 1);
+                REQUIRE(j == 1);
+                REQUIRE(i == j);
+            }
+        }
+    }
+}
+
+SCENARIO("`view` converts to `T&` and `T*`")
+{
+    int i = 1;
+
+    GIVEN("a `view<int>` constructed from an `int&`")
+    {
+        view<int> v = i;
+
+        THEN("the `view<int>` is implicitly converted to `int&`")
+        {
+            int& r = v;
+
+            REQUIRE(&r == &i);
+        }
+
+        THEN("the `view<int>` is implicitly converted to `int const&`")
+        {
+            int const& r = v;
+
+            REQUIRE(&r == &i);
+        }
+
+        THEN("the `view<int>` is explicitly converted to `int*`")
+        {
+            int* p = static_cast<int*>(v);
+
+            REQUIRE(p == &i);
+        }
+
+        THEN("the `view<int>` is explicitly converted to `int const*`")
+        {
+            int const* p = static_cast<int const*>(v);
+
+            REQUIRE(p == &i);
+        }
+    }
+}
+
+SCENARIO("`view` supports arithmetic comparison")
+{
+    std::array<int, 2> is = { 1, 2 };
+
+    GIVEN("two `view<int>`s constructed from entries in an array")
+    {
+        view<int> u = is[0];
+        view<int> v = is[0];
+        view<int> w = is[1];
+
+        THEN("`operator==` is supported")
+        {
+            REQUIRE(v == v);
+            REQUIRE(u == v);
+            REQUIRE(v == u);
+            REQUIRE(!(v == w));
+            REQUIRE(!(w == v));
+        }
+
+        THEN("`operator!=` is supported")
+        {
+            REQUIRE(!(v != v));
+            REQUIRE(!(u != v));
+            REQUIRE(!(v != u));
+            REQUIRE(v != w);
+            REQUIRE(w != v);
+        }
+
+        THEN("`operator<` is supported")
+        {
+            REQUIRE(!(v < v));
+            REQUIRE(!(u < v));
+            REQUIRE(!(v < u));
+            REQUIRE(v < w);
+            REQUIRE(!(w < v));
+        }
+
+        THEN("`operator<=` is supported")
+        {
+            REQUIRE(v <= v);
+            REQUIRE(u <= v);
+            REQUIRE(v <= u);
+            REQUIRE(v <= w);
+            REQUIRE(!(w <= v));
+        }
+
+        THEN("`operator>` is supported")
+        {
+            REQUIRE(!(v > v));
+            REQUIRE(!(u > v));
+            REQUIRE(!(v > u));
+            REQUIRE(!(v > w));
+            REQUIRE(w > v);
+        }
+
+        THEN("`operator>=` is supported")
+        {
+            REQUIRE(v >= v);
+            REQUIRE(u >= v);
+            REQUIRE(v >= u);
+            REQUIRE(!(v >= w));
+            REQUIRE(w >= v);
+        }
+    }
+}
+
+SCENARIO("`view` can be static cast")
+{
     derived d;
 
-    view<base> vb = d;
-    view<derived> vd = static_view_cast<derived>(vb);
+    GIVEN("a `view<base>` initialized with `derived&`")
+    {
+        view<base> v = d;
 
-    CHECK(vb == d);
-    CHECK(vd == d);
-    CHECK(vd == vb);
+        WHEN("it is static cast to a `view<derived>`")
+        {
+            view<derived> w = static_view_cast<derived>(v);
+
+            REQUIRE(w == v);
+            REQUIRE(w == d);
+        }
+    }
 }
 
-TEST_CASE("view_const_cast")
+SCENARIO("`view` can be dynamic cast")
 {
-    int i = 0;
+    derived d;
 
-    view<int const> vic = i;
-    view<int> vi = const_view_cast<int>(vic);
+    GIVEN("a `view<base>` initialized with `derived&`")
+    {
+        view<base> v = d;
 
-    CHECK(vi == vic);
-    CHECK(vi == i);
-    CHECK(vic == i);
+        WHEN("it is dynamic cast to a `view<derived>`")
+        {
+            view<derived> w = static_view_cast<derived>(v);
+
+            REQUIRE(w == v);
+            REQUIRE(w == d);
+        }
+
+        WHEN("it is dynamic cast to a `view<derived_other>`")
+        {
+            REQUIRE_THROWS(dynamic_view_cast<derived_other>(v));
+
+            REQUIRE(v == d);
+        }
+    }
 }
 
-TEST_CASE("view_polymorphism")
+SCENARIO("`view` can be const cast")
 {
-    struct base { virtual ~base() {} };
-    struct derived : base { explicit derived(int foo) : foo(foo) {} int foo; };
+    int i = {};
 
-    base b0;
-    derived d0{ 0 };
-    derived d1{ 1 };
+    GIVEN("a `view<int const>` initialized with `int&`")
+    {
+        view<int> v = i;
 
-    view<base> vb = d0;
-    view<derived> vd = d0;
-    optional_view<derived> ovd;
+        WHEN("it is const cast to a `view<int>`")
+        {
+            view<int> w = const_view_cast<int>(v);
 
-    ovd = vd;
-
-    CHECK(vb == vd);
-    CHECK(vb == d0);
-
-    vd = d1;
-
-    CHECK(vb != vd);
-    CHECK(vd == d1);
-    CHECK(vd->foo == d1.foo);
-
-    vb = vd;
-
-    CHECK(vb == vd);
-    CHECK(vb == d1);
-
-    vd = d0;
-
-    CHECK(vb != vd);
-    CHECK(vd == d0);
-    CHECK(vd->foo == d0.foo);
-
-    vd = static_view_cast<derived>(vb);
-
-    CHECK(vb == vd);
-    CHECK(vd == d1);
-
-    vd = d0;
-
-    CHECK(vb != vd);
-    CHECK(vd == d0);
-
-    vd = dynamic_view_cast<derived>(vb);
-
-    CHECK(vb == vd);
-    CHECK(vd == d1);
-
-    vb = b0;
-
-    CHECK(vb != vd);
-    CHECK(vb == b0);
-
-    CHECK_THROWS(vd = dynamic_view_cast<derived>(vb));
-    CHECK_THROWS(vd = dynamic_view_cast<derived>(vb));
-
-    CHECK(vb == b0);
+            REQUIRE(w == v);
+        }
+    }
 }
 
-TEST_CASE("view_constexpr")
+SCENARIO("`view` can be used in certain constant expressions")
 {
-    //struct foo { int bar; };
+    // !!! Not working on MSVC
+    //constexpr static derived d = { 0 };
 
-    //constexpr static foo f = { 0 };
+    //constexpr view<foo const> v = d;
+    //constexpr view<foo const> w = v;
 
-    //constexpr view<foo const> v0 = f;
-    //constexpr view<foo const> v1 = v0;
-
-    //constexpr int const& b = v0->bar;
-    //constexpr foo const& f0 = *v0;
-    //constexpr foo const& f1 = v0.value();
+    //constexpr int const& b = v->foo;
+    //constexpr derived const& r1 = *v;
+    //constexpr derived const& r2 = v.value();
 }
 
 TEST_CASE("view_unordered_map")
