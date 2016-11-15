@@ -12,12 +12,12 @@
 
 ## Motivation
 
-Modern C++ guidelines recommend using high-level abstractions such as [`std::vector`](http://en.cppreference.com/w/cpp/container/vector), [`std::array`](http://en.cppreference.com/w/cpp/container/array), `std::array_view` _(not yet standardized)_, [`std::string`](http://en.cppreference.com/w/cpp/string/basic_string), [`std::string_view`](http://en.cppreference.com/w/cpp/string/basic_string_view), [`std::unique_ptr`](http://en.cppreference.com/w/cpp/memory/unique_ptr), [`std::shared_ptr`](http://en.cppreference.com/w/cpp/memory/shared_ptr), [`std::weak_ptr`](http://en.cppreference.com/w/cpp/memory/weak_ptr) and [`std::optional`](http://en.cppreference.com/w/cpp/utility/optional) instead of raw pointers wherever possible. However, there is one major use of raw pointers that currently lacks a corresponding standardized high-level type: non-owning references to single objects. This is the gap filled by `view` and `optional_view`:
+Modern C++ guidelines recommend using high-level abstractions such as [`std::vector`](http://en.cppreference.com/w/cpp/container/vector), [`std::array`](http://en.cppreference.com/w/cpp/container/array), `std::array_view` _(not yet standardized)_, [`std::string`](http://en.cppreference.com/w/cpp/string/basic_string), [`std::string_view`](http://en.cppreference.com/w/cpp/string/basic_string_view), [`std::unique_ptr`](http://en.cppreference.com/w/cpp/memory/unique_ptr), [`std::shared_ptr`](http://en.cppreference.com/w/cpp/memory/shared_ptr) and [`std::optional`](http://en.cppreference.com/w/cpp/utility/optional) instead of raw pointers wherever possible. However, there is one major use of raw pointers that currently lacks a corresponding standardized high-level type: non-owning references to single objects. This is the gap filled by `view` and `optional_view`:
 
 |          | Owned                                      | Non-Owned                      |
 |----------|--------------------------------------------|--------------------------------|
 | Single   | `unique_ptr` `shared_ptr` `optional`       | `view` `optional_view`         |
-| Array    | `array` `vector` `unique_ptr` `shared_ptr` | `array_view` `weak_ptr`        |
+| Array    | `array` `vector` `unique_ptr` `shared_ptr` | `array_view`                   |
 | String   | `string`                                   | `string_view`                  |
 | Iterator | —                                          | _assorted_                     |
 
