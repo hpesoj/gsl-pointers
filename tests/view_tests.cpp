@@ -23,6 +23,7 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.h"
 
+#include <propagate_const.hpp>
 #include <view.hpp>
 
 #include <algorithm>
@@ -672,6 +673,48 @@ SCENARIO("`view` and `optional_view` can be used to create a `node` type")
     if (b.get_parent() == c) {
         for (auto i = 0u; i < b.get_child_count(); ++i) {
             auto child = b.get_child(i);
+        }
+    }
+}
+
+SCENARIO("`view` can be used with `propagate_const`")
+{
+    int i = 42;
+    int j = 21;
+
+    GIVEN("a `propagate_const<view<int>>` constructed from an `int&`")
+    {
+        propagate_const<view<int>> v = i;
+
+        REQUIRE(v == i);
+        REQUIRE(v != j);
+        REQUIRE(*v == 42);
+
+        WHEN("it is implicitly converted to `int&`")
+        {
+            int& r = v;
+
+            REQUIRE(r == v);
+
+            propagate_const<optional_view<int>> ov = j;
+
+            ov = nullopt;
+        }
+    }
+
+    GIVEN("a `propagate_const<view<int>> const` constructed from an `int&`")
+    {
+        propagate_const<view<int>> const v = i;
+
+        REQUIRE(v == i);
+        REQUIRE(v != j);
+        REQUIRE(*v == 42);
+
+        WHEN("it is implicitly converted to `int const&`")
+        {
+            int const& r = v;
+
+            REQUIRE(r == v);
         }
     }
 }

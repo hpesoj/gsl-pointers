@@ -250,7 +250,7 @@ Conversely, both `view<T>` and `optional_view<T>` have pointer-like copying and 
 auto aa = b.get_parent(); // `decltype(aa)` is `optional_view<node>`
 auto bb = a.get_child(0); // `decltype(bb)` is `view<node>`
 
-bb->set_parent({}); // `view<T>` uses `->` 
+bb->set_parent({}); // `view<T>` uses `->`
 aa->set_parent(bb); // `optional_view<T>` uses `->`
 ```
 
@@ -355,8 +355,9 @@ Fortunately, `propagate_const` has not yet been standardized, so there we have a
 
 * Add a `std::get_pointer` free function that obtains the underlying pointer for various standard library types. `propagate_const` should rely on this function rather than a `get` member function. Note that Boost provides a [similar function](www.boost.org/doc/libs/release/boost/get_pointer.hpp) already.
   * `get_pointer(T* p)` will return `p`
-  * `get_pointer(unique_ptr<T> const& p)` and `get_pointer(shared_ptr<T> const& p)` will return `p.get()` 
-  * `get_pointer(view<T> const& v)` and `get_pointer(optional_view<T> const& v)` will return `static_cast<T*>(v)` 
+  * `get_pointer(unique_ptr<T> const& p)` and `get_pointer(shared_ptr<T> const& p)` will return `p.get()`
+  * `get_pointer(view<T> const& v)` and `get_pointer(optional_view<T> const& v)` will return `static_cast<T*>(v)`
+  * `get_pointer(propagate_const<T>& pc)` and `get_pointer(propagate_const<T> const& pc)` will return `get_pointer(pc.t)`, where `pc.t` is the underlying object of type `T`
 * Enable `propagate_const<T>::operator bool` _only_ if `T::operator bool` exists.
 * Require compatible types to provide a member type `const_type` (for example, `view<T>::const_type` would be `view<T const>`). This information can then be used to implement implicit conversion to `T` and `T::const_type`.
 

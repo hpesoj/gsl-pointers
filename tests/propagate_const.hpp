@@ -199,4 +199,14 @@ public:
     operator const_reference_type() const { return t; }
 };
 
+template <typename T>
+constexpr typename propagate_const<T>::pointer_type get_pointer(propagate_const<T>& pc) noexcept {
+    return static_cast<typename propagate_const<T>::pointer_type>(pc);
+}
+
+template <typename T>
+constexpr typename propagate_const<T>::const_pointer_type get_pointer(propagate_const<T> const& pc) noexcept {
+    return static_cast<typename propagate_const<T>::const_pointer_type>(pc);
+}
+
 #endif // PROPAGATE_CONST_HPP
