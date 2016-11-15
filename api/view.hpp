@@ -114,17 +114,12 @@ public:
 
     constexpr operator T&() const noexcept
     {
-        return value();
+        return *target;
     }
 
     constexpr explicit operator T*() const noexcept
     {
         return target;
-    }
-
-    constexpr T& value() const noexcept
-    {
-        return *target;
     }
 
     void swap(view& other) noexcept
