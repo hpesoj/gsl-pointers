@@ -63,6 +63,7 @@ class view
 {
 public:
     using value_type = T;
+    using const_type = view<T const>;
 
 private:
     T* target;
@@ -204,6 +205,7 @@ class optional_view
 {
 public:
     using value_type = T;
+    using const_type = optional_view<T const>;
 
 private:
     T* target;
