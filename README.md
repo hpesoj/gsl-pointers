@@ -358,9 +358,9 @@ Secondly, `propagate_const` requires compatible types to be convertible to `bool
 Fortunately, `propagate_const` has not yet been standardized, so there we have a chance to fix things. In order to allow `propagate_const` to work with all types that have indirection semantics, the following changes are suggested:
 
 * Add a `std::get_pointer` free function that obtains the underlying pointer for various standard library types. `propagate_const` should rely on this function rather than a `get` member function. Note that Boost provides a [similar function](www.boost.org/doc/libs/release/boost/get_pointer.hpp) already.
-..* `get_pointer(T* p)` will simply return the `p`
-..* `get_pointer(unique_ptr<T> const& p)` and `get_pointer(shared_ptr<T> const& p)` will return `p.get` 
-..* `get_pointer(view<T> const& v)` and `get_pointer(optional_view<T> const& v)` will return `static_cast<T*>(v)` 
+  * `get_pointer(T* p)` will return `p`
+  * `get_pointer(unique_ptr<T> const& p)` and `get_pointer(shared_ptr<T> const& p)` will return `p.get()` 
+  * `get_pointer(view<T> const& v)` and `get_pointer(optional_view<T> const& v)` will return `static_cast<T*>(v)` 
 * Enable `propagate_const<T>::operator bool` _only_ if `T::operator bool` exists.
 
 ### <a name="rationale-optional"></a> Use of `optional_view<T>` rather than `std::optional<view<T>>`
