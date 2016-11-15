@@ -212,9 +212,7 @@ public:
         if (parent) parent->add_child(*this);
     }
 
-    std::size_t get_child_count() const {
-        return children.size();
-    }
+    …
 
     view<node> get_child(std::size_t index) const {
         return children[index];
@@ -355,6 +353,8 @@ First, `propagate_const` requires compatible types to implement a member functio
 
 Secondly, `propagate_const` requires compatible types to be convertible to `bool`. While this is no problem for `optional_view`, it really makes no sense for `view` to convert to bool. It would be better if this weren't a requirement of `propagate_const` at all.
 
+Thirdly, `propagate_const` works well with raw pointers because it implicitly converts to `T*` and `T const*`. However, `propagate_const<T>` doesn't implicitly convert to `T` or the const version of `T` for an arbitrary `T`. This could be supported if `propagate_const` had some way of knowing what the const version of `T` was for an arbitrary `T`. 
+
 Fortunately, `propagate_const` has not yet been standardized, so there we have a chance to fix things. In order to allow `propagate_const` to work with all types that have indirection semantics, the following changes are suggested:
 
 * Add a `std::get_pointer` free function that obtains the underlying pointer for various standard library types. `propagate_const` should rely on this function rather than a `get` member function. Note that Boost provides a [similar function](www.boost.org/doc/libs/release/boost/get_pointer.hpp) already.
@@ -362,6 +362,9 @@ Fortunately, `propagate_const` has not yet been standardized, so there we have a
   * `get_pointer(unique_ptr<T> const& p)` and `get_pointer(shared_ptr<T> const& p)` will return `p.get()` 
   * `get_pointer(view<T> const& v)` and `get_pointer(optional_view<T> const& v)` will return `static_cast<T*>(v)` 
 * Enable `propagate_const<T>::operator bool` _only_ if `T::operator bool` exists.
+* Require compatible types to provide a member type `const_type` (for example, `view<T>::const_type` would be `view<T const>`). This information can then be used to implement implicit conversion to `T` and `T::const_type`.
+
+A sample implementation of a version of `propagate_const` with these changes can be found [here](https://github.com/hpesoj/cpp-views/blob/master/tests/propagate_const.hpp).
 
 ### <a name="rationale-optional"></a> Use of `optional_view<T>` rather than `std::optional<view<T>>`
 
