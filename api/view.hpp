@@ -408,13 +408,13 @@ constexpr bool operator>=(optional_view<T1> const& lhs, optional_view<T2> const&
 template <typename T>
 constexpr view<T> make_view(T& r) noexcept
 {
-    return view<T>(r);
+    return r;
 }
 
 template <typename T>
 constexpr optional_view<T> make_optional_view(T& r) noexcept
 {
-    return optional_view<T>(r);
+    return r;
 }
 
 template <typename T, typename U>
