@@ -30,21 +30,9 @@
 #include <stdexcept>
 #include <utility>
 
-struct nullopt_t
-{
-    constexpr explicit nullopt_t(int) {}
-};
-
-constexpr nullopt_t nullopt{0};
-
-class bad_optional_access : public std::logic_error
-{
-public:
-    bad_optional_access() : std::logic_error(
-        "Attempted to access the value of an uninitialized optional.")
-    {
-    }
-};
+//======================
+// forward declarations
+//======================
 
 template <typename>
 class view;
@@ -57,6 +45,34 @@ constexpr T* get_pointer(view<T> const&) noexcept;
 
 template <typename T>
 constexpr T* get_pointer(optional_view<T> const&) noexcept;
+
+//=========
+// nullopt
+//=========
+
+struct nullopt_t
+{
+    constexpr explicit nullopt_t(int) noexcept {}
+};
+
+constexpr nullopt_t nullopt{0};
+
+//=====================
+// bad_optional_access
+//=====================
+
+class bad_optional_access : public std::logic_error
+{
+public:
+    bad_optional_access() : std::logic_error(
+        "Attempted to access the value of an uninitialized optional.")
+    {
+    }
+};
+
+//======
+// view
+//======
 
 template <typename T>
 class view
@@ -130,6 +146,36 @@ public:
 };
 
 template <typename T>
+constexpr view<T> make_view(T& r) noexcept
+{
+    return r;
+}
+
+template <typename T, typename U>
+constexpr view<T> static_view_cast(view<U> const& v) noexcept
+{
+    return static_cast<T&>(*v);
+}
+
+template <typename T, typename U>
+constexpr view<T> dynamic_view_cast(view<U> const& v)
+{
+    return dynamic_cast<T&>(*v);
+}
+
+template <typename T, typename U>
+constexpr view<T> const_view_cast(view<U> const& v) noexcept
+{
+    return const_cast<T&>(*v);
+}
+
+template <typename T>
+constexpr T* get_pointer(view<T> const& v) noexcept
+{
+    return static_cast<T*>(v);
+}
+
+template <typename T>
 void swap(view<T>& lhs, view<T>& rhs)
 {
     lhs.swap(rhs);
@@ -196,6 +242,36 @@ constexpr bool operator>=(view<T1> const& lhs, view<T2> const& rhs) noexcept
 }
 
 template <typename T>
+std::ostream& operator<<(std::ostream& s, view<T> const& v)
+{
+    return s << get_pointer(v);
+}
+
+template <typename T>
+std::istream& operator>>(std::istream& s, view<T> const& v)
+{
+    return get_pointer(v) >> s;
+}
+
+namespace std
+{
+
+template <typename T>
+struct hash<view<T>>
+{
+    constexpr std::size_t operator()(view<T> const& v) const noexcept
+    {
+        return hash<T*>()(get_pointer(v));
+    }
+};
+
+} // namespace std
+
+//===============
+// optional_view
+//===============
+
+template <typename T>
 class optional_view
 {
 public:
@@ -218,11 +294,6 @@ public:
 
     constexpr optional_view(T& r) noexcept :
         target(&r)
-    {
-    }
-
-    constexpr explicit optional_view(std::nullptr_t) noexcept :
-        target(nullptr)
     {
     }
 
@@ -290,6 +361,36 @@ public:
         swap(target, other.target);
     }
 };
+
+template <typename T>
+constexpr optional_view<T> make_optional_view(T& r) noexcept
+{
+    return r;
+}
+
+template <typename T, typename U>
+constexpr optional_view<T> static_view_cast(optional_view<U> const& v) noexcept
+{
+    return optional_view<T>(static_cast<T*>(get_pointer(v)));
+}
+
+template <typename T, typename U>
+constexpr optional_view<T> dynamic_view_cast(optional_view<U> const& v) noexcept
+{
+    return optional_view<T>(dynamic_cast<T*>(get_pointer(v)));
+}
+
+template <typename T, typename U>
+constexpr optional_view<T> const_view_cast(optional_view<U> const& v) noexcept
+{
+    return optional_view<T>(const_cast<T*>(get_pointer(v)));
+}
+
+template <typename T>
+constexpr T* get_pointer(optional_view<T> const& v) noexcept
+{
+    return static_cast<T*>(v);
+}
 
 template <typename T>
 void swap(optional_view<T>& lhs, optional_view<T>& rhs) noexcept
@@ -406,66 +507,6 @@ constexpr bool operator>=(optional_view<T1> const& lhs, optional_view<T2> const&
 }
 
 template <typename T>
-constexpr view<T> make_view(T& r) noexcept
-{
-    return r;
-}
-
-template <typename T>
-constexpr optional_view<T> make_optional_view(T& r) noexcept
-{
-    return r;
-}
-
-template <typename T, typename U>
-constexpr view<T> static_view_cast(view<U> const& v) noexcept
-{
-    return static_cast<T&>(*v);
-}
-
-template <typename T, typename U>
-constexpr view<T> dynamic_view_cast(view<U> const& v)
-{
-    return dynamic_cast<T&>(*v);
-}
-
-template <typename T, typename U>
-constexpr view<T> const_view_cast(view<U> const& v) noexcept
-{
-    return const_cast<T&>(*v);
-}
-
-template <typename T, typename U>
-constexpr optional_view<T> static_view_cast(optional_view<U> const& v) noexcept
-{
-    return optional_view<T>(static_cast<T*>(get_pointer(v)));
-}
-
-template <typename T, typename U>
-constexpr optional_view<T> dynamic_view_cast(optional_view<U> const& v) noexcept
-{
-    return optional_view<T>(dynamic_cast<T*>(get_pointer(v)));
-}
-
-template <typename T, typename U>
-constexpr optional_view<T> const_view_cast(optional_view<U> const& v) noexcept
-{
-    return optional_view<T>(const_cast<T*>(get_pointer(v)));
-}
-
-template <typename T>
-std::ostream& operator<<(std::ostream& s, view<T> const& v)
-{
-    return s << get_pointer(v);
-}
-
-template <typename T>
-std::istream& operator>>(std::istream& s, view<T> const& v)
-{
-    return get_pointer(v) >> s;
-}
-
-template <typename T>
 std::ostream& operator<<(std::ostream& s, optional_view<T> const& v)
 {
     return s << get_pointer(v);
@@ -477,29 +518,8 @@ std::istream& operator>>(std::istream& s, optional_view<T> const& v)
     return get_pointer(v) >> s;
 }
 
-template <typename T>
-constexpr T* get_pointer(view<T> const& v) noexcept
-{
-    return static_cast<T*>(v);
-}
-
-template <typename T>
-constexpr T* get_pointer(optional_view<T> const& v) noexcept
-{
-    return static_cast<T*>(v);
-}
-
 namespace std
 {
-
-template <typename T>
-struct hash<view<T>>
-{
-    constexpr std::size_t operator()(view<T> const& v) const noexcept
-    {
-        return hash<T*>()(get_pointer(v));
-    }
-};
 
 template <typename T>
 struct hash<optional_view<T>>
