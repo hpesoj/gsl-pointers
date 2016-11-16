@@ -23,6 +23,9 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.h"
 
+//#define CATCH_CONFIG_MAIN
+//#include "catch.hpp"
+
 #include <propagate_const.hpp>
 #include <view.hpp>
 
@@ -37,6 +40,69 @@
 
 namespace
 {
+
+template <typename T>
+struct type_id
+{
+  using type = T;
+};
+
+template <typename T, typename... Ts, typename F>
+void for_each_type(F f)
+{
+  f(type_id<T>());
+  for_each_type<Ts...>(f);
+}
+
+template <typename F>
+void for_each_type(F f)
+{
+}
+
+template <bool B>
+struct if_impl
+{
+    template <typename F>
+    void operator()(F) const
+    {
+    }
+};
+
+template <>
+struct if_impl<true>
+{
+    template <typename F>
+    void operator()(F f) const
+    {
+        f();
+    }
+};
+
+template <bool B, typename F>
+void if_(F f)
+{
+    if_impl<B>()(f);
+}
+
+#define FOR_EACH_TYPE(type_t, ...) \
+    { \
+        doctest::detail::getContextState()->currentIteration.push_back(0); \
+        for_each_type<__VA_ARGS__>([&](auto _id) \
+        { \
+            ++doctest::detail::getContextState()->currentIteration.back(); \
+            DOCTEST_SUBCASE(DOCTEST_CAT("For argument in ", #__VA_ARGS__)) \
+            { \
+                using type_t = decltype(_id)::type;
+
+#define IF(condition) \
+    { \
+        doctest::detail::getContextState()->currentIteration.push_back(0); \
+        if_<condition>([&]() \
+        { \
+            DOCTEST_SUBCASE(DOCTEST_CAT("When ", #condition)) \
+            { \
+
+#define END }}); doctest::detail::getContextState()->currentIteration.pop_back(); } \
 
 struct base
 {
@@ -67,55 +133,125 @@ struct derived_other : base
     }
 };
 
+template <typename T>
+struct is_view : std::false_type {};
+template <typename T>
+struct is_view<view<T>> : std::true_type {};
+
+template <typename T>
+struct is_optional_view : std::false_type {};
+template <typename T>
+struct is_optional_view<optional_view<T>> : std::true_type {};
+
 } // namespace
 
 SCENARIO("`view` and `optional_view` are trivially copyable")
 {
     // !!! Not working on MSVC
     //CHECK(std::is_trivially_copyable<view<int>>::value);
+    //CHECK(std::is_trivially_copyable<view<int const>>::value);
     //CHECK(std::is_trivially_copyable<optional_view<int>>::value);
+    //CHECK(std::is_trivially_copyable<optional_view<int const>>::value);
 }
 
-SCENARIO("`view` constructs from `T&` and `T*`")
+SCENARIO("views can be constructed`")
 {
-    int i = {};
-    int j = {};
-    int* p = &i;
-    int* n = {};
-
-    GIVEN("a `view<int>` implicitly constructed from an `int&`")
+    FOR_EACH_TYPE(value_t, int, int const)
     {
-        view<int> v = i;
-
-        REQUIRE(v == i);
-        REQUIRE(v != j);
-
-        WHEN("is is assigned an `int&`")
+        FOR_EACH_TYPE(view_t,
+            view<value_t>,
+            view<value_t const>,
+            optional_view<value_t>,
+            optional_view<value_t const>)
         {
-            v = j;
+            value_t i = {};
+            value_t j = {};
 
-            REQUIRE(v == j);
-            REQUIRE(v != i);
+            GIVEN("a view implicitly constructed from an lvalue reference")
+            {
+                view_t v = i;
+
+                REQUIRE(v == i);
+                REQUIRE(v != j);
+
+                WHEN("is is assigned an lvalue reference")
+                {
+                    v = j;
+
+                    REQUIRE(v == j);
+                    REQUIRE(v != i);
+                }
+            }
+
+            GIVEN("a view explicitly constructed from a pointer")
+            {
+                view_t v{&i};
+
+                REQUIRE(v == i);
+                REQUIRE(v != j);
+            }
+
+            IF(is_view<view_t>::value)
+            {
+                GIVEN("a view explicitly constructed from a null pointer")
+                {
+                    REQUIRE_THROWS(view_t v{static_cast<value_t*>(nullptr)});
+                }
+
+                GIVEN("a view explicitly constructed from a `nullptr`")
+                {
+                    REQUIRE_THROWS(view_t v{nullptr});
+                }
+            } END
+
+            IF(is_optional_view<view_t>::value)
+            {
+                GIVEN("a view explicitly constructed from a null pointer")
+                {
+                    view_t v{static_cast<value_t*>(nullptr)};
+
+                    REQUIRE(!v);
+                    REQUIRE(v != i);
+                    REQUIRE(v != j);
+                }
+
+                GIVEN("a view explicitly constructed from a `nullptr`")
+                {
+                    view_t v{nullptr};
+
+                    REQUIRE(!v);
+                    REQUIRE(v != i);
+                    REQUIRE(v != j);
+                }
+            } END
+        } END
+    } END
+}
+
+SCENARIO("`optional_view` can be default constructed")
+{
+    FOR_EACH_TYPE(view_t,
+        optional_view<int>,
+        optional_view<int const>)
+    {
+        GIVEN("a default constructed `optional_view`")
+        {
+            view_t v;
+
+            REQUIRE(!v);
+            REQUIRE(v == nullopt);
+            REQUIRE(nullopt == v);
         }
-    }
 
-    GIVEN("a `view<int>` explicitly constructed from an `int*`")
-    {
-        view<int> v{p};
+        GIVEN("an `optional_view` constructed using the `{}` syntax")
+        {
+            view_t v = {};
 
-        REQUIRE(v == i);
-        REQUIRE(v != j);
-    }
-
-    GIVEN("a `view<int>` explicitly constructed from a null `int*`")
-    {
-        REQUIRE_THROWS(view<int> v{n});
-    }
-
-    GIVEN("a `view<int>` explicitly constructed from a `nullptr`")
-    {
-        REQUIRE_THROWS(view<int> v{nullptr});
-    }
+            REQUIRE(!v);
+            REQUIRE(v == nullopt);
+            REQUIRE(nullopt == v);
+        }
+    } END
 }
 
 SCENARIO("`view` converts to `T&` and `T*`")
@@ -695,10 +831,71 @@ SCENARIO("`view` can be used with `propagate_const`")
             int& r = v;
 
             REQUIRE(r == v);
+            REQUIRE((std::is_same<decltype(*v), int&>::value));
+        }
 
-            propagate_const<optional_view<int>> ov = j;
+        WHEN("it is implicitly converted to `int const&`")
+        {
+            int const& r = v;
 
-            ov = nullopt;
+            REQUIRE(r == v);
+        }
+
+        WHEN("it is explicitly converted to `int*`")
+        {
+            int* p = static_cast<int*>(v);
+
+            REQUIRE(*p == v);
+        }
+
+        WHEN("it is explicitly converted to `int const*`")
+        {
+            int const* p = static_cast<int const*>(v);
+
+            REQUIRE(*p == v);
+        }
+
+        WHEN("it is converted to a pointer using `get_pointer`")
+        {
+            auto p = get_pointer(v);
+
+            REQUIRE((std::is_same<decltype(p), int*>::value));
+            REQUIRE(*p == v);
+        }
+
+        WHEN("it is move constructed")
+        {
+            propagate_const<view<int>> w = std::move(v);
+
+            REQUIRE(w == i);
+        }
+
+        WHEN("it is implicitly copy converted to a `view<int>&`")
+        {
+            view<int>& w = v;
+
+            REQUIRE(w == i);
+        }
+
+        WHEN("it is implicitly copy converted to a `view<int const>`")
+        {
+            view<int const> w = v;
+
+            REQUIRE(w == i);
+        }
+
+        WHEN("it is implicitly move converted to a `view<int>`")
+        {
+            view<int> w = std::move(v);
+
+            REQUIRE(w == i);
+        }
+
+        WHEN("it is implicitly move converted to a `view<int const>`")
+        {
+            view<int const> w = std::move(v);
+
+            REQUIRE(w == i);
         }
     }
 
@@ -715,6 +912,44 @@ SCENARIO("`view` can be used with `propagate_const`")
             int const& r = v;
 
             REQUIRE(r == v);
+            REQUIRE((std::is_same<decltype(*v), int const&>::value));
+        }
+
+        WHEN("it is explicitly converted to `int const*`")
+        {
+            int const* p = static_cast<int const*>(v);
+
+            REQUIRE(*p == v);
+        }
+
+        WHEN("it is converted to a pointer using `get_pointer`")
+        {
+            auto p = get_pointer(v);
+
+            REQUIRE((std::is_same<decltype(p), int const*>::value));
+            REQUIRE(*p == v);
+        }
+
+        WHEN("it is converted to a pointer using `get_pointer`")
+        {
+            auto p = get_pointer(v);
+
+            REQUIRE((std::is_same<decltype(p), int const*>::value));
+            REQUIRE(*p == v);
+        }
+
+        WHEN("it is implicitly copy converted to a `view<int const>`")
+        {
+            view<int const> w = v;
+
+            REQUIRE(w == i);
+        }
+
+        WHEN("it is implicitly move converted to a `view<int const>`")
+        {
+            view<int const> w = std::move(v);
+
+            REQUIRE(w == i);
         }
     }
 }
