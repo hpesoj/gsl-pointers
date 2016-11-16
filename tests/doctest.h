@@ -294,6 +294,8 @@ namespace std
 #endif // _LIBCPP_VERSION
 #endif // DOCTEST_CONFIG_WITH_NULLPTR
 
+#include <vector>
+
 namespace doctest
 {
 class String
@@ -697,11 +699,13 @@ namespace detail
     struct SubcaseSignature
     {
         const char* m_name;
+        std::vector<int> m_iteration;
         const char* m_file;
         int         m_line;
 
-        SubcaseSignature(const char* name, const char* file, int line)
+        SubcaseSignature(const char* name, std::vector<int> iteration, const char* file, int line)
                 : m_name(name)
+                , m_iteration(std::move(iteration))
                 , m_file(file)
                 , m_line(line) {}
 
@@ -713,7 +717,7 @@ namespace detail
         SubcaseSignature m_signature;
         bool             m_entered;
 
-        Subcase(const char* name, const char* file, int line);
+        Subcase(const char* name, std::vector<int> iteration, const char* file, int line);
         Subcase(const Subcase& other);
         ~Subcase();
 
@@ -1189,11 +1193,11 @@ public:
 #define DOCTEST_SUBCASE(name)                                                                      \
     if(const doctest::detail::Subcase & DOCTEST_ANONYMOUS(_DOCTEST_ANON_SUBCASE_)                  \
                                                 __attribute__((unused)) =                          \
-               doctest::detail::Subcase(name, __FILE__, __LINE__))
+               doctest::detail::Subcase(name, doctest::detail::getContextState()->currentIteration, __FILE__, __LINE__))
 #else // __GNUC__
 #define DOCTEST_SUBCASE(name)                                                                      \
     if(const doctest::detail::Subcase & DOCTEST_ANONYMOUS(_DOCTEST_ANON_SUBCASE_) =                \
-               doctest::detail::Subcase(name, __FILE__, __LINE__))
+               doctest::detail::Subcase(name, doctest::detail::getContextState()->currentIteration, __FILE__, __LINE__))
 #endif // __GNUC__
 
 // for starting a testsuite block
@@ -1749,7 +1753,6 @@ DOCTEST_TEST_SUITE_END();
 #include <utility>
 #include <sstream>
 #include <iomanip>
-#include <vector>
 #include <set>
 
 namespace doctest
@@ -1870,6 +1873,7 @@ namespace detail
         int numAssertions;
         int numFailedAssertions;
         int numFailedAssertionsForCurrentTestcase;
+        std::vector<int> currentIteration;
 
         // stuff for subcases
         std::set<SubcaseSignature> subcasesPassed;
@@ -2302,11 +2306,13 @@ namespace detail
             return m_line < other.m_line;
         if(strcmp(m_file, other.m_file) != 0)
             return strcmp(m_file, other.m_file) < 0;
+        if(m_iteration != other.m_iteration)
+            return m_iteration < other.m_iteration;
         return strcmp(m_name, other.m_name) < 0;
     }
 
-    Subcase::Subcase(const char* name, const char* file, int line)
-            : m_signature(name, file, line)
+    Subcase::Subcase(const char* name, std::vector<int> iter, const char* file, int line)
+            : m_signature(name, std::move(iter), file, line)
             , m_entered(false) {
         ContextState* s = getContextState();
 
@@ -2330,8 +2336,8 @@ namespace detail
     }
 
     Subcase::Subcase(const Subcase& other)
-            : m_signature(other.m_signature.m_name, other.m_signature.m_file,
-                          other.m_signature.m_line)
+            : m_signature(other.m_signature.m_name, other.m_signature.m_iteration,
+                          other.m_signature.m_file, other.m_signature.m_line)
             , m_entered(other.m_entered) {}
 
     Subcase::~Subcase() {
