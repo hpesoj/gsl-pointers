@@ -180,6 +180,29 @@ public:
     template <typename T_ = T, std::enable_if_t<
         std::is_convertible<T_ const, const_reference_type>::value, int> = 0>
     operator const_reference_type() const { return t; }
+
+    template <typename T1, typename T2>
+    friend constexpr bool operator==(propagate_const<T1> const& lhs, T2 const& rhs);
+    template <typename T1, typename T2>
+    friend constexpr bool operator==(T1 const& lhs, propagate_const<T2> const& rhs);
+    template <typename T1, typename T2>
+    friend constexpr bool operator!=(propagate_const<T1> const& lhs, T2 const& rhs);
+    template <typename T1, typename T2>
+    friend constexpr bool operator!=(T1 const& lhs, propagate_const<T2> const& rhs);
+
+    template <typename T1, typename T2>
+    friend constexpr bool operator==(propagate_const<T1> const& lhs, propagate_const<T2> const& rhs);
+    template <typename T1, typename T2>
+    friend constexpr bool operator!=(propagate_const<T1> const& lhs, propagate_const<T2> const& rhs);
+
+    template <typename T1, typename T2>
+    friend constexpr bool operator<(propagate_const<T1> const& lhs, propagate_const<T2> const& rhs);
+    template <typename T1, typename T2>
+    friend constexpr bool operator<=(propagate_const<T1> const& lhs, propagate_const<T2> const& rhs);
+    template <typename T1, typename T2>
+    friend constexpr bool operator>(propagate_const<T1> const& lhs, propagate_const<T2> const& rhs);
+    template <typename T1, typename T2>
+    friend constexpr bool operator>=(propagate_const<T1> const& lhs, propagate_const<T2> const& rhs);
 };
 
 template <typename T>
@@ -191,5 +214,28 @@ template <typename T>
 constexpr typename propagate_const<T>::const_pointer_type get_pointer(propagate_const<T> const& pc) noexcept {
     return static_cast<typename propagate_const<T>::const_pointer_type>(pc);
 }
+
+template <typename T1, typename T2>
+constexpr bool operator==(propagate_const<T1> const& lhs, T2 const& rhs) { return lhs.t == rhs; }
+template <typename T1, typename T2>
+constexpr bool operator==(T1 const& lhs, propagate_const<T2> const& rhs) { return lhs == rhs.t; }
+template <typename T1, typename T2>
+constexpr bool operator!=(propagate_const<T1> const& lhs, T2 const& rhs) { return lhs.t != rhs; }
+template <typename T1, typename T2>
+constexpr bool operator!=(T1 const& lhs, propagate_const<T2> const& rhs) { return lhs != rhs.t; }
+
+template <typename T1, typename T2>
+constexpr bool operator==(propagate_const<T1> const& lhs, propagate_const<T2> const& rhs) { return lhs.t == rhs.t; }
+template <typename T1, typename T2>
+constexpr bool operator!=(propagate_const<T1> const& lhs, propagate_const<T2> const& rhs) { return lhs.t != rhs.t; }
+
+template <typename T1, typename T2>
+constexpr bool operator<(propagate_const<T1> const& lhs, propagate_const<T2> const& rhs) { return lhs.t < rhs.t; }
+template <typename T1, typename T2>
+constexpr bool operator<=(propagate_const<T1> const& lhs, propagate_const<T2> const& rhs) { return lhs.t <= rhs.t; }
+template <typename T1, typename T2>
+constexpr bool operator>(propagate_const<T1> const& lhs, propagate_const<T2> const& rhs) { return lhs.t > rhs.t; }
+template <typename T1, typename T2>
+constexpr bool operator>=(propagate_const<T1> const& lhs, propagate_const<T2> const& rhs) { return lhs.t >= rhs.t; }
 
 #endif // PROPAGATE_CONST_HPP

@@ -162,7 +162,11 @@ SCENARIO("views can be constructed`")
             view<value_t>,
             view<value_t const>,
             optional_view<value_t>,
-            optional_view<value_t const>)
+            optional_view<value_t const>,
+            propagate_const<view<value_t>>,
+            propagate_const<view<value_t const>>,
+            propagate_const<optional_view<value_t>>,
+            propagate_const<optional_view<value_t const>>)
         {
             value_t i = {};
             value_t j = {};
