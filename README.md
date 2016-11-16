@@ -353,13 +353,14 @@ Thirdly, `propagate_const` works well with raw pointers because it implicitly co
 
 Fortunately, `propagate_const` has not yet been standardized, so there we have a chance to fix things. In order to allow `propagate_const` to work with all types that have indirection semantics, the following changes are suggested:
 
-* Add a `std::get_pointer` free function that obtains the underlying pointer for various standard library types. `propagate_const` should rely on this function rather than a `get` member function. Note that Boost provides a [similar function](www.boost.org/doc/libs/release/boost/get_pointer.hpp) already.
+* Add a `std::get_pointer` free function that obtains the underlying pointer for various standard library types. `propagate_const` should rely on this function rather than a `get` member function. `propagate_const<T>::get` should be enabled only if an appropriate `T::get` exists. Note that Boost provides a [similar function](www.boost.org/doc/libs/release/boost/get_pointer.hpp) already.
   * `get_pointer(T* p)` will return `p`
   * `get_pointer(unique_ptr<T> const& p)` and `get_pointer(shared_ptr<T> const& p)` will return `p.get()`
   * `get_pointer(view<T> const& v)` and `get_pointer(optional_view<T> const& v)` will return `static_cast<T*>(v)`
   * `get_pointer(propagate_const<T>& pc)` and `get_pointer(propagate_const<T> const& pc)` will return `get_pointer(pc.t)`, where `pc.t` is the underlying object of type `T`
 * Enable `propagate_const<T>::operator bool` _only_ if `T::operator bool` exists.
 * Require compatible types to provide a member type `const_type` (for example, `view<T>::const_type` would be `view<T const>`). This information can then be used to implement implicit conversion to `T` and `T::const_type`.
+* Only define `propagate_const<T>::element_type` if `T::element_type` exists. Similarly, it might be useful to define `propagate_const<T>::value_type` if `T::value_type` exists (as it does for `view` and `optional_view`), alongside other common type aliases.
 
 A sample implementation of a version of `propagate_const` with these changes can be found [here](https://github.com/hpesoj/cpp-views/blob/master/tests/propagate_const.hpp).
 
