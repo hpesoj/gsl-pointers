@@ -118,7 +118,6 @@ public:
 
     operator T&() & { return t; }
     operator T() && { return std::move(t); }
-    operator T() const&& { return std::move(t); }
 
     template <typename T_ = T, std::enable_if_t<
         std::is_same<T_, const_type>::value, int> = 0>
@@ -134,11 +133,6 @@ public:
     template <typename T_ = T, std::enable_if_t<
         !std::is_same<T_, const_type>::value, int> = 0>
     operator const_type() && {
-        return std::move(t);
-    }
-    template <typename T_ = T, std::enable_if_t<
-        !std::is_same<T_, const_type>::value, int> = 0>
-    operator const_type() const&& {
         return std::move(t);
     }
 
@@ -175,11 +169,6 @@ public:
         !std::is_same<const_pointer_type, T_>::value &&
         !std::is_same<const_pointer_type, const_type>::value, int> = 0>
     operator const_pointer_type() const& { return t; }
-    template <typename T_ = T, std::enable_if_t<
-        std::is_convertible<T_ const, const_pointer_type>::value &&
-        !std::is_same<const_pointer_type, T_>::value &&
-        !std::is_same<const_pointer_type, const_type>::value, int> = 0>
-    operator const_pointer_type() const&& { return std::move(t); }
 
     template <typename T_ = T, std::enable_if_t<
         std::is_constructible<const_pointer_type, T_ const>::value &&
@@ -187,12 +176,6 @@ public:
         !std::is_same<const_pointer_type, T_>::value &&
         !std::is_same<const_pointer_type, const_type>::value, int> = 0>
     explicit operator const_pointer_type() const& { return static_cast<const_pointer_type>(t); }
-    template <typename T_ = T, std::enable_if_t<
-        std::is_constructible<const_pointer_type, T_ const>::value &&
-        !std::is_convertible<T_ const, const_pointer_type>::value &&
-        !std::is_same<const_pointer_type, T_>::value &&
-        !std::is_same<const_pointer_type, const_type>::value, int> = 0>
-    explicit operator const_pointer_type() const&& { return std::move(static_cast<const_pointer_type>(t)); }
 
     template <typename T_ = T, std::enable_if_t<
         std::is_convertible<T_ const, const_reference_type>::value, int> = 0>
