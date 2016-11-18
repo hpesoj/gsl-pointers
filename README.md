@@ -349,7 +349,9 @@ First, `propagate_const` requires compatible types to implement a member functio
 
 Secondly, `propagate_const` requires compatible types to be convertible to `bool`. While this is no problem for `optional_view`, it really makes no sense for `view` to convert to bool. It would be better if this weren't a requirement of `propagate_const` at all.
 
-Thirdly, `propagate_const` works well with raw pointers because it implicitly converts to `T*` and `T const*`. However, `propagate_const<T>` doesn't implicitly convert to `T` or the const version of `T` for an arbitrary `T`. This could be supported if `propagate_const` had some way of knowing what the const version of `T` was for an arbitrary `T`. 
+Thirdly, `propagate_const` works well with raw pointers because it implicitly converts to `pointer` and `const_pointer`. However, `propagate_const<T>` doesn't implicitly convert to `T` or the const version of `T` for an arbitrary `T`. This could be supported if `propagate_const` had some way of knowing what the const version of `T` was for an arbitrary `T`. 
+
+And finally, `propagate_const` currently only supports _implicit_ conversion to `pointer` and `const_pointer`, while `view` and `optional_view` variously implement implicit _and_ explicit conversion to both `pointer` and `const_pointer` _as well as_ `reference` and `const_reference`.
 
 Fortunately, `propagate_const` has not yet been standardized, so there we have a chance to fix things. In order to allow `propagate_const` to work with all types that have indirection semantics, the following changes are suggested:
 
@@ -360,6 +362,7 @@ Fortunately, `propagate_const` has not yet been standardized, so there we have a
   * `get_pointer(propagate_const<T>& pc)` and `get_pointer(propagate_const<T> const& pc)` will return `get_pointer(pc.t)`, where `pc.t` is the underlying object of type `T`
 * Enable `propagate_const<T>::operator bool` _only_ if `T::operator bool` exists.
 * Require compatible types to provide a member type `const_type` (for example, `view<T>::const_type` would be `view<T const>`). This information can then be used to implement implicit conversion to `T` and `T::const_type`.
+* Conditionally define either implicit or explicit conversion from `propagate_const<T>` to `pointer` and `const_pointer` and/or `reference` and `const_reference`, depending on whether the corresponding conversions exist for `T`. 
 * Only define `propagate_const<T>::element_type` if `T::element_type` exists. Similarly, it might be useful to define `propagate_const<T>::value_type` if `T::value_type` exists (as it does for `view` and `optional_view`), alongside other common type aliases.
 
 A sample implementation of a version of `propagate_const` with these changes can be found [here](https://github.com/hpesoj/cpp-views/blob/master/tests/propagate_const.hpp).
