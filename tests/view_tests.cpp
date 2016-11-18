@@ -574,7 +574,7 @@ SCENARIO("views can be used to access the objects they reference")
     } NEXT_TYPE
 }
 
-SCENARIO("`view` supports arithmetic comparison")
+SCENARIO("views support arithmetic comparison")
 {
     FOR_EACH_TYPE(value_t, int, int const)
     {
@@ -653,106 +653,150 @@ SCENARIO("`view` supports arithmetic comparison")
     } NEXT_TYPE
 }
 
-SCENARIO("`view` can be static cast")
+SCENARIO("views can be static cast")
 {
-    //FOR_EACH_TYPE(derived_t, derived, derived const)
-    //{
-        //using base_t = replace_t<derived_t, base>;
-
-        //FOR_EACH_TYPE(derived_view_t, view<derived_t>, optional_view<derived_t>)
-        //{
-            //using base_view_t = replace_t<derived_view_t, base>;
-
-            //FOR_EACH_TYPE(derived_final_t, derived_view_t, propagate_const<derived_view_t>)
-            //{
-                //using base_final_t = replace_t<derived_final_t, base>;
-
-                //derived_t d;
-
-                //GIVEN("a `view<base>` initialized with `derived&`")
-                //{
-                    //base_final_t v = d;
-
-                    //WHEN("it is static cast to a `view<derived>`")
-                    //{
-                        //base_final_t w = static_view_cast<derived>(v);
-
-                        //REQUIRE(w == v);
-                        //REQUIRE(w == d);
-                    //}
-                //}
-            //} NEXT_TYPE
-        //} NEXT_TYPE
-    //} NEXT_TYPE
-}
-
-SCENARIO("`view` can be dynamic cast")
-{
-    derived d;
-
-    GIVEN("a `view<base>` initialized with `derived&`")
+    FOR_EACH_TYPE(derived_t, derived, derived const)
     {
-        view<base> v = d;
+        using base_t = replace_t<derived_t, base>;
 
-        WHEN("it is dynamic cast to a `view<derived>`")
+        FOR_EACH_TYPE(derived_view_t, view<derived_t>, optional_view<derived_t>)
         {
-            view<derived> w = static_view_cast<derived>(v);
+            using base_view_t = replace_t<derived_view_t, base>;
 
-            REQUIRE(w == v);
-            REQUIRE(w == d);
-        }
+            FOR_EACH_TYPE(derived_final_t, derived_view_t/*, propagate_const<derived_view_t>*/)
+            {
+                using base_final_t = replace_t<derived_final_t, base>;
 
-        WHEN("it is dynamic cast to a `view<derived_other>`")
-        {
-            REQUIRE_THROWS(dynamic_view_cast<derived_other>(v));
+                derived_t d;
 
-            REQUIRE(v == d);
-        }
-    }
+                GIVEN("a view to `base` initialized with a `derived`")
+                {
+                    base_final_t v = d;
+
+                    WHEN("it is static cast to a view to `derived`")
+                    {
+                        derived_final_t w = static_view_cast<derived_t>(v);
+
+                        REQUIRE(w == v);
+                        REQUIRE(w == d);
+                    }
+                }
+            } NEXT_TYPE
+        } NEXT_TYPE
+    } NEXT_TYPE
 }
 
-SCENARIO("`view` can be const cast")
+SCENARIO("views can be dynamic cast")
 {
-    int i = {};
-
-    GIVEN("a `view<int const>` initialized with `int&`")
+    FOR_EACH_TYPE(derived_t, derived, derived const)
     {
-        view<int> v = i;
+        using base_t = replace_t<derived_t, base>;
+        using derived_other_t = replace_t<derived_t, derived_other>;
 
-        WHEN("it is const cast to a `view<int>`")
+        FOR_EACH_TYPE(derived_view_t, view<derived_t>, optional_view<derived_t>)
         {
-            view<int> w = const_view_cast<int>(v);
+            using base_view_t = replace_t<derived_view_t, base>;
 
-            REQUIRE(w == v);
-        }
-    }
+            FOR_EACH_TYPE(derived_final_t, derived_view_t/*, propagate_const<derived_view_t>*/)
+            {
+                using base_final_t = replace_t<derived_final_t, base>;
+
+                derived_t d;
+                derived_other_t e;
+
+                GIVEN("a view to `base` initialized with a `derived`")
+                {
+                    base_final_t v = d;
+
+                    WHEN("it is dynamic cast to a view to `derived`")
+                    {
+                        derived_final_t w = dynamic_view_cast<derived_t>(v);
+
+                        REQUIRE(w == v);
+                        REQUIRE(w == d);
+                    }
+                }
+
+                GIVEN("a view to `base` initialized with a `derived_other`")
+                {
+                    base_final_t v = e;
+
+                    WHEN("it is dynamic cast to a view to `derived`")
+                    {
+                        IF(is_view_v<base_view_t>)
+                        {
+                            REQUIRE_THROWS(derived_final_t w = dynamic_view_cast<derived_t>(v));
+                        } END_IF
+
+                        IF(is_optional_view_v<base_view_t>)
+                        {
+                            derived_final_t w = dynamic_view_cast<derived_t>(v);
+
+                            REQUIRE(!w);
+                            REQUIRE(w != v);
+                            REQUIRE(w != d);
+                        } END_IF
+                    }
+                }
+            } NEXT_TYPE
+        } NEXT_TYPE
+    } NEXT_TYPE
 }
 
-SCENARIO("`view` can be created using `make_view`")
+SCENARIO("views can be const cast")
 {
-    int i = 42;
-    int const c = 21;
-
-    GIVEN("a `view<int>` created with `make_view` from an `int`")
+    FOR_EACH_TYPE(value_t, int, int const)
     {
-        auto v = make_view(i);
+        using const_value_t = std::add_const_t<value_t>;
 
-        REQUIRE((std::is_same<decltype(v), view<int>>::value));
-        REQUIRE(v == i);
-        REQUIRE(*v == 42);
-    }
+        FOR_EACH_TYPE(view_t, view<value_t>, optional_view<value_t>)
+        {
+            using const_view_t = replace_t<view_t, const_value_t>;
 
-    GIVEN("a `view<int>` created with `make_view` from an `int const`")
-    {
-        auto v = make_view(c);
+            FOR_EACH_TYPE(final_t, view_t/*, propagate_const<view_t>*/)
+            {
+                using const_final_t = replace_t<final_t, const_value_t>;
 
-        REQUIRE((std::is_same<decltype(v), view<int const>>::value));
-        REQUIRE(v == c);
-        REQUIRE(*v == 21);
-    }
+                value_t i = {};
+
+                GIVEN("a view to const")
+                {
+                    const_final_t v = i;
+
+                    WHEN("it is const cast to non-const`")
+                    {
+                        final_t w = const_view_cast<value_t>(v);
+
+                        REQUIRE(w == v);
+                    }
+                }
+            } NEXT_TYPE
+        } NEXT_TYPE
+    } NEXT_TYPE
 }
 
-SCENARIO("`view` can be used in certain constant expressions")
+SCENARIO("views can be created using `make_view`")
+{
+    FOR_EACH_TYPE(value_t, int, int const)
+    {
+        FOR_EACH_TYPE(view_t, view<value_t>, optional_view<value_t>)
+        {
+            FOR_EACH_TYPE(final_t, view_t, propagate_const<view_t>)
+            {
+                value_t i = {};
+
+                GIVEN("a view created with `make_view`")
+                {
+                    final_t v = make_view(i);
+
+                    REQUIRE(v == i);
+                }
+            } NEXT_TYPE
+        } NEXT_TYPE
+    } NEXT_TYPE
+}
+
+SCENARIO("views can be used in certain constant expressions")
 {
     // !!! Not working on MSVC
     //constexpr static derived d = { 0 };
@@ -765,329 +809,82 @@ SCENARIO("`view` can be used in certain constant expressions")
     //constexpr derived const& r2 = v.value();
 }
 
-SCENARIO("`view` can be used with STL containers")
+SCENARIO("views can be used with STL containers")
 {
-    std::array<int, 3> i = { 0, 1, 2 };
-
-    GIVEN("a `vector<view<int>>`")
+    FOR_EACH_TYPE(value_t, int, int const)
     {
-        std::vector<view<int>> vector;
-
-        vector.emplace_back(i[2]);
-        vector.emplace_back(i[1]);
-        vector.emplace_back(i[0]);
-
-        REQUIRE(vector[0] == i[2]);
-        REQUIRE(vector[1] == i[1]);
-        REQUIRE(vector[2] == i[0]);
-    }
-
-    GIVEN("a `map<view<int>, view<int>>`")
-    {
-        std::map<view<int>, view<int>> map;
-
-        map.emplace(i[0], i[2]);
-        map.emplace(i[1], i[1]);
-        map.emplace(i[2], i[0]);
-
-        REQUIRE(map.at(i[0]) == i[2]);
-        REQUIRE(map.at(i[1]) == i[1]);
-        REQUIRE(map.at(i[2]) == i[0]);
-    }
-
-    GIVEN("an `unordered_map<view<int>, view<int>>`")
-    {
-        std::unordered_map<view<int>, view<int>> map;
-
-        map.emplace(i[0], i[2]);
-        map.emplace(i[1], i[1]);
-        map.emplace(i[2], i[0]);
-
-        REQUIRE(map.at(i[0]) == i[2]);
-        REQUIRE(map.at(i[1]) == i[1]);
-        REQUIRE(map.at(i[2]) == i[0]);
-    }
-
-    GIVEN("a `set<view<int>>`")
-    {
-        std::set<view<int>> set;
-
-        set.emplace(i[0]);
-        set.emplace(i[1]);
-        set.emplace(i[2]);
-
-        REQUIRE(set.find(i[0]) != set.end());
-        REQUIRE(set.find(i[1]) != set.end());
-        REQUIRE(set.find(i[2]) != set.end());
-    }
-
-    GIVEN("an `unordered_set<view<int>>`")
-    {
-        std::unordered_set<view<int>> set;
-
-        set.emplace(i[0]);
-        set.emplace(i[1]);
-        set.emplace(i[2]);
-
-        REQUIRE(set.find(i[0]) != set.end());
-        REQUIRE(set.find(i[1]) != set.end());
-        REQUIRE(set.find(i[2]) != set.end());
-    }
-}
-
-SCENARIO("containers of `view`s can be used with range-based for loops")
-{
-    std::array<int, 3> i = { 0, 1, 2 };
-
-    GIVEN("a `vector<view<int>>`")
-    {
-        std::vector<view<int>> vector;
-
-        vector.emplace_back(i[0]);
-        vector.emplace_back(i[1]);
-        vector.emplace_back(i[2]);
-
-        for (auto i : vector) {
-            *i += 1;
-        }
-
-        CHECK(i[0] == 1);
-        CHECK(i[1] == 2);
-        CHECK(i[2] == 3);
-
-        for (int& i : vector) {
-            i += 1;
-        }
-
-        CHECK(i[0] == 2);
-        CHECK(i[1] == 3);
-        CHECK(i[2] == 4);
-    }
-}
-
-template <typename InputIt>
-auto sorted_view(InputIt first, InputIt last) {
-    using value_type = typename std::iterator_traits<InputIt>::value_type;
-    std::vector<view<value_type const>> v(first, last);
-    std::sort(std::begin(v), std::end(v), std::less<value_type const&>());
-    return v;
-}
-
-SCENARIO("`view` can be used to provide sorted views of arrays")
-{
-    std::array<int, 5> i = { 4, 8, 1, 5, 2 };
-
-    auto views = sorted_view(std::begin(i), std::end(i));
-
-    REQUIRE(views[0] == i[2]);
-    REQUIRE(views[1] == i[4]);
-    REQUIRE(views[2] == i[0]);
-    REQUIRE(views[3] == i[3]);
-    REQUIRE(views[4] == i[1]);
-}
-
-class node
-{
-private:
-    optional_view<node> parent;
-    std::vector<view<node>> children;
-
-public:
-    node() = default;
-
-    node(node const&) = delete;
-    node& operator=(node const&) = delete;
-
-    node(node&&) = delete;
-    node& operator=(node&&) = delete;
-
-    void set_parent(optional_view<node> new_parent) {
-        if (parent) parent->remove_child(*this);
-        parent = new_parent;
-        if (parent) parent->add_child(*this);
-    }
-
-    optional_view<node> get_parent() const {
-        return parent;
-    }
-
-    std::size_t get_child_count() const {
-        return children.size();
-    }
-
-    view<node> get_child(std::size_t index) const {
-        return children[index];
-    }
-
-private:
-    void add_child(view<node> child) {
-        children.push_back(child);
-    }
-
-    void remove_child(view<node> child) {
-        children.erase(std::find(children.begin(), children.end(), child));
-    }
-};
-
-SCENARIO("`view` and `optional_view` can be used to create a `node` type")
-{
-    node a, b, c;
-
-    a.set_parent(b);
-    b.set_parent(c);
-
-    optional_view<node> b0 = a.get_parent();
-
-    view<node> a0 = b.get_child(0);
-    view<node const> a1 = *a0;
-
-    node const* x = get_pointer(a0);
-    auto& y = b0.value();
-
-    if (b.get_parent() == c) {
-        for (auto i = 0u; i < b.get_child_count(); ++i) {
-            auto child = b.get_child(i);
-        }
-    }
-}
-
-SCENARIO("`view` can be used with `propagate_const`")
-{
-    int i = 42;
-    int j = 21;
-
-    GIVEN("a `propagate_const<view<int>>` constructed from an `int&`")
-    {
-        propagate_const<view<int>> v = i;
-
-        REQUIRE(v == i);
-        REQUIRE(v != j);
-        REQUIRE(*v == 42);
-
-        WHEN("it is implicitly converted to `int&`")
+        FOR_EACH_TYPE(view_t, view<value_t>, optional_view<value_t>)
         {
-            int& r = v;
+            FOR_EACH_TYPE(final_t, view_t, propagate_const<view_t>)
+            {
+                std::array<value_t, 3> i = { 0, 1, 2 };
 
-            REQUIRE(r == v);
-            REQUIRE((std::is_same<decltype(*v), int&>::value));
-        }
+                // !!! Not working on MSVC
+                //GIVEN("a `vector` of views")
+                //{
+                    //std::vector<final_t> vector;
 
-        WHEN("it is implicitly converted to `int const&`")
-        {
-            int const& r = v;
+                    //vector.emplace_back(i[2]);
+                    //vector.emplace_back(i[1]);
+                    //vector.emplace_back(i[0]);
 
-            REQUIRE(r == v);
-        }
+                    //REQUIRE(vector[0] == i[2]);
+                    //REQUIRE(vector[1] == i[1]);
+                    //REQUIRE(vector[2] == i[0]);
+                //}
 
-        WHEN("it is explicitly converted to `int*`")
-        {
-            int* p = static_cast<int*>(v);
+                GIVEN("a `map` of view-view pairs")
+                {
+                    std::map<final_t, final_t> map;
 
-            REQUIRE(*p == v);
-        }
+                    map.emplace(i[0], i[2]);
+                    map.emplace(i[1], i[1]);
+                    map.emplace(i[2], i[0]);
 
-        WHEN("it is explicitly converted to `int const*`")
-        {
-            int const* p = static_cast<int const*>(v);
+                    REQUIRE(map.at(i[0]) == i[2]);
+                    REQUIRE(map.at(i[1]) == i[1]);
+                    REQUIRE(map.at(i[2]) == i[0]);
+                }
 
-            REQUIRE(*p == v);
-        }
+                GIVEN("an `unordered_map` of view-view pairs")
+                {
+                    std::unordered_map<final_t, final_t> map;
 
-        WHEN("it is converted to a pointer using `get_pointer`")
-        {
-            auto p = get_pointer(v);
+                    map.emplace(i[0], i[2]);
+                    map.emplace(i[1], i[1]);
+                    map.emplace(i[2], i[0]);
 
-            REQUIRE((std::is_same<decltype(p), int*>::value));
-            REQUIRE(*p == v);
-        }
+                    REQUIRE(map.at(i[0]) == i[2]);
+                    REQUIRE(map.at(i[1]) == i[1]);
+                    REQUIRE(map.at(i[2]) == i[0]);
+                }
 
-        WHEN("it is move constructed")
-        {
-            propagate_const<view<int>> w = std::move(v);
+                GIVEN("a `set` of views")
+                {
+                    std::set<final_t> set;
 
-            REQUIRE(w == i);
-        }
+                    set.emplace(i[0]);
+                    set.emplace(i[1]);
+                    set.emplace(i[2]);
 
-        WHEN("it is implicitly copy converted to a `view<int>&`")
-        {
-            view<int>& w = v;
+                    REQUIRE(set.find(i[0]) != set.end());
+                    REQUIRE(set.find(i[1]) != set.end());
+                    REQUIRE(set.find(i[2]) != set.end());
+                }
 
-            REQUIRE(w == i);
-        }
+                GIVEN("an `unordered_set` of views")
+                {
+                    std::unordered_set<final_t> set;
 
-        WHEN("it is implicitly copy converted to a `view<int const>`")
-        {
-            view<int const> w = v;
+                    set.emplace(i[0]);
+                    set.emplace(i[1]);
+                    set.emplace(i[2]);
 
-            REQUIRE(w == i);
-        }
-
-        WHEN("it is implicitly move converted to a `view<int>`")
-        {
-            view<int> w = std::move(v);
-
-            REQUIRE(w == i);
-        }
-
-        WHEN("it is implicitly move converted to a `view<int const>`")
-        {
-            view<int const> w = std::move(v);
-
-            REQUIRE(w == i);
-        }
-    }
-
-    GIVEN("a `propagate_const<view<int>> const` constructed from an `int&`")
-    {
-        propagate_const<view<int>> const v = i;
-
-        REQUIRE(v == i);
-        REQUIRE(v != j);
-        REQUIRE(*v == 42);
-
-        WHEN("it is implicitly converted to `int const&`")
-        {
-            int const& r = v;
-
-            REQUIRE(r == v);
-            REQUIRE((std::is_same<decltype(*v), int const&>::value));
-        }
-
-        WHEN("it is explicitly converted to `int const*`")
-        {
-            int const* p = static_cast<int const*>(v);
-
-            REQUIRE(*p == v);
-        }
-
-        WHEN("it is converted to a pointer using `get_pointer`")
-        {
-            auto p = get_pointer(v);
-
-            REQUIRE((std::is_same<decltype(p), int const*>::value));
-            REQUIRE(*p == v);
-        }
-
-        WHEN("it is converted to a pointer using `get_pointer`")
-        {
-            auto p = get_pointer(v);
-
-            REQUIRE((std::is_same<decltype(p), int const*>::value));
-            REQUIRE(*p == v);
-        }
-
-        WHEN("it is implicitly copy converted to a `view<int const>`")
-        {
-            view<int const> w = v;
-
-            REQUIRE(w == i);
-        }
-
-        WHEN("it is implicitly move converted to a `view<int const>`")
-        {
-            view<int const> w = std::move(v);
-
-            REQUIRE(w == i);
-        }
-    }
+                    REQUIRE(set.find(i[0]) != set.end());
+                    REQUIRE(set.find(i[1]) != set.end());
+                    REQUIRE(set.find(i[2]) != set.end());
+                }
+            } NEXT_TYPE
+        } NEXT_TYPE
+    } NEXT_TYPE
 }

@@ -312,4 +312,15 @@ constexpr bool operator>(propagate_const<T1> const& lhs, propagate_const<T2> con
 template <typename T1, typename T2>
 constexpr bool operator>=(propagate_const<T1> const& lhs, propagate_const<T2> const& rhs) { return lhs.t >= rhs.t; }
 
+namespace std {
+
+template <typename T>
+struct hash<propagate_const<T>> {
+    constexpr std::size_t operator()(propagate_const<T> const& pc) const noexcept {
+        return hash<T>()(get_underlying(pc));
+    }
+};
+
+} // namespace std
+
 #endif // PROPAGATE_CONST_HPP
