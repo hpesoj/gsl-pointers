@@ -160,7 +160,6 @@ public:
     const_pointer_type operator->() const { return get_pointer(t); }
     pointer_type operator->() { return get_pointer(t); }
 
-    operator T const&() const& { return t; }
     operator T&() & { return t; }
     operator T() && { return std::move(t); }
 
@@ -269,6 +268,15 @@ template <typename T>
 void swap(propagate_const<T>& lhs, propagate_const<T>& rhs)
 {
     lhs.swap(rhs);
+}
+
+template <typename T>
+constexpr T const& get_underlying(propagate_const<T> const& pc) noexcept {
+    return const_cast<propagate_const<T>&>(pc);
+}
+template <typename T>
+constexpr T& get_underlying(propagate_const<T>& pc) noexcept {
+    return pc;
 }
 
 template <typename T>
