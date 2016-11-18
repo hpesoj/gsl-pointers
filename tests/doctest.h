@@ -698,13 +698,13 @@ namespace detail
 
     struct SubcaseSignature
     {
-        const char* m_name;
+        std::string m_name;
         std::vector<int> m_iteration;
         const char* m_file;
         int         m_line;
 
-        SubcaseSignature(const char* name, std::vector<int> iteration, const char* file, int line)
-                : m_name(name)
+        SubcaseSignature(std::string name, std::vector<int> iteration, const char* file, int line)
+                : m_name(std::move(name))
                 , m_iteration(std::move(iteration))
                 , m_file(file)
                 , m_line(line) {}
@@ -2308,7 +2308,7 @@ namespace detail
             return strcmp(m_file, other.m_file) < 0;
         if(m_iteration != other.m_iteration)
             return m_iteration < other.m_iteration;
-        return strcmp(m_name, other.m_name) < 0;
+        return m_name < other.m_name;
     }
 
     Subcase::Subcase(const char* name, std::vector<int> iter, const char* file, int line)
@@ -2629,7 +2629,7 @@ namespace detail
         for(unsigned i = 0; i < subcasesStack.size(); ++i) {
             char subcase[DOCTEST_SNPRINTF_BUFFER_LENGTH];
             DOCTEST_SNPRINTF(subcase, DOCTEST_COUNTOF(loc), "  %s\n",
-                             subcasesStack[i].m_signature.m_name);
+                             subcasesStack[i].m_signature.m_name.c_str());
             DOCTEST_PRINTF_COLORED(subcase, Color::None);
             subcaseStuff += subcase;
         }

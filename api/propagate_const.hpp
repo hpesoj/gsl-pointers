@@ -1,5 +1,29 @@
+/*
+ * Copyright (c) 2016 Joseph Thomson
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 #ifndef PROPAGATE_CONST_HPP
 #define PROPAGATE_CONST_HPP
+
+#include <utility.hpp>
 
 #include <type_traits>
 #include <utility>
@@ -34,9 +58,6 @@ namespace detail {
 } // namespace detail
 
 template <typename T>
-T* get_pointer(T* p) { return p; }
-
-template <typename T>
 class propagate_const {
     template <typename U>
     friend class propagate_const;
@@ -59,10 +80,29 @@ public:
     propagate_const& operator=(propagate_const&&) = default;
 
     template <typename U, std::enable_if_t<
+        std::is_constructible<T, U&>::value &&
+        std::is_convertible<U&, T>::value, int> = 0>
+    propagate_const(propagate_const<U>& p) :
+        t(p) {
+    }
+    template <typename U, std::enable_if_t<
+        std::is_constructible<T, U&>::value &&
+        !std::is_convertible<U&, T>::value, int> = 0>
+    explicit propagate_const(propagate_const<U>& p) :
+        t(p.t) {
+    }
+    template <typename U, std::enable_if_t<
+        std::is_convertible<U&, T>::value, int> = 0>
+    propagate_const& operator=(propagate_const<U>& p) {
+        t = p.t;
+        return *this;
+    }
+
+    template <typename U, std::enable_if_t<
         std::is_constructible<T, U&&>::value &&
         std::is_convertible<U&&, T>::value, int> = 0>
     propagate_const(propagate_const<U>&& p) :
-        t(std::move(p)) {
+        t(std::move(p.t)) {
     }
     template <typename U, std::enable_if_t<
         std::is_constructible<T, U&&>::value &&
@@ -73,7 +113,7 @@ public:
     template <typename U, std::enable_if_t<
         std::is_convertible<U&&, T>::value, int> = 0>
     propagate_const& operator=(propagate_const<U>&& p) {
-        t = std::move(p);
+        t = std::move(p.t);
         return *this;
     }
 
@@ -100,8 +140,12 @@ public:
     }
 
     template <typename T_ = T, std::enable_if_t<
-        std::is_convertible<T_, bool>::value, int> = 0>
+        std::is_constructible<bool, T_>::value, int> = 0>
     explicit operator bool() const { return static_cast<bool>(t); }
+
+    template <typename T_ = T, std::enable_if_t<
+        std::is_constructible<bool, T_>::value, int> = 0>
+    explicit operator bool() { return static_cast<bool>(t); }
 
     template <typename T_ = T, std::enable_if_t<
         std::is_same<pointer_type, decltype(std::declval<T_>().get())>::value, int> = 0>
@@ -165,6 +209,11 @@ public:
     operator reference_type() { return t; }
 
     template <typename T_ = T, std::enable_if_t<
+        std::is_constructible<reference_type, T_>::value &&
+        !std::is_convertible<T_, reference_type>::value, int> = 0>
+    explicit operator reference_type() { return static_cast<reference_type>(t); }
+
+    template <typename T_ = T, std::enable_if_t<
         std::is_convertible<T_ const, const_pointer_type>::value &&
         !std::is_same<const_pointer_type, T_>::value &&
         !std::is_same<const_pointer_type, const_type>::value, int> = 0>
@@ -181,13 +230,18 @@ public:
         std::is_convertible<T_ const, const_reference_type>::value, int> = 0>
     operator const_reference_type() const { return t; }
 
-    template <typename T1, typename T2>
+    template <typename T_ = T, std::enable_if_t<
+        std::is_constructible<const_reference_type, T_>::value &&
+        !std::is_convertible<T_, const_reference_type>::value, int> = 0>
+    explicit operator const_reference_type() const { return static_cast<const_reference_type>(t); }
+
+    template <typename T1, typename T2, typename>
     friend constexpr bool operator==(propagate_const<T1> const& lhs, T2 const& rhs);
-    template <typename T1, typename T2>
+    template <typename T1, typename T2, typename>
     friend constexpr bool operator==(T1 const& lhs, propagate_const<T2> const& rhs);
-    template <typename T1, typename T2>
+    template <typename T1, typename T2, typename>
     friend constexpr bool operator!=(propagate_const<T1> const& lhs, T2 const& rhs);
-    template <typename T1, typename T2>
+    template <typename T1, typename T2, typename>
     friend constexpr bool operator!=(T1 const& lhs, propagate_const<T2> const& rhs);
 
     template <typename T1, typename T2>
@@ -203,7 +257,18 @@ public:
     friend constexpr bool operator>(propagate_const<T1> const& lhs, propagate_const<T2> const& rhs);
     template <typename T1, typename T2>
     friend constexpr bool operator>=(propagate_const<T1> const& lhs, propagate_const<T2> const& rhs);
+
+    void swap(propagate_const& other) noexcept {
+        using std::swap;
+        swap(t, other.t);
+    }
 };
+
+template <typename T>
+void swap(propagate_const<T>& lhs, propagate_const<T>& rhs)
+{
+    lhs.swap(rhs);
+}
 
 template <typename T>
 constexpr typename propagate_const<T>::pointer_type get_pointer(propagate_const<T>& pc) noexcept {
@@ -215,13 +280,13 @@ constexpr typename propagate_const<T>::const_pointer_type get_pointer(propagate_
     return static_cast<typename propagate_const<T>::const_pointer_type>(pc);
 }
 
-template <typename T1, typename T2>
+template <typename T1, typename T2, typename = std::enable_if_t<!std::is_same<T1, T2>::value>>
 constexpr bool operator==(propagate_const<T1> const& lhs, T2 const& rhs) { return lhs.t == rhs; }
-template <typename T1, typename T2>
+template <typename T1, typename T2, typename = std::enable_if_t<!std::is_same<T1, T2>::value>>
 constexpr bool operator==(T1 const& lhs, propagate_const<T2> const& rhs) { return lhs == rhs.t; }
-template <typename T1, typename T2>
+template <typename T1, typename T2, typename = std::enable_if_t<!std::is_same<T1, T2>::value>>
 constexpr bool operator!=(propagate_const<T1> const& lhs, T2 const& rhs) { return lhs.t != rhs; }
-template <typename T1, typename T2>
+template <typename T1, typename T2, typename = std::enable_if_t<!std::is_same<T1, T2>::value>>
 constexpr bool operator!=(T1 const& lhs, propagate_const<T2> const& rhs) { return lhs != rhs.t; }
 
 template <typename T1, typename T2>

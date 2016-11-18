@@ -25,6 +25,8 @@
 #ifndef VIEW_HPP
 #define VIEW_HPP
 
+#include <utility.hpp>
+
 #include <functional>
 #include <iosfwd>
 #include <stdexcept>
@@ -44,7 +46,13 @@ template <typename T>
 constexpr T* get_pointer(view<T> const&) noexcept;
 
 template <typename T>
+constexpr T* get_pointer(view<T>&) noexcept;
+
+template <typename T>
 constexpr T* get_pointer(optional_view<T> const&) noexcept;
+
+template <typename T>
+constexpr T* get_pointer(optional_view<T>&) noexcept;
 
 //=========
 // nullopt
@@ -79,7 +87,7 @@ class view
 {
 public:
     using value_type = T;
-    using const_type = view<T const>;
+    using const_type = view<std::add_const_t<T>>;
 
 private:
     T* target;
@@ -176,6 +184,12 @@ constexpr T* get_pointer(view<T> const& v) noexcept
 }
 
 template <typename T>
+constexpr T* get_pointer(view<T>& v) noexcept
+{
+    return static_cast<T*>(v);
+}
+
+template <typename T>
 void swap(view<T>& lhs, view<T>& rhs)
 {
     lhs.swap(rhs);
@@ -190,13 +204,13 @@ constexpr bool operator==(view<T1> const& lhs, view<T2> const& rhs) noexcept
 template <typename T1, typename T2>
 constexpr bool operator==(view<T1> const& lhs, T2 const& rhs) noexcept
 {
-    return get_pointer(lhs) == &rhs;
+    return get_pointer(lhs) == get_pointer(rhs);
 }
 
 template <typename T1, typename T2>
 constexpr bool operator==(T1 const& lhs, view<T2> const& rhs) noexcept
 {
-    return &lhs == get_pointer(rhs);
+    return get_pointer(lhs) == get_pointer(rhs);
 }
 
 template <typename T1, typename T2>
@@ -393,6 +407,12 @@ constexpr T* get_pointer(optional_view<T> const& v) noexcept
 }
 
 template <typename T>
+constexpr T* get_pointer(optional_view<T>& v) noexcept
+{
+    return static_cast<T*>(v);
+}
+
+template <typename T>
 void swap(optional_view<T>& lhs, optional_view<T>& rhs) noexcept
 {
     lhs.swap(rhs);
@@ -419,13 +439,13 @@ constexpr bool operator==(view<T1> const& lhs, optional_view<T2> const& rhs) noe
 template <typename T1, typename T2>
 constexpr bool operator==(optional_view<T1> const& lhs, T2 const& rhs) noexcept
 {
-    return get_pointer(lhs) == &rhs;
+    return get_pointer(lhs) == get_pointer(rhs);
 }
 
 template <typename T1, typename T2>
 constexpr bool operator==(T1 const& lhs, optional_view<T2> const& rhs) noexcept
 {
-    return &lhs == get_pointer(rhs);
+    return get_pointer(lhs) == get_pointer(rhs);
 }
 
 template <typename T>

@@ -23,14 +23,12 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.h"
 
-//#define CATCH_CONFIG_MAIN
-//#include "catch.hpp"
-
 #include <propagate_const.hpp>
 #include <view.hpp>
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <iostream>
 #include <map>
 #include <set>
@@ -40,6 +38,9 @@
 
 namespace
 {
+
+template <typename T>
+constexpr bool is_const_v = std::is_const<T>::value;
 
 template <typename T>
 struct type_id
@@ -60,49 +61,144 @@ void for_each_type(F f)
 }
 
 template <bool B>
-struct if_impl
+struct invoke_if_impl
 {
-    template <typename F>
-    void operator()(F) const
+    template <typename F, typename... Ts>
+    void operator()(F&&, Ts&&...) const
     {
     }
 };
 
 template <>
-struct if_impl<true>
+struct invoke_if_impl<true>
 {
-    template <typename F>
-    void operator()(F f) const
+    template <typename F, typename... Ts>
+    void operator()(F&& f, Ts&&... ts) const
     {
-        f();
+        f(std::forward<Ts>(ts)...);
     }
 };
 
-template <bool B, typename F>
-void if_(F f)
+template <bool B, typename F, typename... Ts>
+void invoke_if(F&& f, Ts&&... ts)
 {
-    if_impl<B>()(f);
+    invoke_if_impl<B>()(std::forward<F>(f), std::forward<Ts>(ts)...);
+}
+
+template <typename It>
+std::string strip(It b, It e)
+{
+    while (std::isspace(*b)) ++b;
+    while (e > b + 1 && std::isspace(*(e - 1))) --e;
+    return std::string(b, e);
+}
+
+std::vector<std::string> tokenize(std::string const& s)
+{
+    std::vector<std::string> tokens;
+
+    auto b = s.begin();
+    auto e = s.end();
+    auto x = b;
+
+    int nesting_level = {};
+
+    for (auto i = b; i != e; ++i)
+    {
+        auto c = *i;
+
+        if (c == '(') ++nesting_level;
+        if (c == ')') --nesting_level;
+
+        if ((c == ',' || i == e - 1) && nesting_level == 0)
+        {
+            tokens.emplace_back(strip(x, i));
+            x = i + 1;
+        }
+    }
+
+    return tokens;
 }
 
 #define FOR_EACH_TYPE(type_t, ...) \
     { \
+        static auto _args = tokenize(#__VA_ARGS__); \
+        size_t _index = {}; \
         doctest::detail::getContextState()->currentIteration.push_back(0); \
         for_each_type<__VA_ARGS__>([&](auto _id) \
         { \
             ++doctest::detail::getContextState()->currentIteration.back(); \
-            DOCTEST_SUBCASE(DOCTEST_CAT("For argument in ", #__VA_ARGS__)) \
+            DOCTEST_SUBCASE((std::string("   Using: ") + #type_t + " = " + _args[_index++]).c_str()) \
             { \
                 using type_t = decltype(_id)::type;
+
+#define NEXT_TYPE }}); doctest::detail::getContextState()->currentIteration.pop_back(); }
 
 #define IF(condition) \
     { \
         doctest::detail::getContextState()->currentIteration.push_back(0); \
-        if_<condition>([&]() \
+        invoke_if<condition>([&](auto) \
         { \
-            DOCTEST_SUBCASE(DOCTEST_CAT("When ", #condition)) \
-            { \
+            {
 
-#define END }}); doctest::detail::getContextState()->currentIteration.pop_back(); } \
+#define END_IF }}, 0); doctest::detail::getContextState()->currentIteration.pop_back(); }
+
+template <typename T>
+struct is_view : std::false_type {};
+template <typename T>
+struct is_view<view<T>> : std::true_type {};
+
+template <typename T>
+constexpr bool is_view_v = is_view<T>::value;
+
+template <typename T>
+struct is_optional_view : std::false_type {};
+template <typename T>
+struct is_optional_view<optional_view<T>> : std::true_type {};
+
+template <typename T>
+constexpr bool is_optional_view_v = is_optional_view<T>::value;
+
+template <typename T>
+struct is_propagate_const : std::false_type {};
+template <typename T>
+struct is_propagate_const<propagate_const<T>> : std::true_type {};
+
+template <typename T>
+constexpr bool is_propagate_const_v = is_propagate_const<T>::value;
+
+template <typename T, typename U>
+struct replace
+{
+    using type = U;
+};
+
+template <typename T, typename U>
+using replace_t = typename replace<T, U>::type;
+
+template <typename T, typename U>
+struct replace<T const, U>
+{
+    using type = replace_t<T, U> const;
+};
+
+template <typename T, typename U>
+struct replace<view<T>, U>
+{
+    using type = view<replace_t<T, U>>;
+};
+
+template <typename T, typename U>
+struct replace<optional_view<T>, U>
+{
+    using type = optional_view<replace_t<T, U>>;
+};
+
+template <typename T, typename U>
+struct replace<propagate_const<T>, U>
+{
+    using type = propagate_const<replace_t<T, U>>;
+};
 
 struct base
 {
@@ -133,16 +229,6 @@ struct derived_other : base
     }
 };
 
-template <typename T>
-struct is_view : std::false_type {};
-template <typename T>
-struct is_view<view<T>> : std::true_type {};
-
-template <typename T>
-struct is_optional_view : std::false_type {};
-template <typename T>
-struct is_optional_view<optional_view<T>> : std::true_type {};
-
 } // namespace
 
 SCENARIO("`view` and `optional_view` are trivially copyable")
@@ -158,398 +244,446 @@ SCENARIO("views can be constructed`")
 {
     FOR_EACH_TYPE(value_t, int, int const)
     {
-        FOR_EACH_TYPE(view_t,
-            view<value_t>,
-            view<value_t const>,
-            optional_view<value_t>,
-            optional_view<value_t const>,
-            propagate_const<view<value_t>>,
-            propagate_const<view<value_t const>>,
-            propagate_const<optional_view<value_t>>,
-            propagate_const<optional_view<value_t const>>)
+        FOR_EACH_TYPE(view_t, view<value_t>, optional_view<value_t>)
         {
-            value_t i = {};
-            value_t j = {};
-
-            GIVEN("a view implicitly constructed from an lvalue reference")
+            FOR_EACH_TYPE(final_t, view_t, propagate_const<view_t>)
             {
-                view_t v = i;
+                value_t i = {};
+                value_t j = {};
 
-                REQUIRE(v == i);
-                REQUIRE(v != j);
-
-                WHEN("is is assigned an lvalue reference")
+                GIVEN("a view implicitly constructed from a reference")
                 {
-                    v = j;
+                    final_t v = i;
+
+                    REQUIRE(v == i);
+                    REQUIRE(v != j);
+
+                    WHEN("is is assigned a reference")
+                    {
+                        v = j;
+
+                        REQUIRE(v == j);
+                        REQUIRE(v != i);
+                    }
+                }
+
+                GIVEN("a view explicitly constructed from a pointer")
+                {
+                    final_t v{&i};
+
+                    REQUIRE(v == i);
+                    REQUIRE(v != j);
+                }
+
+                GIVEN("a view explicitly constructed from a null pointer")
+                {
+                    IF(is_view_v<view_t>)
+                    {
+                        REQUIRE_THROWS(final_t v{static_cast<value_t*>(nullptr)});
+                    } END_IF
+
+                    IF(is_optional_view_v<view_t>)
+                    {
+                        final_t v{static_cast<value_t*>(nullptr)};
+
+                        REQUIRE(!v);
+                        REQUIRE(v != i);
+                        REQUIRE(v != j);
+                    } END_IF
+                }
+
+                GIVEN("a view explicitly constructed from a `nullptr`")
+                {
+                    IF(is_view_v<view_t>)
+                    {
+                        REQUIRE_THROWS(final_t v{nullptr});
+                    } END_IF
+
+                    IF(is_optional_view_v<view_t>)
+                    {
+                        final_t v{nullptr};
+
+                        REQUIRE(!v);
+                        REQUIRE(v != i);
+                        REQUIRE(v != j);
+                    } END_IF
+                }
+
+                IF(is_optional_view_v<view_t>)
+                {
+                    GIVEN("a default constructed view")
+                    {
+                        final_t v;
+
+                        REQUIRE(!v);
+                        REQUIRE(v == nullopt);
+
+                        WHEN("it is assigned a reference")
+                        {
+                            v = i;
+
+                            REQUIRE(v);
+                            REQUIRE(v == i);
+                            REQUIRE(v != nullopt);
+
+                            THEN("it is assigned an empty view")
+                            {
+                                v = {};
+
+                                REQUIRE(!v);
+                                REQUIRE(v == nullopt);
+                                REQUIRE(v != i);
+                            }
+                        }
+                    }
+
+                    GIVEN("a view constructed using the `{}` syntax")
+                    {
+                        final_t v = {};
+
+                        REQUIRE(!v);
+                        REQUIRE(v == nullopt);
+                    }
+                } END_IF
+            } NEXT_TYPE
+        } NEXT_TYPE
+    } NEXT_TYPE
+}
+
+SCENARIO("views convert to references and pointers")
+{
+    FOR_EACH_TYPE(value_t, int, int const)
+    {
+        FOR_EACH_TYPE(view_t, view<value_t>, optional_view<value_t>)
+        {
+            FOR_EACH_TYPE(final_t, view_t, propagate_const<view_t>)
+            {
+                value_t i = {};
+
+                GIVEN("a view constructed from an reference")
+                {
+                    final_t v = i;
+
+                    WHEN("the view is converted to a reference")
+                    {
+                        IF(is_view_v<view_t>)
+                        {
+                            value_t& r = v;
+
+                            REQUIRE(&r == &i);
+                        } END_IF
+
+                        IF(is_optional_view_v<view_t>)
+                        {
+                            value_t& r = static_cast<value_t&>(v);
+
+                            REQUIRE(&r == &i);
+                        } END_IF
+                    }
+
+                    WHEN("the view is converted to a pointer")
+                    {
+                        value_t* p = static_cast<value_t*>(v);
+
+                        REQUIRE(p == &i);
+                    }
+                }
+            } NEXT_TYPE
+        } NEXT_TYPE
+    } NEXT_TYPE
+}
+
+SCENARIO("views can be copied")
+{
+    FOR_EACH_TYPE(value_t, int, int const)
+    {
+        FOR_EACH_TYPE(view_t, view<value_t>, optional_view<value_t>)
+        {
+            FOR_EACH_TYPE(final_t, view_t, propagate_const<view_t>)
+            {
+                value_t i = {};
+                value_t j = {};
+
+                GIVEN("a copy constructed view")
+                {
+                    final_t v = i;
+                    final_t w = v;
+
+                    REQUIRE(w == v);
+
+                    REQUIRE(w == i);
+                    REQUIRE(w != j);
+
+                    REQUIRE(v == i);
+                    REQUIRE(v != j);
+
+                    WHEN("it is copy assigned")
+                    {
+                        final_t x = j;
+                        w = x;
+
+                        REQUIRE(w == x);
+
+                        REQUIRE(w == j);
+                        REQUIRE(w != i);
+
+                        REQUIRE(x == j);
+                        REQUIRE(x != i);
+
+                        REQUIRE(v == i);
+                        REQUIRE(v != j);
+                    }
+                }
+            } NEXT_TYPE
+        } NEXT_TYPE
+    } NEXT_TYPE
+}
+
+SCENARIO("views can be moved")
+{
+    FOR_EACH_TYPE(value_t, int, int const)
+    {
+        FOR_EACH_TYPE(view_t, view<value_t>, optional_view<value_t>)
+        {
+            FOR_EACH_TYPE(final_t, view_t, propagate_const<view_t>)
+            {
+                value_t i = {};
+                value_t j = {};
+
+                GIVEN("a move constructed view")
+                {
+                    final_t v = i;
+                    final_t w = std::move(v);
+
+                    REQUIRE(w == v);
+
+                    REQUIRE(w == i);
+                    REQUIRE(w != j);
+
+                    REQUIRE(v == i);
+                    REQUIRE(v != j);
+
+                    WHEN("it is move assigned")
+                    {
+                        final_t x = j;
+                        w = std::move(x);
+
+                        REQUIRE(w == x);
+
+                        REQUIRE(w == j);
+                        REQUIRE(w != i);
+
+                        REQUIRE(x == j);
+                        REQUIRE(x != i);
+
+                        REQUIRE(v == i);
+                        REQUIRE(v != j);
+                    }
+                }
+            } NEXT_TYPE
+        } NEXT_TYPE
+    } NEXT_TYPE
+}
+
+SCENARIO("views can be swapped")
+{
+    FOR_EACH_TYPE(value_t, int, int const)
+    {
+        FOR_EACH_TYPE(view_t, view<value_t>, optional_view<value_t>)
+        {
+            FOR_EACH_TYPE(final_t, view_t, propagate_const<view_t>)
+            {
+                value_t i = {};
+                value_t j = {};
+
+                GIVEN("a view swapped with a view")
+                {
+                    final_t v = i;
+                    final_t w = j;
+
+                    swap(v, w);
 
                     REQUIRE(v == j);
-                    REQUIRE(v != i);
-                }
-            }
-
-            GIVEN("a view explicitly constructed from a pointer")
-            {
-                view_t v{&i};
-
-                REQUIRE(v == i);
-                REQUIRE(v != j);
-            }
-
-            IF(is_view<view_t>::value)
-            {
-                GIVEN("a view explicitly constructed from a null pointer")
-                {
-                    REQUIRE_THROWS(view_t v{static_cast<value_t*>(nullptr)});
+                    REQUIRE(w == i);
                 }
 
-                GIVEN("a view explicitly constructed from a `nullptr`")
+                GIVEN("a view swapped with itself")
                 {
-                    REQUIRE_THROWS(view_t v{nullptr});
+                    final_t v = i;
+
+                    swap(v, v);
+
+                    REQUIRE(v == i);
                 }
-            } END
+            } NEXT_TYPE
+        } NEXT_TYPE
+    } NEXT_TYPE
+}
 
-            IF(is_optional_view<view_t>::value)
+SCENARIO("views can be used to access the objects they reference")
+{
+    FOR_EACH_TYPE(value_t, int, int const)
+    {
+        FOR_EACH_TYPE(view_t, view<value_t>, optional_view<value_t>)
+        {
+            FOR_EACH_TYPE(final_t, view_t, propagate_const<view_t>)
             {
-                GIVEN("a view explicitly constructed from a null pointer")
-                {
-                    view_t v{static_cast<value_t*>(nullptr)};
+                value_t i = 1;
+                value_t j = 2;
 
-                    REQUIRE(!v);
-                    REQUIRE(v != i);
+                GIVEN("a view constructed from an reference")
+                {
+                    final_t v = i;
+
+                    REQUIRE(v == i);
                     REQUIRE(v != j);
+                    REQUIRE(*v == 1);
+                    REQUIRE(*v == i);
+                    REQUIRE(*v != j);
+
+                    WHEN("it is assigned an reference")
+                    {
+                        v = j;
+
+                        REQUIRE(v == j);
+                        REQUIRE(v != i);
+                        REQUIRE(*v == 2);
+                        REQUIRE(*v == j);
+                        REQUIRE(*v != i);
+
+                        IF(!is_const_v<value_t>)
+                        {
+                            WHEN("the viewed object is assigned a reference")
+                            {
+                                *v = i;
+
+                                REQUIRE(v == j);
+                                REQUIRE(v != i);
+                                REQUIRE(*v == 1);
+                                REQUIRE(*v == i);
+                                REQUIRE(*v == j);
+                                REQUIRE(i == 1);
+                                REQUIRE(j == 1);
+                                REQUIRE(i == j);
+                            }
+                        } END_IF
+                    }
                 }
-
-                GIVEN("a view explicitly constructed from a `nullptr`")
-                {
-                    view_t v{nullptr};
-
-                    REQUIRE(!v);
-                    REQUIRE(v != i);
-                    REQUIRE(v != j);
-                }
-            } END
-        } END
-    } END
-}
-
-SCENARIO("`optional_view` can be default constructed")
-{
-    FOR_EACH_TYPE(view_t,
-        optional_view<int>,
-        optional_view<int const>)
-    {
-        GIVEN("a default constructed `optional_view`")
-        {
-            view_t v;
-
-            REQUIRE(!v);
-            REQUIRE(v == nullopt);
-            REQUIRE(nullopt == v);
-        }
-
-        GIVEN("an `optional_view` constructed using the `{}` syntax")
-        {
-            view_t v = {};
-
-            REQUIRE(!v);
-            REQUIRE(v == nullopt);
-            REQUIRE(nullopt == v);
-        }
-    } END
-}
-
-SCENARIO("`view` converts to `T&` and `T*`")
-{
-    int i = 1;
-
-    GIVEN("a `view<int>` constructed from an `int&`")
-    {
-        view<int> v = i;
-
-        THEN("the `view<int>` is implicitly converted to `int&`")
-        {
-            int& r = v;
-
-            REQUIRE(&r == &i);
-        }
-
-        THEN("the `view<int>` is implicitly converted to `int const&`")
-        {
-            int const& r = v;
-
-            REQUIRE(&r == &i);
-        }
-
-        THEN("the `view<int>` is explicitly converted to `int*`")
-        {
-            int* p = static_cast<int*>(v);
-
-            REQUIRE(p == &i);
-        }
-
-        THEN("the `view<int>` is explicitly converted to `int const*`")
-        {
-            int const* p = static_cast<int const*>(v);
-
-            REQUIRE(p == &i);
-        }
-    }
-}
-
-SCENARIO("`view` can be copied")
-{
-    int i = {};
-    int j = {};
-
-    GIVEN("a `view<int>` copy constructed from a `view<int>`")
-    {
-        view<int> v = i;
-        view<int> w = v;
-
-        REQUIRE(w == v);
-
-        REQUIRE(w == i);
-        REQUIRE(w != j);
-
-        REQUIRE(v == i);
-        REQUIRE(v != j);
-
-        WHEN("it is copy assigned a `view<int>`")
-        {
-            view<int> x = j;
-            w = x;
-
-            REQUIRE(w == x);
-
-            REQUIRE(w == j);
-            REQUIRE(w != i);
-
-            REQUIRE(x == j);
-            REQUIRE(x != i);
-
-            REQUIRE(v == i);
-            REQUIRE(v != j);
-        }
-
-        WHEN("it is copy assigned itself")
-        {
-            w = w;
-
-            REQUIRE(w == v);
-
-            REQUIRE(w == i);
-            REQUIRE(w != j);
-
-            REQUIRE(v == i);
-            REQUIRE(v != j);
-        }
-    }
-}
-
-SCENARIO("`view` can be moved")
-{
-    int i = {};
-    int j = {};
-
-    GIVEN("a `view<int>` move constructed from a `view<int>`")
-    {
-        view<int> v = i;
-        view<int> w = std::move(v);
-
-        REQUIRE(w == v);
-
-        REQUIRE(w == i);
-        REQUIRE(w != j);
-
-        REQUIRE(v == i);
-        REQUIRE(v != j);
-
-        WHEN("it is move assigned a `view<int>`")
-        {
-            view<int> x = j;
-            w = std::move(x);
-
-            REQUIRE(w == x);
-
-            REQUIRE(w == j);
-            REQUIRE(w != i);
-
-            REQUIRE(x == j);
-            REQUIRE(x != i);
-
-            REQUIRE(v == i);
-            REQUIRE(v != j);
-        }
-
-        WHEN("it is move assigned itself")
-        {
-            w = std::move(w);
-
-            REQUIRE(w == v);
-
-            REQUIRE(w == i);
-            REQUIRE(w != j);
-
-            REQUIRE(v == i);
-            REQUIRE(v != j);
-        }
-    }
-}
-
-SCENARIO("`view` can be swapped")
-{
-    int i = {};
-    int j = {};
-
-    GIVEN("a `view<int>` swapped with a `view<int>`")
-    {
-        view<int> v = i;
-        view<int> w = j;
-
-        swap(v, w);
-
-        REQUIRE(v == j);
-        REQUIRE(w == i);
-    }
-
-    GIVEN("a `view<int>` swapped with itself")
-    {
-        view<int> v = i;
-
-        swap(v, v);
-
-        REQUIRE(v == i);
-    }
-}
-
-SCENARIO("`view` can be used to access the objects it references")
-{
-    int i = 1;
-    int j = 2;
-
-    GIVEN("a `view<int>` constructed from an `int&`")
-    {
-        view<int> v = i;
-
-        REQUIRE(v == i);
-        REQUIRE(v != j);
-        REQUIRE(*v == 1);
-        REQUIRE(*v == i);
-        REQUIRE(*v != j);
-
-        WHEN("is is assigned an `int&`")
-        {
-            v = j;
-
-            REQUIRE(v == j);
-            REQUIRE(v != i);
-            REQUIRE(*v == 2);
-            REQUIRE(*v == j);
-            REQUIRE(*v != i);
-
-            WHEN("is the referenced object is assigned an `int`")
-            {
-                *v = i;
-
-                REQUIRE(v == j);
-                REQUIRE(v != i);
-                REQUIRE(*v == 1);
-                REQUIRE(*v == i);
-                REQUIRE(*v == j);
-                REQUIRE(i == 1);
-                REQUIRE(j == 1);
-                REQUIRE(i == j);
-            }
-        }
-    }
+            } NEXT_TYPE
+        } NEXT_TYPE
+    } NEXT_TYPE
 }
 
 SCENARIO("`view` supports arithmetic comparison")
 {
-    std::array<int, 2> is = { 1, 2 };
-
-    GIVEN("two `view<int>`s constructed from entries in an array")
+    FOR_EACH_TYPE(value_t, int, int const)
     {
-        view<int> u = is[0];
-        view<int> v = is[0];
-        view<int> w = is[1];
-
-        THEN("`operator==` is supported")
+        FOR_EACH_TYPE(view_t, view<value_t>, optional_view<value_t>)
         {
-            REQUIRE(v == is[0]);
-            REQUIRE(!(v == is[1]));
-            REQUIRE(v == v);
-            REQUIRE(u == v);
-            REQUIRE(v == u);
-            REQUIRE(!(v == w));
-            REQUIRE(!(w == v));
-        }
+            FOR_EACH_TYPE(final_t, view_t, propagate_const<view_t>)
+            {
+                std::array<value_t, 2> is = { 1, 2 };
 
-        THEN("`operator!=` is supported")
-        {
-            REQUIRE(!(v != is[0]));
-            REQUIRE(v != is[1]);
-            REQUIRE(!(v != v));
-            REQUIRE(!(u != v));
-            REQUIRE(!(v != u));
-            REQUIRE(v != w);
-            REQUIRE(w != v);
-        }
+                GIVEN("views constructed from entries in an array")
+                {
+                    final_t u = is[0];
+                    final_t v = is[0];
+                    final_t w = is[1];
 
-        THEN("`operator<` is supported")
-        {
-            REQUIRE(!(v < v));
-            REQUIRE(!(u < v));
-            REQUIRE(!(v < u));
-            REQUIRE(v < w);
-            REQUIRE(!(w < v));
-        }
+                    THEN("`operator==` is supported")
+                    {
+                        REQUIRE(v == is[0]);
+                        REQUIRE(!(v == is[1]));
+                        REQUIRE(v == v);
+                        REQUIRE(u == v);
+                        REQUIRE(v == u);
+                        REQUIRE(!(v == w));
+                        REQUIRE(!(w == v));
+                    }
 
-        THEN("`operator<=` is supported")
-        {
-            REQUIRE(v <= v);
-            REQUIRE(u <= v);
-            REQUIRE(v <= u);
-            REQUIRE(v <= w);
-            REQUIRE(!(w <= v));
-        }
+                    THEN("`operator!=` is supported")
+                    {
+                        REQUIRE(!(v != is[0]));
+                        REQUIRE(v != is[1]);
+                        REQUIRE(!(v != v));
+                        REQUIRE(!(u != v));
+                        REQUIRE(!(v != u));
+                        REQUIRE(v != w);
+                        REQUIRE(w != v);
+                    }
 
-        THEN("`operator>` is supported")
-        {
-            REQUIRE(!(v > v));
-            REQUIRE(!(u > v));
-            REQUIRE(!(v > u));
-            REQUIRE(!(v > w));
-            REQUIRE(w > v);
-        }
+                    THEN("`operator<` is supported")
+                    {
+                        REQUIRE(!(v < v));
+                        REQUIRE(!(u < v));
+                        REQUIRE(!(v < u));
+                        REQUIRE(v < w);
+                        REQUIRE(!(w < v));
+                    }
 
-        THEN("`operator>=` is supported")
-        {
-            REQUIRE(v >= v);
-            REQUIRE(u >= v);
-            REQUIRE(v >= u);
-            REQUIRE(!(v >= w));
-            REQUIRE(w >= v);
-        }
-    }
+                    THEN("`operator<=` is supported")
+                    {
+                        REQUIRE(v <= v);
+                        REQUIRE(u <= v);
+                        REQUIRE(v <= u);
+                        REQUIRE(v <= w);
+                        REQUIRE(!(w <= v));
+                    }
+
+                    THEN("`operator>` is supported")
+                    {
+                        REQUIRE(!(v > v));
+                        REQUIRE(!(u > v));
+                        REQUIRE(!(v > u));
+                        REQUIRE(!(v > w));
+                        REQUIRE(w > v);
+                    }
+
+                    THEN("`operator>=` is supported")
+                    {
+                        REQUIRE(v >= v);
+                        REQUIRE(u >= v);
+                        REQUIRE(v >= u);
+                        REQUIRE(!(v >= w));
+                        REQUIRE(w >= v);
+                    }
+                }
+            } NEXT_TYPE
+        } NEXT_TYPE
+    } NEXT_TYPE
 }
 
 SCENARIO("`view` can be static cast")
 {
-    derived d;
+    //FOR_EACH_TYPE(derived_t, derived, derived const)
+    //{
+        //using base_t = replace_t<derived_t, base>;
 
-    GIVEN("a `view<base>` initialized with `derived&`")
-    {
-        view<base> v = d;
+        //FOR_EACH_TYPE(derived_view_t, view<derived_t>, optional_view<derived_t>)
+        //{
+            //using base_view_t = replace_t<derived_view_t, base>;
 
-        WHEN("it is static cast to a `view<derived>`")
-        {
-            view<derived> w = static_view_cast<derived>(v);
+            //FOR_EACH_TYPE(derived_final_t, derived_view_t, propagate_const<derived_view_t>)
+            //{
+                //using base_final_t = replace_t<derived_final_t, base>;
 
-            REQUIRE(w == v);
-            REQUIRE(w == d);
-        }
-    }
+                //derived_t d;
+
+                //GIVEN("a `view<base>` initialized with `derived&`")
+                //{
+                    //base_final_t v = d;
+
+                    //WHEN("it is static cast to a `view<derived>`")
+                    //{
+                        //base_final_t w = static_view_cast<derived>(v);
+
+                        //REQUIRE(w == v);
+                        //REQUIRE(w == d);
+                    //}
+                //}
+            //} NEXT_TYPE
+        //} NEXT_TYPE
+    //} NEXT_TYPE
 }
 
 SCENARIO("`view` can be dynamic cast")
