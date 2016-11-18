@@ -160,6 +160,7 @@ public:
     const_pointer_type operator->() const { return get_pointer(t); }
     pointer_type operator->() { return get_pointer(t); }
 
+    operator T const&() const& { return t; }
     operator T&() & { return t; }
     operator T() && { return std::move(t); }
 
