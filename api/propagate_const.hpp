@@ -25,6 +25,7 @@
 
 #include <utility.hpp>
 
+#include <functional>
 #include <type_traits>
 #include <utility>
 
@@ -313,6 +314,43 @@ template <typename T1, typename T2>
 constexpr bool operator>=(propagate_const<T1> const& lhs, propagate_const<T2> const& rhs) { return lhs.t >= rhs.t; }
 
 namespace std {
+
+template <typename T>
+struct equal_to<propagate_const<T>> {
+    constexpr bool operator()(propagate_const<T> const& lhs, propagate_const<T> const& rhs) const noexcept {
+        return std::equal_to<T>()(get_underlying(lhs), get_underlying(rhs));
+    }
+};
+template <typename T>
+struct not_equal_to<propagate_const<T>> {
+    constexpr bool operator()(propagate_const<T> const& lhs, propagate_const<T> const& rhs) const noexcept {
+        return std::not_equal_to<T>()(get_underlying(lhs), get_underlying(rhs));
+    }
+};
+template <typename T>
+struct less<propagate_const<T>> {
+    constexpr bool operator()(propagate_const<T> const& lhs, propagate_const<T> const& rhs) const noexcept {
+        return std::less<T>()(get_underlying(lhs), get_underlying(rhs));
+    }
+};
+template <typename T>
+struct less_equal<propagate_const<T>> {
+    constexpr bool operator()(propagate_const<T> const& lhs, propagate_const<T> const& rhs) const noexcept {
+        return std::less_equal<T>()(get_underlying(lhs), get_underlying(rhs));
+    }
+};
+template <typename T>
+struct greater<propagate_const<T>> {
+    constexpr bool operator()(propagate_const<T> const& lhs, propagate_const<T> const& rhs) const noexcept {
+        return std::greater<T>()(get_underlying(lhs), get_underlying(rhs));
+    }
+};
+template <typename T>
+struct greater_equal<propagate_const<T>> {
+    constexpr bool operator()(propagate_const<T> const& lhs, propagate_const<T> const& rhs) const noexcept {
+        return std::greater_equal<T>()(get_underlying(lhs), get_underlying(rhs));
+    }
+};
 
 template <typename T>
 struct hash<propagate_const<T>> {
