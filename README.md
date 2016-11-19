@@ -341,6 +341,23 @@ If assignment operators were explicitly implemented, extra measures would need t
 
 Neither `view` not `optional_view` define distinct move behaviour: moving is equivalent to copying. It could be argued that a moved-from `optional_view` should become empty, but in reality we have no way of knowing how client code wants a moved-from `optional_view` to behave, and such behaviour would incur a potentially unnecessary run-time cost. In addition, a moved-from `view` cannot be empty, so having different behaviour for `optional_view` would be potentially surprising. An additional advantage of keeping the compiler-generated move operations is that `view` and `optional_view` can be [trivially copyable](http://en.cppreference.com/w/cpp/concept/TriviallyCopyable) (they can be copied using [`std::memcpy`](http://en.cppreference.com/w/cpp/string/byte/memcpy), a performance optimization that some library components employ).
 
+### Mutability
+
+It has been suggested that the term "view" as used in the standard library implies immutability of the referenced data (i.e. read-only). Currently, the only "view" type in the standard is [`std::basic_string_view`](http://en.cppreference.com/w/cpp/string/basic_string_view), which is indeed a read-only view of a string of characters. This, however, is a design choice specific to the `string_view` use case, as can be seen by the rationale for immutability given in the [`string_view` proposal](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2013/n3762.html):
+
+* It's more common to pass strings by reference/pointer-to-const, so the default (e.g. the `string_view` type alias) should be immutable.
+  * While it is arguably more common to see `T const&` than `T&`, there are no "convenience" type aliases for `view` and `optional_view`, so there is no corresponding need to decide a default behaviour.
+* You wouldn't be able to change the length of a mutable `string_view` which limits its usefulness.
+  * This is a string/array-specific problem not shared by `view` and `optional_view`.
+* Developers using existing `string_view`-like classes have found no use case for a mutable `string_view`.
+  * There are clear use cases for mutable `view` and `optional_view`.
+* The template design would be complicated unnecessarily to support an uncommon use case.
+  * The design of `view` and `optional_view` is not significantly complicated by supporting the mutable use case, which is not nearly as uncommon as for `string_view`.
+
+In addition, two recent proposals for `std::array_view` ([here](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2015/n4512.html) and [here](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2015/p0122r0.pdf)) both support the mutable use case. This makes sense, because arrays are commonly fixed in size (e.g. the length of a `std::array` is fixed at compile time) yet the individual elements are mutable, while a mutable string is generally expected to be able to change in length. Indeed, the use case for a fixed-size, mutable `string_view` is probably covered by `array_view<char>`.
+
+In summary, `std::string_view` is read-only for reasons specific to the "string" use case, and there are several proposals for a mutable `std::array_view`. There is no reason to think that "view" implies immutability.
+
 ### <a name="rationale-get"></a>Compatibility with `std::experimental::propagate_const`
 
 It has been decided that `view` and `optional_view` should not try to "propagate constness" to the referenced object; for example, `view<T>::operator*() const` should return `T&` not `T const&` (and there should not exist a non-const overload). Instead, `view` and `optional_view` are designed to be compatible with the proposed [`std::experimental::propagate_const`](http://en.cppreference.com/w/cpp/experimental/propagate_const) interface adapter. Unfortunately, `propagate_const` has been designed to work with "pointer-like" types, and `view` and `optional_view` are not "pointer-like" in the conventional sense.
