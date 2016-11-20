@@ -1,6 +1,6 @@
-# `indirect` and `optional_indirect`: single object indirects for C++
+# `indirect` and `optional_indirect`: high-level non-owning indirection types for C++
 
-`indirect` and `optional_indirect` are types used to indirectly reference another object without implying ownership. `indirect<T>` is a mandatory indirect of an object of arbitrary type `T`, while `optional_indirect<T>` is an optional indirect of an object of arbitrary type `T`. Both `indirect` and `optional_indirect` have reference-like initialization semantics and pointer-like indirection semantics.
+`indirect` and `optional_indirect` are high-level types that indirectly reference other objects without implying ownership. `indirect<T>` is an indirect reference to an object of type `T`, while `optional_indirect<T>` is an optional indirect reference to an object of type `T`. Both `indirect` and `optional_indirect` have reference-like construction semantics and pointer-like assignment and indirection semantics.
 
 ## Contents
 
@@ -12,14 +12,14 @@
 
 ## Motivation
 
-Modern C++ guidelines recommend using high-level abstractions such as [`std::vector`](http://en.cppreference.com/w/cpp/container/vector), [`std::array`](http://en.cppreference.com/w/cpp/container/array), `std::array_indirect` _(not yet standardized)_, [`std::string`](http://en.cppreference.com/w/cpp/string/basic_string), [`std::string_indirect`](http://en.cppreference.com/w/cpp/string/basic_string_indirect), [`std::unique_ptr`](http://en.cppreference.com/w/cpp/memory/unique_ptr), [`std::shared_ptr`](http://en.cppreference.com/w/cpp/memory/shared_ptr) and [`std::optional`](http://en.cppreference.com/w/cpp/utility/optional) instead of raw pointers wherever possible. However, there is one major use of raw pointers that currently lacks a corresponding standardized high-level type: non-owning references to single objects. This is the gap filled by `indirect` and `optional_indirect`:
+Modern C++ guidelines recommend using high-level abstractions such as [`std::vector`](http://en.cppreference.com/w/cpp/container/vector), [`std::array`](http://en.cppreference.com/w/cpp/container/array), [`std::array_view`](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n3851.pdf) _(not yet standardized)_, [`std::string`](http://en.cppreference.com/w/cpp/string/basic_string), [`std::string_view`](http://en.cppreference.com/w/cpp/string/basic_string_view), [`std::unique_ptr`](http://en.cppreference.com/w/cpp/memory/unique_ptr), [`std::shared_ptr`](http://en.cppreference.com/w/cpp/memory/shared_ptr) and [`std::optional`](http://en.cppreference.com/w/cpp/utility/optional) instead of raw pointers wherever possible. However, there is one major use of raw pointers that currently lacks a corresponding standardized high-level type: non-owning references to single objects. This is the gap filled by `indirect` and `optional_indirect`:
 
-|          | Owned                                      | Non-Owned                      |
-|----------|--------------------------------------------|--------------------------------|
+|          | Owned                                      | Non-Owned                              |
+|----------|--------------------------------------------|----------------------------------------|
 | Single   | `unique_ptr` `shared_ptr` `optional`       | `indirect` `optional_indirect`         |
-| Array    | `array` `vector` `unique_ptr` `shared_ptr` | `array_indirect`                   |
-| String   | `string`                                   | `string_indirect`                  |
-| Iterator | —                                          | _assorted_                     |
+| Array    | `array` `vector` `unique_ptr` `shared_ptr` | `array_view`                           |
+| String   | `string`                                   | `string_view`                          |
+| Iterator | —                                          | _assorted_                             |
 
 An [existing proposal](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n4282.pdf) for `unique_ptr`-esque "dumb" pointer type [`observer_ptr`](http://en.cppreference.com/w/cpp/experimental/observer_ptr) aims to address the "non-owned single" use case, but `indirect` and `optional_indirect`, rather than being based on the owning smart pointer types that were designed to fill the "owned single" gap, are designed specifically for their intended purpose. The result is an API that:
 
@@ -53,12 +53,12 @@ person bob;
 bob.pet = fluffy; // note: initialized from `animal&` instead of `animal*`
 ```
 
-The `optional_indirect` can be tested for "empty" status as if it were a `bool`, and set to "empty" by assigning `{}` just like a pointer or [`std::optional`](http://en.cppreference.com/w/cpp/utility/optional):
+You can query whether an `optional_indirect` is _engaged_ or _disengaged_ (terminology inherited from the [`std::optional`](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2013/n3672.html#overview.interface)) by conversion to bool `bool` and disengage it by assigning `{}` or `nullopt`, just like a [`std::optional`](http://en.cppreference.com/w/cpp/utility/optional):
 
 ```c++
-assert(bob.pet);
-bob.pet = {};
-assert(!bob.pet);
+assert(bob.pet); // `bob.pet` is engaged
+bob.pet = {}; // disengage `bob.pet`
+assert(!bob.pet); // `bob.pet` is disengaged
 ```
 
 A mandatory relationship can be expressed by using `indirect` instead of `optional_indirect`:
@@ -72,16 +72,16 @@ animal fluffy;
 person bob = { fluffy }; // note: initialization required on construction
 ```
 
-Like pointers, both `indirect` and `optional_indirect` use the indirection operators (`*` and `->`) to access the referenced object:
+Like `T*` and `std::optional<T>`, both `indirect<T>` and `optional_indirect<T>` use the indirection operators (`*` and `->`) to access the underlying `T`:
 
 ```c++
 bob.pet->sleep();
 ```
 
-And `indirect` also implicitly converts to `T&`:
+And `indirect<T>` also implicitly converts to `T&`:
 
 ```c++
-animal dolly = bob.pet; // note: no need to "dereference"
+animal dolly = bob.pet; // note: no need to use `*`
 ```
 
 Both `indirect` and `optional_indirect` can be copied freely, and `indirect` implicitly converts to `optional_indirect`:
@@ -120,9 +120,9 @@ We make `parent` a pointer because it is natural to use the null pointer state t
 * Pointers can be used to represent [random-access iterators](http://en.cppreference.com/w/cpp/concept/RandomAccessIterator); indeed, pointers define the arithmetic operators (e.g. 'p++') used to move random-access iterators; however, moving and then dereferencing a pointer that references a single object is undefined behaviour.
 * A dynamically created/allocated object, array or system resource referenced by a pointer may be implicitly owned by one or more holders of a copy of the pointer; indeed, pointers implicitly convert to `void*` so they can be used in expressions such as `delete p` or `free(p)`; failure to correctly destroy/deallocate such an object, array or resource may result in either a resource leak or undefined behaviour.
 
-With all this potential undefined behaviour, it is important that it is obvious to the reader what `node*` _represents_. We _could_ provide supplementary documentation, but if we replace `node*` with `optional_indirect<node>`, we can convey our intentions automatically using the type system. An `optional_indirect<T>` _is_ a _non-owning_, _optional_ reference to a _single_ object of type `T`: an optional indirect of `T`. With `optional_indirect<T>`, we also get compile-time assurances that we didn't with `T*`:
+With all this potential undefined behaviour, it is important that it is obvious to the reader what `node*` _represents_. We _could_ provide supplementary documentation, but if we replace `node*` with `optional_indirect<node>`, we can convey our intentions automatically using the type system. An `optional_indirect<T>` _is_ an _optional_, _non-owning_ indirect reference to a _single_ object of type `T`. With `optional_indirect<T>`, we also get compile-time assurances that we didn't with `T*`:
 
-* `optional_indirect<T>` is always default initialized (to its empty state)
+* `optional_indirect<T>` is always default initialized (to its _disengaged_ state)
 * `optional_indirect<T>` does not define the subscript operator (it isn't an array)
 * `optional_indirect<T>` does not define arithmetic operations (it isn't an iterator)
 * `optional_indirect<T>` does not implicitly convert to `void*` (it doesn't "own" anything)
@@ -145,7 +145,7 @@ public:
 };
 ```
 
-Note that with `optional_indirect`, the calling syntax changes slightly. `optional_indirect<T>` is no longer implicitly constructible from `T*`, since this conversion may not always be conceptually or even semantically correct since pointers can represent many things. Instead, `optional_indirect<T>` is implicitly constructible from `T&`; this means that we `set_parent` and test the result of a call to `get_parent` _without_ taking the address of the `node`s:
+Note that with `optional_indirect`, the calling syntax changes slightly. `optional_indirect<T>` is not implicitly constructible from `T*`, since this conversion may not always be conceptually or even semantically correct since pointers can represent many things. Instead, `optional_indirect<T>` is implicitly constructible from `T&`; this means that we `set_parent` and test the return value of `get_parent` _without_ taking the address of the `node`s:
 
 ```c++
 node a, b;
@@ -153,12 +153,12 @@ b.set_parent(a)
 assert(b.get_parent() == a);
 ```
 
-This is arguably a more natural syntax; indeed, references, not pointers, are the most natural reference types in C++.
+This is arguably a more natural syntax; indeed, the fundamental C++ reference types are _references_, not pointers.
 
-We use `{}` to specify the empty state and conversion to `bool` to test for the empty state, just as with a pointer or [`std::optional`](http://en.cppreference.com/w/cpp/utility/optional):
+We use `{}` to specify "no parent" and conversion to `bool` to test for "no parent" (this "empty" state of `optional_indirect` is more generally referred to as the _disengaged_ state), just as with a pointer or [`std::optional`](http://en.cppreference.com/w/cpp/utility/optional):
 
 ```c++
-b.set_parent({})
+b.set_parent({});
 assert(!b.get_parent());
 ```
 
@@ -196,7 +196,7 @@ private:
     }
 ```
 
-Now, we could replace `node*` with `optional_indirect<node>`, but this is misleading since children are _not_ optional: `node*` should never be null and `optional_indirect<node>` should never be empty. So instead of `node&` or `node*`, we can use `indirect<node>`, the mandatory counterpart to `optional_indirect<node>`. In addition to all the benefits that `optional_indirect` provides, `indirect`  _must_ always reference an object: it has no empty state. A `indirect<T>` _is_ a _non-owning_, _mandatory_ reference to a _single_ object of type `T`: a indirect of `T`. And it can be stored in STL containers, just like `optional_indirect<T>` or `T*`.
+Now, we could replace `node*` with `optional_indirect<node>`, but this is misleading since children are _not_ optional: the `node*` elements should never be null. So instead of `node&` or `node*`, we can use `indirect<node>`, the mandatory counterpart to `optional_indirect<node>`. In addition to all the benefits that `optional_indirect` provides, `indirect`  _must_ always reference an object: it has no disengaged state. A `indirect<T>` _is_ a _mandatory_, _non-owning_ indirect reference to a _single_ object of type `T`. And it can be stored in STL containers, just like `optional_indirect<T>` or `T*`.
 
 Let's replace all instances of `node&` and `node*` with `indirect<node>`, and add the calls to `add_child` and `remove_child` to `set_parent`:
 
@@ -229,7 +229,7 @@ private:
 };
 ```
 
-We now have compile-time guarantees that we didn't have previously. Note that the syntax and semantics of `indirect<T>` are notably different from those of `T&`. For example, when using `auto` type deduction, copying a `T&` copies the referenced object by default, while copying a `T*` copies the pointer by default:
+We now have compile-time guarantees that we didn't have previously. Note that the syntax and semantics of `indirect<T>` are notably different from those of `T&`. For example, when using `auto` type deduction, copying a `T&` makes a copy of the underlying `T` by default, while copying a `T*` copies the pointer by default:
 
 ```c++
 auto aa = b.get_parent(); // `decltype(aa)` is `node*`
@@ -244,7 +244,7 @@ bb.set_parent({}); // `T&` uses `.`
 aa->set_parent(&bb); // `T*` uses `->`
 ```
 
-Conversely, both `indirect<T>` and `optional_indirect<T>` have pointer-like copying and indirection semantics:
+Conversely, both `indirect<T>` and `optional_indirect<T>` have pointer-like copy and indirection semantics:
 
 ```c++
 auto aa = b.get_parent(); // `decltype(aa)` is `optional_indirect<node>`
@@ -257,7 +257,7 @@ aa->set_parent(bb); // `optional_indirect<T>` uses `->`
 `indirect<node>` _can_ implicitly convert to `node&` if the type is specified, though indirection syntax must still be used to access the referenced object if conversion isn't triggered:
 
 ```c++
-node& bb = a.get_child(0);
+node bb = a.get_child(0); // underlying `node` is copied
 a.get_child(0)->set_parent({});
 ```
 
@@ -265,13 +265,13 @@ a.get_child(0)->set_parent({});
 
 ### <a name="rationale-construction-from"></a>Construction from and conversion to `T&` and `T*`
 
-Both `indirect` and `optional_indirect` are constructible from and convertible to `T&` and `T*`, but only construction of `indirect<T>` and `optional_indirect<T>` from `T&` and conversion from `indirect<T>` to `T&` are _implicit_. The idea is that conversions should be implicit if they are functionally equivalent and conversion is safe virtually all of the time, while they should be explicit if the types are not always functionally equivalent or conversion is safe only some of the time ("safe" here means not invoking undefined behaviour _and_ being `nothrow`). `T&` should always represent a valid "indirect" of an object in a well-formed C++ program, so implicit construction of `indirect<T>` and `optional_indirect<T>` from `T&` is correct; conversion from `optional_indirect<T>` to `T&` is not safe as the `optional_indirect<T>` may be empty, so conversion must be explicitly specified. Conversely, `T*` may or may not be a valid reference to an object; for example:
+Both `indirect` and `optional_indirect` are constructible from and convertible to `T&` and `T*`, but only construction of `indirect<T>` and `optional_indirect<T>` from `T&` and conversion from `indirect<T>` to `T&` are _implicit_. The idea is that conversions should be implicit if they are functionally equivalent and conversion is safe virtually all of the time, while they should be explicit if the types are not always functionally equivalent or conversion is safe only some of the time ("safe" here means not invoking undefined behaviour _and_ being `nothrow`). `T&` should always represent a valid non-owning indirect reference to a single object in a well-formed C++ program, so implicit construction of `indirect<T>` and `optional_indirect<T>` from `T&` is correct; conversion from `optional_indirect<T>` to `T&` is not safe as the `optional_indirect<T>` may be disengaged, so the conversion must be explicitly specified. Conversely, `T*` may or may not be a valid non-owning indirect reference to a single object; for example:
 
 * `T*` may have ownership semantics
 * `T*` may represent an array
 * `T*` may be an iterator (maybe even a "past-the-end" iterator)
 
-In none of these cases would it be correct to allow either `indirect<T>` or `optional_indirect<T>` to be implicitly constructed from  or converted to `T*`. It is up to the programmer to explicitly specify these conversions when they are sure it is correct to do so.
+In none of these cases would it be correct to allow either `indirect<T>` or `optional_indirect<T>` to be implicitly constructed from or converted to `T*`. It is up to the programmer to explicitly specify these conversions when they are sure it is correct to do so.
 
 It's worth noting that if conversion from `optional_indirect<T>` to `T*` were implicit, then array-like operations such as `v[i]`, iterator-like operations such as `v++`, and ownership operations such as `delete v` would automatically be enabled. This could be considered reflective of the fact that implicit conversion implies functional equivalence.
 
@@ -314,7 +314,7 @@ indirect<int const> i = 42; // temporary destroyed after assignment
 std::cout << *i; // undefined behaviour!
 ```
 
-Some might consider this grounds to disable construction from `T&&` as in [`std::reference_wrapper`](http://en.cppreference.com/w/cpp/utility/functional/reference_wrapper). However, `std::string_indirect` sets a precedent by allowing such behaviour:
+Some might consider this grounds to disable construction from `T&&` as in [`std::reference_wrapper`](http://en.cppreference.com/w/cpp/utility/functional/reference_wrapper). However, `std::string_view` sets a precedent by allowing such behaviour:
 
 ```c++
 std::string_indirect v = std::string("hello, world");
@@ -329,40 +329,25 @@ Neither `indirect` nor `optional_indirect` explicitly define any assignment oper
 
 ```c++
 optional_indirect<int> v1 = i;
-v1 = {}; // `v1` is now empty
+v1 = {}; // `v1` is now disengaged
 
 indirect<int const> v2 = i;
-v2 = {}; // compile error (`indirect` has no default state)
+v2 = {}; // compile error (`indirect` has no disengaged (default) state)
 ```
 
 If assignment operators were explicitly implemented, extra measures would need to be taken to ensure that `v = {}` compiled for `optional_indirect` and didn't compile for `indirect`. Since both types are very lightweight, the compiler should be able to easily elide the additional copy, so there should be no performance penalty for this design choice.
 
 ### <a name="rationale-move"></a>Move behaviour
 
-Neither `indirect` not `optional_indirect` define distinct move behaviour: moving is equivalent to copying. It could be argued that a moved-from `optional_indirect` should become empty, but in reality we have no way of knowing how client code wants a moved-from `optional_indirect` to behave, and such behaviour would incur a potentially unnecessary run-time cost. In addition, a moved-from `indirect` cannot be empty, so having different behaviour for `optional_indirect` would be potentially surprising. An additional advantage of keeping the compiler-generated move operations is that `indirect` and `optional_indirect` can be [trivially copyable](http://en.cppreference.com/w/cpp/concept/TriviallyCopyable) (they can be copied using [`std::memcpy`](http://en.cppreference.com/w/cpp/string/byte/memcpy), a performance optimization that some library components employ).
+Neither `indirect` nor `optional_indirect` define distinct move behaviour (moving is equivalent to copying); this behaviour is shared by `std::optional`. It could be argued that a moved-from `optional_indirect` should become disengaged, but in reality we have no way of knowing how client code wants a moved-from `optional_indirect` to behave, and such behaviour would incur a potentially unnecessary run-time cost. In addition, a moved-from `indirect` cannot be disengaged, so having different behaviour for `optional_indirect` would be potentially surprising.
 
-### Mutability
-
-It has been suggested that the term "view" as used in the standard library implies immutability of the referenced data (i.e. read-only). Currently, the only "view" type in the standard is [`std::basic_string_view`](http://en.cppreference.com/w/cpp/string/basic_string_view), which is indeed a read-only view of a string of characters. This, however, is a design choice specific to the `string_view` use case, as can be seen by the rationale for immutability given in the [`string_view` proposal](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2013/n3762.html):
-
-* It's more common to pass strings by reference/pointer-to-const, so the default (e.g. the `string_view` type alias) should be immutable.
-  * While it is arguably more common to see `T const&` than `T&`, there are no "convenience" type aliases for `view` and `optional_view`, so there is no corresponding need to decide a default behaviour.
-* You wouldn't be able to change the length of a mutable `string_view` which limits its usefulness.
-  * This is a string/array-specific problem not shared by `view` and `optional_view`.
-* Developers using existing `string_view`-like classes have found no use case for a mutable `string_view`.
-  * There are clear use cases for mutable `view` and `optional_view`.
-* The template design would be complicated unnecessarily to support an uncommon use case.
-  * The design of `view` and `optional_view` is not significantly complicated by supporting the mutable use case, which is not nearly as uncommon as for `string_view`.
-
-In addition, two recent proposals for `std::array_view` ([here](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2015/n4512.html) and [here](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2015/p0122r0.pdf)) both support the mutable use case. This makes sense, because arrays are commonly fixed in size (e.g. the length of a `std::array` is fixed at compile time) yet the individual elements are mutable, while a mutable string is generally expected to be able to change in length. Indeed, the use case for a fixed-size, mutable `string_view` is probably covered by `array_view<char>`.
-
-In summary, `std::string_view` is read-only for reasons specific to the "string" use case, and there are several proposals for a mutable `std::array_view`. There is no reason to think that "view" implies immutability.
+An additional advantage of keeping the compiler-generated move operations is that `indirect` and `optional_indirect` can be [trivially copyable](http://en.cppreference.com/w/cpp/concept/TriviallyCopyable) (they can be copied using [`std::memcpy`](http://en.cppreference.com/w/cpp/string/byte/memcpy), a performance optimization that some library components employ).
 
 ### <a name="rationale-get"></a>Compatibility with `std::experimental::propagate_const`
 
 It has been decided that `indirect` and `optional_indirect` should not try to "propagate constness" to the referenced object; for example, `indirect<T>::operator*() const` should return `T&` not `T const&` (and there should not exist a non-const overload). Instead, `indirect` and `optional_indirect` are designed to be compatible with the proposed [`std::experimental::propagate_const`](http://en.cppreference.com/w/cpp/experimental/propagate_const) interface adapter. Unfortunately, `propagate_const` has been designed to work with "pointer-like" types, and `indirect` and `optional_indirect` are not "pointer-like" in the conventional sense.
 
-First, `propagate_const` requires compatible types to implement a member function named `get` which returns the object's underlying raw pointer. While `get` may be a great name for such a function in a smart pointer, it is terribly undescriptive for a indirect type. It would be better if conversion to pointer were left to the explicit conversion operator.
+First, `propagate_const` requires compatible types to implement a member function named `get` which returns the object's underlying raw pointer. While `get` may be a great name for such a function in a smart pointer, it is terribly undescriptive for both `indirect` and `optional_indirect`. It would be better if conversion to pointer were left to the explicit conversion operator.
 
 Secondly, `propagate_const` requires compatible types to be convertible to `bool`. While this is no problem for `optional_indirect`, it really makes no sense for `indirect` to convert to bool. It would be better if this weren't a requirement of `propagate_const` at all.
 
@@ -375,8 +360,8 @@ Fortunately, `propagate_const` has not yet been standardized, so there we have a
 * Add a `std::get_pointer` free function that obtains the underlying pointer for various standard library types. `propagate_const` should rely on this function rather than a `get` member function. `propagate_const<T>::get` should be enabled only if an appropriate `T::get` exists. Note that Boost provides a [similar function](www.boost.org/doc/libs/release/boost/get_pointer.hpp) already.
   * `get_pointer(T* p)` will return `p`
   * `get_pointer(unique_ptr<T> const& p)` and `get_pointer(shared_ptr<T> const& p)` will return `p.get()`
-  * `get_pointer(indirect<T> const& v)` and `get_pointer(optional_indirect<T> const& v)` will return `static_cast<T*>(v)`
-  * `get_pointer(propagate_const<T>& pc)` and `get_pointer(propagate_const<T> const& pc)` will return `get_pointer(pc.t)`, where `pc.t` is the underlying object of type `T`
+  * `get_pointer(indirect<T> const& i)` and `get_pointer(optional_indirect<T> const& i)` will return `static_cast<T*>(i)`
+  * `get_pointer(propagate_const<T>& pc)` and `get_pointer(propagate_const<T> const& pc)` will return `get_pointer(get_underlying(pc))` with the appropriate constness.
 * Enable `propagate_const<T>::operator bool` _only_ if `T::operator bool` exists.
 * Require compatible types to provide a member type `const_type` (for example, `indirect<T>::const_type` would be `indirect<T const>`). This information can then be used to implement implicit conversion to `T` and `T::const_type`.
 * Conditionally define either implicit or explicit conversion from `propagate_const<T>` to `pointer` and `const_pointer` and/or `reference` and `const_reference`, depending on whether the corresponding conversions exist for `T`.
@@ -386,9 +371,7 @@ A sample implementation of a version of `propagate_const` with these changes can
 
 ### <a name="rationale-optional"></a> Use of `optional_indirect<T>` rather than `std::optional<indirect<T>>`
 
-It could be argued that the role of an optional "indirect" should be played by `optional<indirect<T>>`. After all, there is no `std::optional_string_indirect` to act as a higher-level version of a `char const*` which represents an optional string; in fact, it could be argued that `char const*` should never be conceptually never be null, which is why types such as `std::optional_string_indirect` don't exist. Surely the same applies to a `T*` that represents a reference?
-
-In practice, it is common to use `T*` as an optional reference and `T&` as a mandatory reference, while a `char const*` that represents a string is more commonly expected to not be null. In addition, the double indirection syntax required when using `optional<indirect<T>>` is very clunky:
+It could be argued that the role of an optional indirect reference should be played by `optional<indirect<T>>`. In practice, it is common to use `T*` as an optional reference and `T&` as a mandatory reference, while a `char const*` that represents a string is more commonly expected to not be null. In addition, the double indirection syntax required when using `optional<indirect<T>>` is very clunky:
 
 ```c++
 foo f;
