@@ -22,9 +22,10 @@
 
 #pragma once
 
-#ifndef VIEW_HPP
-#define VIEW_HPP
+#ifndef INDIRECT_HPP
+#define INDIRECT_HPP
 
+#include <optional.hpp>
 #include <utility.hpp>
 
 #include <functional>
@@ -37,57 +38,33 @@
 //======================
 
 template <typename>
-class view;
+class indirect;
 
 template <typename>
-class optional_view;
+class optional_indirect;
 
 template <typename T>
-constexpr T* get_pointer(view<T> const&) noexcept;
+constexpr T* get_pointer(indirect<T> const&) noexcept;
 
 template <typename T>
-constexpr T* get_pointer(view<T>&) noexcept;
+constexpr T* get_pointer(indirect<T>&) noexcept;
 
 template <typename T>
-constexpr T* get_pointer(optional_view<T> const&) noexcept;
+constexpr T* get_pointer(optional_indirect<T> const&) noexcept;
 
 template <typename T>
-constexpr T* get_pointer(optional_view<T>&) noexcept;
+constexpr T* get_pointer(optional_indirect<T>&) noexcept;
 
-//=========
-// nullopt
-//=========
-
-struct nullopt_t
-{
-    constexpr explicit nullopt_t(int) noexcept {}
-};
-
-constexpr nullopt_t nullopt{0};
-
-//=====================
-// bad_optional_access
-//=====================
-
-class bad_optional_access : public std::logic_error
-{
-public:
-    bad_optional_access() : std::logic_error(
-        "Attempted to access the value of an uninitialized optional.")
-    {
-    }
-};
-
-//======
-// view
-//======
+//==========
+// indirect
+//==========
 
 template <typename T>
-class view
+class indirect
 {
 public:
     using value_type = T;
-    using const_type = view<std::add_const_t<T>>;
+    using const_type = indirect<std::add_const_t<T>>;
 
 private:
     T* target;
@@ -97,31 +74,31 @@ private:
     {
         if (!p)
         {
-            throw std::invalid_argument("Cannot convert null pointer to view.");
+            throw std::invalid_argument("Cannot convert null pointer to indirect.");
         }
 
         return p;
     }
 
 public:
-    constexpr view(T& r) noexcept :
+    constexpr indirect(T& r) noexcept :
         target(&r)
     {
     }
 
-    constexpr explicit view(T* p) :
+    constexpr explicit indirect(T* p) :
         target(throw_if_null(p))
     {
     }
 
     template <typename U, typename = std::enable_if_t<std::is_convertible<U*, T*>::value>>
-    constexpr view(view<U> const& v) noexcept :
+    constexpr indirect(indirect<U> const& v) noexcept :
         target(get_pointer(v))
     {
     }
 
     template <typename U, typename = std::enable_if_t<std::is_convertible<U*, T*>::value>>
-    constexpr explicit view(optional_view<U> const& v) :
+    constexpr explicit indirect(optional_indirect<U> const& v) :
         target(throw_if_null(get_pointer(v)))
     {
     }
@@ -146,7 +123,7 @@ public:
         return target;
     }
 
-    void swap(view& other) noexcept
+    void swap(indirect& other) noexcept
     {
         using std::swap;
         swap(target, other.target);
@@ -154,115 +131,115 @@ public:
 };
 
 template <typename T>
-constexpr view<T> make_view(T& r) noexcept
+constexpr indirect<T> make_indirect(T& r) noexcept
 {
     return r;
 }
 
 template <typename T, typename U>
-constexpr view<T> static_view_cast(view<U> const& v) noexcept
+constexpr indirect<T> static_indirect_cast(indirect<U> const& v) noexcept
 {
     return static_cast<T&>(*v);
 }
 
 template <typename T, typename U>
-constexpr view<T> dynamic_view_cast(view<U> const& v)
+constexpr indirect<T> dynamic_indirect_cast(indirect<U> const& v)
 {
     return dynamic_cast<T&>(*v);
 }
 
 template <typename T, typename U>
-constexpr view<T> const_view_cast(view<U> const& v) noexcept
+constexpr indirect<T> const_indirect_cast(indirect<U> const& v) noexcept
 {
     return const_cast<T&>(*v);
 }
 
 template <typename T>
-constexpr T* get_pointer(view<T> const& v) noexcept
+constexpr T* get_pointer(indirect<T> const& v) noexcept
 {
     return static_cast<T*>(v);
 }
 
 template <typename T>
-constexpr T* get_pointer(view<T>& v) noexcept
+constexpr T* get_pointer(indirect<T>& v) noexcept
 {
     return static_cast<T*>(v);
 }
 
 template <typename T>
-void swap(view<T>& lhs, view<T>& rhs)
+void swap(indirect<T>& lhs, indirect<T>& rhs)
 {
     lhs.swap(rhs);
 }
 
 template <typename T1, typename T2>
-constexpr bool operator==(view<T1> const& lhs, view<T2> const& rhs) noexcept
+constexpr bool operator==(indirect<T1> const& lhs, indirect<T2> const& rhs) noexcept
 {
     return get_pointer(lhs) == get_pointer(rhs);
 }
 
 template <typename T1, typename T2>
-constexpr bool operator==(view<T1> const& lhs, T2 const& rhs) noexcept
+constexpr bool operator==(indirect<T1> const& lhs, T2 const& rhs) noexcept
 {
     return get_pointer(lhs) == get_pointer(rhs);
 }
 
 template <typename T1, typename T2>
-constexpr bool operator==(T1 const& lhs, view<T2> const& rhs) noexcept
+constexpr bool operator==(T1 const& lhs, indirect<T2> const& rhs) noexcept
 {
     return get_pointer(lhs) == get_pointer(rhs);
 }
 
 template <typename T1, typename T2>
-constexpr bool operator!=(view<T1> const& lhs, view<T2> const& rhs) noexcept
+constexpr bool operator!=(indirect<T1> const& lhs, indirect<T2> const& rhs) noexcept
 {
     return !(lhs == rhs);
 }
 
 template <typename T1, typename T2>
-constexpr bool operator!=(view<T1> const& lhs, T2 const& rhs) noexcept
+constexpr bool operator!=(indirect<T1> const& lhs, T2 const& rhs) noexcept
 {
     return !(lhs == rhs);
 }
 
 template <typename T1, typename T2>
-constexpr bool operator!=(T1 const& lhs, view<T2> const& rhs) noexcept
+constexpr bool operator!=(T1 const& lhs, indirect<T2> const& rhs) noexcept
 {
     return !(lhs == rhs);
 }
 
 template <typename T1, typename T2>
-constexpr bool operator<(view<T1> const& lhs, view<T2> const& rhs) noexcept
+constexpr bool operator<(indirect<T1> const& lhs, indirect<T2> const& rhs) noexcept
 {
     return std::less<std::common_type_t<T1*, T2*>>()(get_pointer(lhs), get_pointer(rhs));
 }
 
 template <typename T1, typename T2>
-constexpr bool operator>(view<T1> const& lhs, view<T2> const& rhs) noexcept
+constexpr bool operator>(indirect<T1> const& lhs, indirect<T2> const& rhs) noexcept
 {
     return rhs < lhs;
 }
 
 template <typename T1, typename T2>
-constexpr bool operator<=(view<T1> const& lhs, view<T2> const& rhs) noexcept
+constexpr bool operator<=(indirect<T1> const& lhs, indirect<T2> const& rhs) noexcept
 {
     return !(rhs < lhs);
 }
 
 template <typename T1, typename T2>
-constexpr bool operator>=(view<T1> const& lhs, view<T2> const& rhs) noexcept
+constexpr bool operator>=(indirect<T1> const& lhs, indirect<T2> const& rhs) noexcept
 {
     return !(lhs < rhs);
 }
 
 template <typename T>
-std::ostream& operator<<(std::ostream& s, view<T> const& v)
+std::ostream& operator<<(std::ostream& s, indirect<T> const& v)
 {
     return s << get_pointer(v);
 }
 
 template <typename T>
-std::istream& operator>>(std::istream& s, view<T> const& v)
+std::istream& operator>>(std::istream& s, indirect<T> const& v)
 {
     return get_pointer(v) >> s;
 }
@@ -271,9 +248,9 @@ namespace std
 {
 
 template <typename T>
-struct hash<view<T>>
+struct hash<indirect<T>>
 {
-    constexpr std::size_t operator()(view<T> const& v) const noexcept
+    constexpr std::size_t operator()(indirect<T> const& v) const noexcept
     {
         return hash<T*>()(get_pointer(v));
     }
@@ -281,49 +258,49 @@ struct hash<view<T>>
 
 } // namespace std
 
-//===============
-// optional_view
-//===============
+//===================
+// optional_indirect
+//===================
 
 template <typename T>
-class optional_view
+class optional_indirect
 {
 public:
     using value_type = T;
-    using const_type = optional_view<T const>;
+    using const_type = optional_indirect<T const>;
 
 private:
     T* target;
 
 public:
-    constexpr optional_view() noexcept :
+    constexpr optional_indirect() noexcept :
         target()
     {
     }
 
-    constexpr optional_view(nullopt_t) noexcept :
+    constexpr optional_indirect(nullopt_t) noexcept :
         target()
     {
     }
 
-    constexpr optional_view(T& r) noexcept :
+    constexpr optional_indirect(T& r) noexcept :
         target(&r)
     {
     }
 
-    constexpr explicit optional_view(T* p) noexcept :
+    constexpr explicit optional_indirect(T* p) noexcept :
         target(p)
     {
     }
 
     template <typename U, typename = std::enable_if_t<std::is_convertible<U*, T*>::value>>
-    constexpr optional_view(optional_view<U> const& v) noexcept :
+    constexpr optional_indirect(optional_indirect<U> const& v) noexcept :
         target(get_pointer(v))
     {
     }
 
     template <typename U, typename = std::enable_if_t<std::is_convertible<U*, T*>::value>>
-    constexpr optional_view(view<U> const& v) noexcept :
+    constexpr optional_indirect(indirect<U> const& v) noexcept :
         target(get_pointer(v))
     {
     }
@@ -369,7 +346,7 @@ public:
         return target ? *target : static_cast<T>(std::forward<U>(default_value));
     }
 
-    void swap(optional_view& other) noexcept
+    void swap(optional_indirect& other) noexcept
     {
         using std::swap;
         swap(target, other.target);
@@ -377,163 +354,163 @@ public:
 };
 
 template <typename T>
-constexpr optional_view<T> make_optional_view(T& r) noexcept
+constexpr optional_indirect<T> make_optional_indirect(T& r) noexcept
 {
     return r;
 }
 
 template <typename T, typename U>
-constexpr optional_view<T> static_view_cast(optional_view<U> const& v) noexcept
+constexpr optional_indirect<T> static_indirect_cast(optional_indirect<U> const& v) noexcept
 {
-    return optional_view<T>(static_cast<T*>(get_pointer(v)));
+    return optional_indirect<T>(static_cast<T*>(get_pointer(v)));
 }
 
 template <typename T, typename U>
-constexpr optional_view<T> dynamic_view_cast(optional_view<U> const& v) noexcept
+constexpr optional_indirect<T> dynamic_indirect_cast(optional_indirect<U> const& v) noexcept
 {
-    return optional_view<T>(dynamic_cast<T*>(get_pointer(v)));
+    return optional_indirect<T>(dynamic_cast<T*>(get_pointer(v)));
 }
 
 template <typename T, typename U>
-constexpr optional_view<T> const_view_cast(optional_view<U> const& v) noexcept
+constexpr optional_indirect<T> const_indirect_cast(optional_indirect<U> const& v) noexcept
 {
-    return optional_view<T>(const_cast<T*>(get_pointer(v)));
+    return optional_indirect<T>(const_cast<T*>(get_pointer(v)));
 }
 
 template <typename T>
-constexpr T* get_pointer(optional_view<T> const& v) noexcept
+constexpr T* get_pointer(optional_indirect<T> const& v) noexcept
 {
     return static_cast<T*>(v);
 }
 
 template <typename T>
-constexpr T* get_pointer(optional_view<T>& v) noexcept
+constexpr T* get_pointer(optional_indirect<T>& v) noexcept
 {
     return static_cast<T*>(v);
 }
 
 template <typename T>
-void swap(optional_view<T>& lhs, optional_view<T>& rhs) noexcept
+void swap(optional_indirect<T>& lhs, optional_indirect<T>& rhs) noexcept
 {
     lhs.swap(rhs);
 }
 
 template <typename T1, typename T2>
-constexpr bool operator==(optional_view<T1> const& lhs, optional_view<T2> const& rhs) noexcept
+constexpr bool operator==(optional_indirect<T1> const& lhs, optional_indirect<T2> const& rhs) noexcept
 {
     return get_pointer(lhs) == get_pointer(rhs);
 }
 
 template <typename T1, typename T2>
-constexpr bool operator==(optional_view<T1> const& lhs, view<T2> const& rhs) noexcept
+constexpr bool operator==(optional_indirect<T1> const& lhs, indirect<T2> const& rhs) noexcept
 {
     return get_pointer(lhs) == get_pointer(rhs);
 }
 
 template <typename T1, typename T2>
-constexpr bool operator==(view<T1> const& lhs, optional_view<T2> const& rhs) noexcept
+constexpr bool operator==(indirect<T1> const& lhs, optional_indirect<T2> const& rhs) noexcept
 {
     return get_pointer(lhs) == get_pointer(rhs);
 }
 
 template <typename T1, typename T2>
-constexpr bool operator==(optional_view<T1> const& lhs, T2 const& rhs) noexcept
+constexpr bool operator==(optional_indirect<T1> const& lhs, T2 const& rhs) noexcept
 {
     return get_pointer(lhs) == get_pointer(rhs);
 }
 
 template <typename T1, typename T2>
-constexpr bool operator==(T1 const& lhs, optional_view<T2> const& rhs) noexcept
+constexpr bool operator==(T1 const& lhs, optional_indirect<T2> const& rhs) noexcept
 {
     return get_pointer(lhs) == get_pointer(rhs);
 }
 
 template <typename T>
-constexpr bool operator==(optional_view<T> const& lhs, nullopt_t) noexcept
+constexpr bool operator==(optional_indirect<T> const& lhs, nullopt_t) noexcept
 {
     return !lhs;
 }
 
 template <typename T>
-constexpr bool operator==(nullopt_t, optional_view<T> const& rhs) noexcept
+constexpr bool operator==(nullopt_t, optional_indirect<T> const& rhs) noexcept
 {
     return !rhs;
 }
 
 template <typename T1, typename T2>
-constexpr bool operator!=(optional_view<T1> const& lhs, optional_view<T2> const& rhs) noexcept
+constexpr bool operator!=(optional_indirect<T1> const& lhs, optional_indirect<T2> const& rhs) noexcept
 {
     return !(lhs == rhs);
 }
 
 template <typename T1, typename T2>
-constexpr bool operator!=(optional_view<T1> const& lhs, view<T2> const& rhs) noexcept
+constexpr bool operator!=(optional_indirect<T1> const& lhs, indirect<T2> const& rhs) noexcept
 {
     return !(lhs == rhs);
 }
 
 template <typename T1, typename T2>
-constexpr bool operator!=(view<T1> const& lhs, optional_view<T2> const& rhs) noexcept
+constexpr bool operator!=(indirect<T1> const& lhs, optional_indirect<T2> const& rhs) noexcept
 {
     return !(lhs == rhs);
 }
 
 template <typename T1, typename T2>
-constexpr bool operator!=(optional_view<T1> const& lhs, T2 const& rhs) noexcept
+constexpr bool operator!=(optional_indirect<T1> const& lhs, T2 const& rhs) noexcept
 {
     return !(lhs == rhs);
 }
 
 template <typename T1, typename T2>
-constexpr bool operator!=(T1 const& lhs, optional_view<T2> const& rhs) noexcept
+constexpr bool operator!=(T1 const& lhs, optional_indirect<T2> const& rhs) noexcept
 {
     return !(lhs == rhs);
 }
 
 template <typename T>
-constexpr bool operator!=(optional_view<T> const& lhs, nullopt_t) noexcept
+constexpr bool operator!=(optional_indirect<T> const& lhs, nullopt_t) noexcept
 {
     return !(lhs == nullopt);
 }
 
 template <typename T>
-constexpr bool operator!=(nullopt_t, optional_view<T> const& rhs) noexcept
+constexpr bool operator!=(nullopt_t, optional_indirect<T> const& rhs) noexcept
 {
     return !(nullopt == rhs);
 }
 
 template <typename T1, typename T2>
-constexpr bool operator<(optional_view<T1> const& lhs, optional_view<T2> const& rhs) noexcept
+constexpr bool operator<(optional_indirect<T1> const& lhs, optional_indirect<T2> const& rhs) noexcept
 {
     return std::less<std::common_type_t<T1*, T2*>>()(get_pointer(lhs), get_pointer(rhs));
 }
 
 template <typename T1, typename T2>
-constexpr bool operator>(optional_view<T1> const& lhs, optional_view<T2> const& rhs) noexcept
+constexpr bool operator>(optional_indirect<T1> const& lhs, optional_indirect<T2> const& rhs) noexcept
 {
     return rhs < lhs;
 }
 
 template <typename T1, typename T2>
-constexpr bool operator<=(optional_view<T1> const& lhs, optional_view<T2> const& rhs) noexcept
+constexpr bool operator<=(optional_indirect<T1> const& lhs, optional_indirect<T2> const& rhs) noexcept
 {
     return !(rhs < lhs);
 }
 
 template <typename T1, typename T2>
-constexpr bool operator>=(optional_view<T1> const& lhs, optional_view<T2> const& rhs) noexcept
+constexpr bool operator>=(optional_indirect<T1> const& lhs, optional_indirect<T2> const& rhs) noexcept
 {
     return !(lhs < rhs);
 }
 
 template <typename T>
-std::ostream& operator<<(std::ostream& s, optional_view<T> const& v)
+std::ostream& operator<<(std::ostream& s, optional_indirect<T> const& v)
 {
     return s << get_pointer(v);
 }
 
 template <typename T>
-std::istream& operator>>(std::istream& s, optional_view<T> const& v)
+std::istream& operator>>(std::istream& s, optional_indirect<T> const& v)
 {
     return get_pointer(v) >> s;
 }
@@ -542,9 +519,9 @@ namespace std
 {
 
 template <typename T>
-struct hash<optional_view<T>>
+struct hash<optional_indirect<T>>
 {
-    constexpr std::size_t operator()(optional_view<T> const& v) const noexcept
+    constexpr std::size_t operator()(optional_indirect<T> const& v) const noexcept
     {
         return hash<T*>()(get_pointer(v));
     }
@@ -552,4 +529,4 @@ struct hash<optional_view<T>>
 
 } // namespace std
 
-#endif // VIEW_HPP
+#endif // INDIRECT_HPP

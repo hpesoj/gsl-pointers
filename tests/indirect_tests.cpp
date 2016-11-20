@@ -23,8 +23,8 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.h"
 
+#include <indirect.hpp>
 #include <propagate_const.hpp>
-#include <view.hpp>
 
 #include <algorithm>
 #include <array>
@@ -144,20 +144,20 @@ std::vector<std::string> tokenize(std::string const& s)
 #define END_IF }}, 0); doctest::detail::getContextState()->currentIteration.pop_back(); }
 
 template <typename T>
-struct is_view : std::false_type {};
+struct is_indirect : std::false_type {};
 template <typename T>
-struct is_view<view<T>> : std::true_type {};
+struct is_indirect<indirect<T>> : std::true_type {};
 
 template <typename T>
-constexpr bool is_view_v = is_view<T>::value;
+constexpr bool is_indirect_v = is_indirect<T>::value;
 
 template <typename T>
-struct is_optional_view : std::false_type {};
+struct is_optional_indirect : std::false_type {};
 template <typename T>
-struct is_optional_view<optional_view<T>> : std::true_type {};
+struct is_optional_indirect<optional_indirect<T>> : std::true_type {};
 
 template <typename T>
-constexpr bool is_optional_view_v = is_optional_view<T>::value;
+constexpr bool is_optional_indirect_v = is_optional_indirect<T>::value;
 
 template <typename T>
 struct is_propagate_const : std::false_type {};
@@ -183,15 +183,15 @@ struct replace<T const, U>
 };
 
 template <typename T, typename U>
-struct replace<view<T>, U>
+struct replace<indirect<T>, U>
 {
-    using type = view<replace_t<T, U>>;
+    using type = indirect<replace_t<T, U>>;
 };
 
 template <typename T, typename U>
-struct replace<optional_view<T>, U>
+struct replace<optional_indirect<T>, U>
 {
-    using type = optional_view<replace_t<T, U>>;
+    using type = optional_indirect<replace_t<T, U>>;
 };
 
 template <typename T, typename U>
@@ -231,27 +231,27 @@ struct derived_other : base
 
 } // namespace
 
-SCENARIO("`view` and `optional_view` are trivially copyable")
+SCENARIO("`indirect` and `optional_indirect` are trivially copyable")
 {
     // !!! Not working on MSVC
-    //CHECK(std::is_trivially_copyable<view<int>>::value);
-    //CHECK(std::is_trivially_copyable<view<int const>>::value);
-    //CHECK(std::is_trivially_copyable<optional_view<int>>::value);
-    //CHECK(std::is_trivially_copyable<optional_view<int const>>::value);
+    //CHECK(std::is_trivially_copyable<indirect<int>>::value);
+    //CHECK(std::is_trivially_copyable<indirect<int const>>::value);
+    //CHECK(std::is_trivially_copyable<optional_indirect<int>>::value);
+    //CHECK(std::is_trivially_copyable<optional_indirect<int const>>::value);
 }
 
-SCENARIO("views can be constructed`")
+SCENARIO("indirects can be constructed`")
 {
     FOR_EACH_TYPE(value_t, int, int const)
     {
-        FOR_EACH_TYPE(view_t, view<value_t>, optional_view<value_t>)
+        FOR_EACH_TYPE(indirect_t, indirect<value_t>, optional_indirect<value_t>)
         {
-            FOR_EACH_TYPE(final_t, view_t, propagate_const<view_t>)
+            FOR_EACH_TYPE(final_t, indirect_t, propagate_const<indirect_t>)
             {
                 value_t i = {};
                 value_t j = {};
 
-                GIVEN("a view implicitly constructed from a reference")
+                GIVEN("a indirect implicitly constructed from a reference")
                 {
                     final_t v = i;
 
@@ -267,7 +267,7 @@ SCENARIO("views can be constructed`")
                     }
                 }
 
-                GIVEN("a view explicitly constructed from a pointer")
+                GIVEN("a indirect explicitly constructed from a pointer")
                 {
                     final_t v{&i};
 
@@ -275,14 +275,14 @@ SCENARIO("views can be constructed`")
                     REQUIRE(v != j);
                 }
 
-                GIVEN("a view explicitly constructed from a null pointer")
+                GIVEN("a indirect explicitly constructed from a null pointer")
                 {
-                    IF(is_view_v<view_t>)
+                    IF(is_indirect_v<indirect_t>)
                     {
                         REQUIRE_THROWS(final_t v{static_cast<value_t*>(nullptr)});
                     } END_IF
 
-                    IF(is_optional_view_v<view_t>)
+                    IF(is_optional_indirect_v<indirect_t>)
                     {
                         final_t v{static_cast<value_t*>(nullptr)};
 
@@ -292,14 +292,14 @@ SCENARIO("views can be constructed`")
                     } END_IF
                 }
 
-                GIVEN("a view explicitly constructed from a `nullptr`")
+                GIVEN("a indirect explicitly constructed from a `nullptr`")
                 {
-                    IF(is_view_v<view_t>)
+                    IF(is_indirect_v<indirect_t>)
                     {
                         REQUIRE_THROWS(final_t v{nullptr});
                     } END_IF
 
-                    IF(is_optional_view_v<view_t>)
+                    IF(is_optional_indirect_v<indirect_t>)
                     {
                         final_t v{nullptr};
 
@@ -309,9 +309,9 @@ SCENARIO("views can be constructed`")
                     } END_IF
                 }
 
-                IF(is_optional_view_v<view_t>)
+                IF(is_optional_indirect_v<indirect_t>)
                 {
-                    GIVEN("a default constructed view")
+                    GIVEN("a default constructed indirect")
                     {
                         final_t v;
 
@@ -326,7 +326,7 @@ SCENARIO("views can be constructed`")
                             REQUIRE(v == i);
                             REQUIRE(v != nullopt);
 
-                            THEN("it is assigned an empty view")
+                            THEN("it is assigned an empty indirect")
                             {
                                 v = {};
 
@@ -337,7 +337,7 @@ SCENARIO("views can be constructed`")
                         }
                     }
 
-                    GIVEN("a view constructed using the `{}` syntax")
+                    GIVEN("a indirect constructed using the `{}` syntax")
                     {
                         final_t v = {};
 
@@ -350,30 +350,30 @@ SCENARIO("views can be constructed`")
     } NEXT_TYPE
 }
 
-SCENARIO("views convert to references and pointers")
+SCENARIO("indirects convert to references and pointers")
 {
     FOR_EACH_TYPE(value_t, int, int const)
     {
-        FOR_EACH_TYPE(view_t, view<value_t>, optional_view<value_t>)
+        FOR_EACH_TYPE(indirect_t, indirect<value_t>, optional_indirect<value_t>)
         {
-            FOR_EACH_TYPE(final_t, view_t, propagate_const<view_t>)
+            FOR_EACH_TYPE(final_t, indirect_t, propagate_const<indirect_t>)
             {
                 value_t i = {};
 
-                GIVEN("a view constructed from an reference")
+                GIVEN("a indirect constructed from an reference")
                 {
                     final_t v = i;
 
-                    WHEN("the view is converted to a reference")
+                    WHEN("the indirect is converted to a reference")
                     {
-                        IF(is_view_v<view_t>)
+                        IF(is_indirect_v<indirect_t>)
                         {
                             value_t& r = v;
 
                             REQUIRE(&r == &i);
                         } END_IF
 
-                        IF(is_optional_view_v<view_t>)
+                        IF(is_optional_indirect_v<indirect_t>)
                         {
                             value_t& r = static_cast<value_t&>(v);
 
@@ -381,7 +381,7 @@ SCENARIO("views convert to references and pointers")
                         } END_IF
                     }
 
-                    WHEN("the view is converted to a pointer")
+                    WHEN("the indirect is converted to a pointer")
                     {
                         value_t* p = static_cast<value_t*>(v);
 
@@ -393,18 +393,18 @@ SCENARIO("views convert to references and pointers")
     } NEXT_TYPE
 }
 
-SCENARIO("views can be copied")
+SCENARIO("indirects can be copied")
 {
     FOR_EACH_TYPE(value_t, int, int const)
     {
-        FOR_EACH_TYPE(view_t, view<value_t>, optional_view<value_t>)
+        FOR_EACH_TYPE(indirect_t, indirect<value_t>, optional_indirect<value_t>)
         {
-            FOR_EACH_TYPE(final_t, view_t, propagate_const<view_t>)
+            FOR_EACH_TYPE(final_t, indirect_t, propagate_const<indirect_t>)
             {
                 value_t i = {};
                 value_t j = {};
 
-                GIVEN("a copy constructed view")
+                GIVEN("a copy constructed indirect")
                 {
                     final_t v = i;
                     final_t w = v;
@@ -439,18 +439,18 @@ SCENARIO("views can be copied")
     } NEXT_TYPE
 }
 
-SCENARIO("views can be moved")
+SCENARIO("indirects can be moved")
 {
     FOR_EACH_TYPE(value_t, int, int const)
     {
-        FOR_EACH_TYPE(view_t, view<value_t>, optional_view<value_t>)
+        FOR_EACH_TYPE(indirect_t, indirect<value_t>, optional_indirect<value_t>)
         {
-            FOR_EACH_TYPE(final_t, view_t, propagate_const<view_t>)
+            FOR_EACH_TYPE(final_t, indirect_t, propagate_const<indirect_t>)
             {
                 value_t i = {};
                 value_t j = {};
 
-                GIVEN("a move constructed view")
+                GIVEN("a move constructed indirect")
                 {
                     final_t v = i;
                     final_t w = std::move(v);
@@ -485,18 +485,18 @@ SCENARIO("views can be moved")
     } NEXT_TYPE
 }
 
-SCENARIO("views can be swapped")
+SCENARIO("indirects can be swapped")
 {
     FOR_EACH_TYPE(value_t, int, int const)
     {
-        FOR_EACH_TYPE(view_t, view<value_t>, optional_view<value_t>)
+        FOR_EACH_TYPE(indirect_t, indirect<value_t>, optional_indirect<value_t>)
         {
-            FOR_EACH_TYPE(final_t, view_t, propagate_const<view_t>)
+            FOR_EACH_TYPE(final_t, indirect_t, propagate_const<indirect_t>)
             {
                 value_t i = {};
                 value_t j = {};
 
-                GIVEN("a view swapped with a view")
+                GIVEN("a indirect swapped with a indirect")
                 {
                     final_t v = i;
                     final_t w = j;
@@ -507,7 +507,7 @@ SCENARIO("views can be swapped")
                     REQUIRE(w == i);
                 }
 
-                GIVEN("a view swapped with itself")
+                GIVEN("a indirect swapped with itself")
                 {
                     final_t v = i;
 
@@ -520,18 +520,18 @@ SCENARIO("views can be swapped")
     } NEXT_TYPE
 }
 
-SCENARIO("views can be used to access the objects they reference")
+SCENARIO("indirects can be used to access the objects they reference")
 {
     FOR_EACH_TYPE(value_t, int, int const)
     {
-        FOR_EACH_TYPE(view_t, view<value_t>, optional_view<value_t>)
+        FOR_EACH_TYPE(indirect_t, indirect<value_t>, optional_indirect<value_t>)
         {
-            FOR_EACH_TYPE(final_t, view_t, propagate_const<view_t>)
+            FOR_EACH_TYPE(final_t, indirect_t, propagate_const<indirect_t>)
             {
                 value_t i = 1;
                 value_t j = 2;
 
-                GIVEN("a view constructed from an reference")
+                GIVEN("a indirect constructed from an reference")
                 {
                     final_t v = i;
 
@@ -553,7 +553,7 @@ SCENARIO("views can be used to access the objects they reference")
 
                         IF(!is_const_v<value_t>)
                         {
-                            WHEN("the viewed object is assigned a reference")
+                            WHEN("the indirected object is assigned a reference")
                             {
                                 *v = i;
 
@@ -574,17 +574,17 @@ SCENARIO("views can be used to access the objects they reference")
     } NEXT_TYPE
 }
 
-SCENARIO("views support arithmetic comparison")
+SCENARIO("indirects support arithmetic comparison")
 {
     FOR_EACH_TYPE(value_t, int, int const)
     {
-        FOR_EACH_TYPE(view_t, view<value_t>, optional_view<value_t>)
+        FOR_EACH_TYPE(indirect_t, indirect<value_t>, optional_indirect<value_t>)
         {
-            FOR_EACH_TYPE(final_t, view_t, propagate_const<view_t>)
+            FOR_EACH_TYPE(final_t, indirect_t, propagate_const<indirect_t>)
             {
                 std::array<value_t, 2> is = { 1, 2 };
 
-                GIVEN("views constructed from entries in an array")
+                GIVEN("indirects constructed from entries in an array")
                 {
                     final_t u = is[0];
                     final_t v = is[0];
@@ -653,29 +653,29 @@ SCENARIO("views support arithmetic comparison")
     } NEXT_TYPE
 }
 
-SCENARIO("views can be static cast")
+SCENARIO("indirects can be static cast")
 {
     FOR_EACH_TYPE(derived_t, derived, derived const)
     {
         using base_t = replace_t<derived_t, base>;
 
-        FOR_EACH_TYPE(derived_view_t, view<derived_t>, optional_view<derived_t>)
+        FOR_EACH_TYPE(derived_indirect_t, indirect<derived_t>, optional_indirect<derived_t>)
         {
-            using base_view_t = replace_t<derived_view_t, base>;
+            using base_indirect_t = replace_t<derived_indirect_t, base>;
 
-            FOR_EACH_TYPE(derived_final_t, derived_view_t/*, propagate_const<derived_view_t>*/)
+            FOR_EACH_TYPE(derived_final_t, derived_indirect_t/*, propagate_const<derived_indirect_t>*/)
             {
                 using base_final_t = replace_t<derived_final_t, base>;
 
                 derived_t d;
 
-                GIVEN("a view to `base` initialized with a `derived`")
+                GIVEN("a indirect to `base` initialized with a `derived`")
                 {
                     base_final_t v = d;
 
-                    WHEN("it is static cast to a view to `derived`")
+                    WHEN("it is static cast to a indirect to `derived`")
                     {
-                        derived_final_t w = static_view_cast<derived_t>(v);
+                        derived_final_t w = static_indirect_cast<derived_t>(v);
 
                         REQUIRE(w == v);
                         REQUIRE(w == d);
@@ -686,51 +686,51 @@ SCENARIO("views can be static cast")
     } NEXT_TYPE
 }
 
-SCENARIO("views can be dynamic cast")
+SCENARIO("indirects can be dynamic cast")
 {
     FOR_EACH_TYPE(derived_t, derived, derived const)
     {
         using base_t = replace_t<derived_t, base>;
         using derived_other_t = replace_t<derived_t, derived_other>;
 
-        FOR_EACH_TYPE(derived_view_t, view<derived_t>, optional_view<derived_t>)
+        FOR_EACH_TYPE(derived_indirect_t, indirect<derived_t>, optional_indirect<derived_t>)
         {
-            using base_view_t = replace_t<derived_view_t, base>;
+            using base_indirect_t = replace_t<derived_indirect_t, base>;
 
-            FOR_EACH_TYPE(derived_final_t, derived_view_t/*, propagate_const<derived_view_t>*/)
+            FOR_EACH_TYPE(derived_final_t, derived_indirect_t/*, propagate_const<derived_indirect_t>*/)
             {
                 using base_final_t = replace_t<derived_final_t, base>;
 
                 derived_t d;
                 derived_other_t e;
 
-                GIVEN("a view to `base` initialized with a `derived`")
+                GIVEN("a indirect to `base` initialized with a `derived`")
                 {
                     base_final_t v = d;
 
-                    WHEN("it is dynamic cast to a view to `derived`")
+                    WHEN("it is dynamic cast to a indirect to `derived`")
                     {
-                        derived_final_t w = dynamic_view_cast<derived_t>(v);
+                        derived_final_t w = dynamic_indirect_cast<derived_t>(v);
 
                         REQUIRE(w == v);
                         REQUIRE(w == d);
                     }
                 }
 
-                GIVEN("a view to `base` initialized with a `derived_other`")
+                GIVEN("a indirect to `base` initialized with a `derived_other`")
                 {
                     base_final_t v = e;
 
-                    WHEN("it is dynamic cast to a view to `derived`")
+                    WHEN("it is dynamic cast to a indirect to `derived`")
                     {
-                        IF(is_view_v<base_view_t>)
+                        IF(is_indirect_v<base_indirect_t>)
                         {
-                            REQUIRE_THROWS(derived_final_t w = dynamic_view_cast<derived_t>(v));
+                            REQUIRE_THROWS(derived_final_t w = dynamic_indirect_cast<derived_t>(v));
                         } END_IF
 
-                        IF(is_optional_view_v<base_view_t>)
+                        IF(is_optional_indirect_v<base_indirect_t>)
                         {
-                            derived_final_t w = dynamic_view_cast<derived_t>(v);
+                            derived_final_t w = dynamic_indirect_cast<derived_t>(v);
 
                             REQUIRE(!w);
                             REQUIRE(w != v);
@@ -743,29 +743,29 @@ SCENARIO("views can be dynamic cast")
     } NEXT_TYPE
 }
 
-SCENARIO("views can be const cast")
+SCENARIO("indirects can be const cast")
 {
     FOR_EACH_TYPE(value_t, int, int const)
     {
         using const_value_t = std::add_const_t<value_t>;
 
-        FOR_EACH_TYPE(view_t, view<value_t>, optional_view<value_t>)
+        FOR_EACH_TYPE(indirect_t, indirect<value_t>, optional_indirect<value_t>)
         {
-            using const_view_t = replace_t<view_t, const_value_t>;
+            using const_indirect_t = replace_t<indirect_t, const_value_t>;
 
-            FOR_EACH_TYPE(final_t, view_t/*, propagate_const<view_t>*/)
+            FOR_EACH_TYPE(final_t, indirect_t/*, propagate_const<indirect_t>*/)
             {
                 using const_final_t = replace_t<final_t, const_value_t>;
 
                 value_t i = {};
 
-                GIVEN("a view to const")
+                GIVEN("a indirect to const")
                 {
                     const_final_t v = i;
 
                     WHEN("it is const cast to non-const`")
                     {
-                        final_t w = const_view_cast<value_t>(v);
+                        final_t w = const_indirect_cast<value_t>(v);
 
                         REQUIRE(w == v);
                     }
@@ -775,19 +775,19 @@ SCENARIO("views can be const cast")
     } NEXT_TYPE
 }
 
-SCENARIO("views can be created using `make_view`")
+SCENARIO("indirects can be created using `make_indirect`")
 {
     FOR_EACH_TYPE(value_t, int, int const)
     {
-        FOR_EACH_TYPE(view_t, view<value_t>, optional_view<value_t>)
+        FOR_EACH_TYPE(indirect_t, indirect<value_t>, optional_indirect<value_t>)
         {
-            FOR_EACH_TYPE(final_t, view_t, propagate_const<view_t>)
+            FOR_EACH_TYPE(final_t, indirect_t, propagate_const<indirect_t>)
             {
                 value_t i = {};
 
-                GIVEN("a view created with `make_view`")
+                GIVEN("a indirect created with `make_indirect`")
                 {
-                    final_t v = make_view(i);
+                    final_t v = make_indirect(i);
 
                     REQUIRE(v == i);
                 }
@@ -796,31 +796,31 @@ SCENARIO("views can be created using `make_view`")
     } NEXT_TYPE
 }
 
-SCENARIO("views can be used in certain constant expressions")
+SCENARIO("indirects can be used in certain constant expressions")
 {
     // !!! Not working on MSVC
     //constexpr static derived d = { 0 };
 
-    //constexpr view<foo const> v = d;
-    //constexpr view<foo const> w = v;
+    //constexpr indirect<foo const> v = d;
+    //constexpr indirect<foo const> w = v;
 
     //constexpr int const& b = v->foo;
     //constexpr derived const& r1 = *v;
     //constexpr derived const& r2 = v.value();
 }
 
-SCENARIO("views can be used with STL containers")
+SCENARIO("indirects can be used with STL containers")
 {
     FOR_EACH_TYPE(value_t, int, int const)
     {
-        FOR_EACH_TYPE(view_t, view<value_t>, optional_view<value_t>)
+        FOR_EACH_TYPE(indirect_t, indirect<value_t>, optional_indirect<value_t>)
         {
-            FOR_EACH_TYPE(final_t, view_t, propagate_const<view_t>)
+            FOR_EACH_TYPE(final_t, indirect_t, propagate_const<indirect_t>)
             {
                 std::array<value_t, 3> i = { 0, 1, 2 };
 
                 // !!! Not working on MSVC
-                //GIVEN("a `vector` of views")
+                //GIVEN("a `vector` of indirects")
                 //{
                     //std::vector<final_t> vector;
 
@@ -833,7 +833,7 @@ SCENARIO("views can be used with STL containers")
                     //REQUIRE(vector[2] == i[0]);
                 //}
 
-                GIVEN("a `map` of view-view pairs")
+                GIVEN("a `map` of indirect-indirect pairs")
                 {
                     std::map<final_t, final_t> map;
 
@@ -846,7 +846,7 @@ SCENARIO("views can be used with STL containers")
                     REQUIRE(map.at(i[2]) == i[0]);
                 }
 
-                GIVEN("an `unordered_map` of view-view pairs")
+                GIVEN("an `unordered_map` of indirect-indirect pairs")
                 {
                     std::unordered_map<final_t, final_t> map;
 
@@ -859,7 +859,7 @@ SCENARIO("views can be used with STL containers")
                     REQUIRE(map.at(i[2]) == i[0]);
                 }
 
-                GIVEN("a `set` of views")
+                GIVEN("a `set` of indirects")
                 {
                     std::set<final_t> set;
 
@@ -872,7 +872,7 @@ SCENARIO("views can be used with STL containers")
                     REQUIRE(set.find(i[2]) != set.end());
                 }
 
-                GIVEN("an `unordered_set` of views")
+                GIVEN("an `unordered_set` of indirects")
                 {
                     std::unordered_set<final_t> set;
 
@@ -888,3 +888,46 @@ SCENARIO("views can be used with STL containers")
         } NEXT_TYPE
     } NEXT_TYPE
 }
+
+class node
+{
+private:
+    optional_indirect<node> parent;
+    std::vector<indirect<node>> children;
+
+public:
+    node() = default;
+
+    node(node const&) = delete;
+    node& operator=(node const&) = delete;
+
+    node(node&&) = delete;
+    node& operator=(node&&) = delete;
+
+    void set_parent(optional_indirect<node> new_parent) {
+        if (parent) parent->remove_child(*this);
+        parent = new_parent;
+        if (parent) parent->add_child(*this);
+    }
+
+    optional_indirect<node> get_parent() const {
+        return parent;
+    }
+
+    std::size_t get_child_count() const {
+        return children.size();
+    }
+
+    indirect<node> get_child(std::size_t index) const {
+        return children[index];
+    }
+
+private:
+    void add_child(indirect<node> child) {
+        children.push_back(child);
+    }
+
+    void remove_child(indirect<node> child) {
+        children.erase(std::find(children.begin(), children.end(), child));
+    }
+};
