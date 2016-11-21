@@ -4,6 +4,8 @@ _Joseph Thomson \<joseph.thomson@gmail.com\>_
 
 ## Introduction
 
+`indirect<T>` and `optional_indirect<T>` are high-level indirection types that reference objects of type `T` without implying ownership. An `indirect<T>` is an indirect reference to an object of type `T`, while an `optional_indirect<T>` is an _optional_ indirect reference to an object of type `T`. Both `indirect` and `optional_indirect` have reference-like construction semantics and pointer-like assignment and indirection semantics.
+
 ## Table of contents
 
 ## Motivation and scope
