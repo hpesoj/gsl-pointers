@@ -26,7 +26,6 @@
 #define INDIRECT_HPP
 
 #include <optional.hpp>
-#include <type_traits.hpp>
 
 #include <functional>
 #include <iosfwd>
@@ -191,14 +190,14 @@ constexpr bool operator!=(indirect<T1> const& lhs, indirect<T2> const& rhs) noex
     return !(lhs == rhs);
 }
 
-template <typename T1, typename T2>
-constexpr bool operator!=(indirect<T1> const& lhs, T2 const& rhs) noexcept
+template <typename T1, typename T2, std::enable_if_t<std::is_convertible<T1*, T2*>::value || std::is_convertible<T2*, T1*>::value, int> = 0>
+constexpr bool operator!=(indirect<T1> const& lhs, T2& rhs) noexcept
 {
     return !(lhs == rhs);
 }
 
-template <typename T1, typename T2>
-constexpr bool operator!=(T1 const& lhs, indirect<T2> const& rhs) noexcept
+template <typename T1, typename T2, std::enable_if_t<std::is_convertible<T1*, T2*>::value || std::is_convertible<T2*, T1*>::value, int> = 0>
+constexpr bool operator!=(T1& lhs, indirect<T2> const& rhs) noexcept
 {
     return !(lhs == rhs);
 }
@@ -445,14 +444,14 @@ constexpr bool operator!=(indirect<T1> const& lhs, optional_indirect<T2> const& 
     return !(lhs == rhs);
 }
 
-template <typename T1, typename T2>
-constexpr bool operator!=(optional_indirect<T1> const& lhs, T2 const& rhs) noexcept
+template <typename T1, typename T2, std::enable_if_t<std::is_convertible<T1*, T2*>::value || std::is_convertible<T2*, T1*>::value, int> = 0>
+constexpr bool operator!=(optional_indirect<T1> const& lhs, T2& rhs) noexcept
 {
     return !(lhs == rhs);
 }
 
-template <typename T1, typename T2>
-constexpr bool operator!=(T1 const& lhs, optional_indirect<T2> const& rhs) noexcept
+template <typename T1, typename T2, std::enable_if_t<std::is_convertible<T1*, T2*>::value || std::is_convertible<T2*, T1*>::value, int> = 0>
+constexpr bool operator!=(T1& lhs, optional_indirect<T2> const& rhs) noexcept
 {
     return !(lhs == rhs);
 }
