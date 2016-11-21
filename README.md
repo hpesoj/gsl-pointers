@@ -196,7 +196,7 @@ private:
     }
 ```
 
-Now, we could replace `node*` with `optional_indirect<node>`, but this is misleading since children are _not_ optional: the `node*` elements should never be null. So instead of `node&` or `node*`, we can use `indirect<node>`, the mandatory counterpart to `optional_indirect<node>`. In addition to all the benefits that `optional_indirect` provides, `indirect`  _must_ always reference an object: it has no disengaged state. A `indirect<T>` _is_ a _mandatory_, _non-owning_ indirect reference to a _single_ object of type `T`. And it can be stored in STL containers, just like `optional_indirect<T>` or `T*`.
+Now, we could replace `node*` with `optional_indirect<node>`, but this is misleading since children are _not_ optional: the `node*` elements should never be null. So instead of `node&` or `node*`, we can use `indirect<node>`, the mandatory counterpart to `optional_indirect<node>`. In addition to all the benefits that `optional_indirect` provides, `indirect`  _must_ always reference an object: it has no disengaged state. An `indirect<T>` _is_ a _mandatory_, _non-owning_ indirect reference to a _single_ object of type `T`. And it can be stored in STL containers, just like `optional_indirect<T>` or `T*`.
 
 Let's replace all instances of `node&` and `node*` with `indirect<node>`, and add the calls to `add_child` and `remove_child` to `set_parent`:
 
@@ -279,13 +279,13 @@ Also note that there are no overloads of `make_indirect` or `make_optional_indir
 
 ### <a name="rationale-construction-from-pointer-to-indirect"></a>Construction of `indirect` from `T*` or `optional_indirect`
 
-Explicit construction of `indirect` from a pointer or an `optional_indirect` _is_ supported and throws a `std::invalid_argument` if the pointer is null or the `optional_indirect` is empty. It could be argued that such a feature is not strictly required as part of a minimal and efficient API (the user could implement equivalent behaviour just as efficiently as a non-member function) and encourages programming errors as the user may not realize that constructing a `indirect` from a pointer is not `nothrow`. However, the explicit nature of the conversion means that the user is unlikely to do it by accident:
+Explicit construction of `indirect` from a pointer or an `optional_indirect` _is_ supported and throws a `std::invalid_argument` if the pointer is null or the `optional_indirect` is empty. It could be argued that such a feature is not strictly required as part of a minimal and efficient API (the user could implement equivalent behaviour just as efficiently as a non-member function) and encourages programming errors as the user may not realize that constructing an `indirect` from a pointer is not `nothrow`. However, the explicit nature of the conversion means that the user is unlikely to do it by accident:
 
 ```c++
     foo(indirect<int>(p));
 ```
 
-Thus, even though such functionality isn't strictly necessary, it is a convenient way to safely (i.e. without invoking undefined behaviour) convert a pointer or `optional_indirect` to a `indirect`. It also seems appropriate to support such operations given the inclusion of the [throwing accessor function](#rationale-named-member-functions) `value` in `optional_indirect`, a function which is also strictly not required and is inspired by the design of `std::optional`.
+Thus, even though such functionality isn't strictly necessary, it is a convenient way to safely (i.e. without invoking undefined behaviour) convert a pointer or `optional_indirect` to an `indirect`. It also seems appropriate to support such operations given the inclusion of the [throwing accessor function](#rationale-named-member-functions) `value` in `optional_indirect`, a function which is also strictly not required and is inspired by the design of `std::optional`.
 
 ### <a name="rationale-construction-from-rvalue"></a>Construction from `T&&`
 
@@ -300,7 +300,7 @@ foo(i); // okay
 foo(42); // also okay
 ```
 
-However, unlike a reference-to-const, a `indirect<T const>` does not extend the lifetime of the temporary from which it is constructed. Thus, while this is safe:
+However, unlike a reference-to-const, an `indirect<T const>` does not extend the lifetime of the temporary from which it is constructed. Thus, while this is safe:
 
 ```c++
 int const& i = 42; // lifetime of temporary extended by `i`
@@ -317,7 +317,7 @@ std::cout << *i; // undefined behaviour!
 Some might consider this grounds to disable construction from `T&&` as in [`std::reference_wrapper`](http://en.cppreference.com/w/cpp/utility/functional/reference_wrapper). However, `std::string_view` sets a precedent by allowing such behaviour:
 
 ```c++
-std::string_indirect v = std::string("hello, world");
+std::string_view v = std::string("hello, world");
 std::cout < v; // undefined behaviour
 ```
 
@@ -383,7 +383,7 @@ Also, `optional<indirect<T>>` generally occupies _twice_ the memory of `optional
 
 ### <a name="rationale-nullopt"></a>Reuse of `std::nullopt` and `std::bad_optional_access`
 
-Given that `optional_indirect<T>` is conceptually similar to `std::optional<indirect<T>>`, it makes sense to reuse features standardized with `std::optional`.
+Given that `optional_indirect<T>` is conceptually similar to `optional<indirect<T>>`, it makes sense to reuse features standardized with `std::optional`.
 
 The current implementation provides its own `nullopt_t`, `nullopt` and `bad_optional_access`, since implementations of `std::optional` are not yet widely available.
 
@@ -393,16 +393,23 @@ The optional value type [`std::optional`](http://en.cppreference.com/w/cpp/utili
 
 ### <a name="rationale-naming"></a>Naming
 
-The names `indirect` and `optional_indirect` are based on conventions already set by the C++ standard library, namely:
+The names `indirect` and `optional_indirect` have been chosen as "indirection" is concept associated with pointers in C++, and they do largely have pointer semantics. The term "indirect" doesn't imply ownership or array- or iterator-like features. It also reads quite well grammatically in functions:
 
-* `std::string_indirect` – a non-owning "indirect" of a string
-* `std::optional` – an optional value type
+```c++
+void foo(indirect<bar> b); // `foo` takes a `bar` indirectly
+```
 
-The term "indirect" seems to be used to refer to an object that allows the whole or part of another object or data structure to be examined without controlling the lifetime of said object or data structure (much like a reference). This seems like an accurate description `indirect` and `optional_indirect`.
+And in classes:
 
-The terms "reference" and "pointer" are inappropriate since they are overly general and already have established meaning in the C++ lexicon. The term "indirect" seems more appropriate as it describes the function of the feature rather than how it is likely to be implemented.
+```c++
+struct foo {
+  indirect<bar> b; // `foo` references a `bar` indirectly
+};
+```
 
-The term "observer" could potentially be used (as in `std::experimental::observer_ptr`); there is no arguing that it is descriptive of what the classes do. However, the term "indirect" has already been enshrined in the C++ standard, and there is also the concern that there will be confusion with the unrelated ["observer pattern"](https://en.wikipedia.org/wiki/Observer_pattern), a software design pattern that is widely used in C++ codebases. There is also the minor benefit that "indirect" is four characters less to type than "observer".
+The terms "reference"/"ref" and "pointer"/"ptr" are inappropriate since they are overly general and already have established meaning in the C++ lexicon.
+
+The names `observer` and `optional_observer` could potentially be used (as in `std::experimental::observer_ptr`). However, there is the concern that the term "observer" implies some implementation of the ["observer pattern"](https://en.wikipedia.org/wiki/Observer_pattern), an largely unrelated software design pattern that is widely used in C++ codebases. It could also be argued that the "observer" implies some kind of active observation of the referenced object, something which is not necessarily the case.
 
 The term "optional" has an obvious meaning. Indeed, an `optional_indirect<T>` is pretty much functionally equivalent to an `optional<indirect<T>>`; the former is simply a bit nicer to use.
 
@@ -412,17 +419,17 @@ One possible question is, should the "optional" type be the default? In other wo
 
 ### <a name="faq-good-enough"></a>Aren't `T*` and `T&` good enough?
 
-The suggestion has been made that raw pointers work just fine as optional indirect types, and there is no need to introduce new types when we already have long-established types that are well-suited to this role.
+The suggestion has been made that references and pointers work just fine as non-owning reference types, and there is no need to introduce new types when we already have long-established types that are well-suited to this role.
 
-Some argue that once all other uses of pointers have been covered by other high-level types (e.g. `std::unique_ptr`, `std::string`, `std::string_indirect`, `std::array`, `std::array_indirect`, …) the only use case that will be left for raw pointers will be as optional indirect types, so it will be safe to assume that wherever you see `T*` it means "an optional indirect of `T`". This is not true for a number of reasons:
+Some argue that once all other uses of pointers have been covered by other high-level types (e.g. `std::unique_ptr`, `std::string`, `std::string_view`, `std::array`, `std::array_view`, …) the only use case that will be left for raw pointers will be as optional indirect types, so it will be safe to assume that wherever you see `T*` it means "an optional, non-owning reference to `T`". This is not true for a number of reasons:
 
-* This is only a convention; people are not obliged to use `T*` only to mean "an optional indirect of `T`".
-* Plenty of existing code doesn't follow this convention; even if everyone followed convention from this point forward, you still cannot make the assumption that `T*` always means "an optional indirect of `T`".
-* Low-level code (new and existing) necessarily uses `T*` to mean all sorts of things; even if all new and old code followed the convention where appropriate, there would still be code where `T*` does not mean "an optional indirect of `T`", so you _still_ cannot make that assumption.
+* This is only a convention; people are not obliged to use `T*` only to mean "an optional, non-owning reference to `T`".
+* Plenty of existing code doesn't follow this convention; even if everyone followed convention from this point forward, you still cannot make the assumption that `T*` always means "an optional, non-owning reference to `T`".
+* Low-level code (new and existing) necessarily uses `T*` to mean all sorts of things; even if all new and old code followed the convention where appropriate, there would still be code where `T*` does not mean "an optional, non-owning reference to `T`", so you _still_ cannot make that assumption.
 
-Conversely, wherever you see `optional_indirect<T>` in some code, you _know_ that it means "an optional indirect of `T`" (unless the author of the code was being perverse). Explicitly documenting intent is generally better than letting readers of your code make assumptions.
+Conversely, wherever you see `optional_indirect<T>` in some code, you _know_ that it means "an optional, non-owning reference to `T`" (unless the author of the code was being perverse). Explicitly documenting intent is generally better than letting readers of your code make assumptions.
 
-Aside from the case for documenting intent, it can be argued that pointers and references are not optimally designed for use as indirect types. A well-designed type is _efficient_ and has an API that is _minimal_ yet _expressive_ and _hard to use incorrectly_. Pointers as indirect types may be efficient and do have a somewhat expressive API, but their API is not minimal and is very easy to use incorrectly. Case in point, this is syntactically correct but semantically incorrect code:
+Aside from the case for documenting intent, it can be argued that pointers and references are not optimally designed for use as non-owning reference types. A well-designed type is _efficient_ and has an API that is _minimal_ yet _expressive_ and _hard to use incorrectly_. Pointers as non-owning reference types may be efficient and do have a somewhat expressive API, but their API is not minimal and is very easy to use incorrectly. Case in point, this is syntactically correct but semantically incorrect code:
 
 ```c++
 int i = 0;
@@ -431,7 +438,7 @@ p += 1; // did I mean `*p += 1`?
 *p = 42; // undefined behaviour
 ```
 
-On the other hand, references as indirect types are efficient and have a minimal API that is generally hard to use incorrectly. However, the reference API is not as expressive as it could be, since references cannot be reassigned after construction to reference a different object:
+On the other hand, references as non-owning reference types are efficient and have a minimal API that is generally hard to use incorrectly. However, the reference API is not as expressive as it could be, since references cannot be reassigned after construction to reference a different object:
 
 ```c++
 int i = 0, j = 42;
@@ -439,15 +446,15 @@ int& r = i;
 r = j; // modifies `i`; does not make `r` reference `j`
 ```
 
-As a bonus, `indirect<T>` is compatible with `std::experimental::propagate_const`, while `T&` is not.
+As a bonus, `indirect<T>` is planned to be compatible with `std::experimental::propagate_const`, while `T&` is not.
 
-`indirect` and `optional_indirect` are _as_ efficient as pointers and references, and have been _purpose-designed_ as indirect types to be minimal, expressive and hard to use incorrectly.
+`indirect` and `optional_indirect` are _as_ efficient as pointers and references, and have been _purpose-designed_ as non-owning reference types to be minimal, expressive and hard to use incorrectly.
 
 ### <a name="faq-operator-dot"></a>Why does `indirect` use pointer-like syntax when it can't be null? Typing `*` or `->` is a hassle. Shouldn't you wait until some form of `operator.` overloading has been standardized?
 
 Even with some form of `operator.` overloading, `indirect` would have the same design.
 
-The various `operator.` "overloading" proposals put forward possible C++ language features that could allow one type to "inherit" the API of another type _without_ using traditional inheritance. Such mechanisms _could_ be used to implement `indirect` such that instead of writing `(*v).bar` (or `v->bar`), where `v` is of type `indirect<foo>` and `foo` has a member `bar`, we would instead write `v.bar`. At first glance, this makes sense: since a `indirect` cannot be null, why not model it after a reference instead of a pointer?
+The various `operator.` "overloading" proposals put forward possible C++ language features that could allow one type to "inherit" the API of another type _without_ using traditional inheritance. Such mechanisms _could_ be used to implement `indirect` such that instead of writing `(*v).bar` (or `v->bar`), where `v` is of type `indirect<foo>` and `foo` has a member `bar`, we would instead write `v.bar`. At first glance, this makes sense: since an `indirect` cannot be null, why not model it after a reference instead of a pointer?
 
 Alas, there is no such thing as a free lunch. The question is, what should `indirect::operator=(T& t)` do? There are two possibilities: either the `indirect` is reassigned to reference the object referenced by `t`, or the `indirect` indirectly assigns the object referenced by `t` to the object the `indirect` references.
 
@@ -496,7 +503,7 @@ Of course, `operator.` "overloading" does have its uses, but this is not one of 
 
 ### <a name="faq-reference-wrapper"></a>Isn't `indirect` the same as `std::reference_wrapper`?
 
-No. They are very different. In short, `indirect` has pointer-like indirection semantics, whereas `std::reference_wrapper` has reference-like direct-access semantics.
+No. They are very different. In short, `indirect` has pointer-like assignment and indirection semantics, whereas `std::reference_wrapper` has reference-like assignment and direct-access semantics.
 
 The key difference between `indirect` and `reference_wrapper` is in assignment and comparison. While both types behave the same on construction:
 
@@ -562,17 +569,17 @@ In short, operations on `indirect` tend to modify or inspect the `indirect` itse
 
 ### <a name="faq-not-null"></a>Isn't `indirect` the same as `gsl::not_null`?
 
-No. The aims of `indirect` and `not_null` are different. In short, `indirect<T>` is a indirect of a single object of type `T`, while `not_null<T*>` is simply a `T*` that should not be null.
+No. The aims of `indirect` and `not_null` are different. In short, `indirect<T>` is a non-owning reference to a single object of type `T`, while `not_null<T*>` is simply a `T*` that should not be null.
 
 According to the [current documentation](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#i12-declare-a-pointer-that-must-not-be-null-as-not_null) in the C++ Core Guidelines, the purpose of `not_null` is simply to indicate to the compiler and the reader that a pointer should not be null. The current design of `not_null` allows optional run-time checks to be enabled via a pre-processor switch, but the C++ Core Guidelines suggest enforcement via a static analysis tool. The examples given include use with C-style strings (`char const*`), something that would never be a use case for `indirect`.
 
-One possible source of confusion is the fact that the [current implementation](https://github.com/Microsoft/GSL/blob/master/gsl/gsl) of `not_null` explicitly `delete`s a number of pointer arithmetic operations. At first, it may seem like an indication that `not_null` should not be used to store pointers that represent arrays or iterators. However, one of the authors of `not_null` has [clarified](https://github.com/Microsoft/GSL/issues/417) that these restrictions simply aim to encourage the use of the complementary `span` facility (the GSL version of an `array_indirect`) instead of manually iterating over ranges or indexing into arrays represented by pointers.
+One possible source of confusion is the fact that the [current implementation](https://github.com/Microsoft/GSL/blob/master/gsl/gsl) of `not_null` explicitly `delete`s a number of pointer arithmetic operations. At first, it may seem like an indication that `not_null` should not be used to store pointers that represent arrays or iterators. However, one of the authors of `not_null` has [clarified](https://github.com/Microsoft/GSL/issues/417) that these restrictions simply aim to encourage the use of the complementary `span` facility (the GSL version of an `array_view`) instead of manually iterating over ranges or indexing into arrays represented by pointers.
 
 So `indirect` and `not_null` are not the same at all. They perform complementary functions and could be used side-by-side in the same codebase, no problem.
 
 ### <a name="faq-observer-ptr"></a>Isn't `optional_indirect` the same as `std::experimental::observer_ptr`?
 
-Both `optional_indirect` and [`std::experimental::observer_ptr`](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n4282.pdf) have essentially the same purpose (high-level indirect/observer types that document intent) but slightly different designs. While the design of `observer_ptr` is based on the existing standard library smart pointer types, `optional_indirect` is specifically designed to be a indirect type. The fact that pointers are already _okay_ as indirect types means that there isn't a great deal of difference between `optional_indirect` and `observer_ptr`; however, there are a couple of things worth noting.
+Both `optional_indirect` and [`std::experimental::observer_ptr`](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n4282.pdf) have essentially the same purpose (high-level indirect/observer types that document intent) but slightly different designs. While the design of `observer_ptr` is based on the existing standard library smart pointer types, `optional_indirect` is specifically designed to be an optional, non-owning reference type. The fact that pointers are already _okay_ as indirect types means that there isn't a great deal of difference between `optional_indirect` and `observer_ptr`; however, there are a couple of things worth noting.
 
 First, `observer_ptr` has to be explicitly constructed from a pointer:
 
@@ -657,8 +664,7 @@ foo() = i; // modifies the temporary `indirect` returned by `foo` to reference `
 auto x = foo(); // `decltype(x)` is `indirect<int>`
 ```
 
-`indirect<T>` has pointer-like indirection semantics, while `T&` has reference-like direct-access semantics. Thus, you would not want to use `indirect` when you wished to provide _direct_ access to an object, like when implementing `operator[]` for an array type. You _may_ want to use `indirect` if you wish to provide a pointer-like indirect handle to an object; in this case you may also wish to return a `indirect<T> const` to prevent the caller from accidentally assigning to the temporary:
-
+`indirect<T>` has pointer-like indirection semantics, while `T&` has reference-like direct-access semantics. Thus, you would not want to use `indirect` when you wished to provide _direct_ access to an object, like when implementing `operator[]` for an array type. You _may_ want to use `indirect` if you wish to provide a pointer-like indirect handle to an object; in this case you may also wish to return an `indirect<T> const` to prevent the caller from accidentally assigning to the temporary:
 ```c++
 indirect<int> const foo() { … }
 
