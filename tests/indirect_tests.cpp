@@ -364,23 +364,6 @@ SCENARIO("indirects convert to references and pointers")
                 {
                     final_t v = i;
 
-                    WHEN("the indirect is converted to a reference")
-                    {
-                        IF(is_indirect_v<indirect_t>)
-                        {
-                            value_t& r = v;
-
-                            REQUIRE(&r == &i);
-                        } END_IF
-
-                        IF(is_optional_indirect_v<indirect_t>)
-                        {
-                            value_t& r = static_cast<value_t&>(v);
-
-                            REQUIRE(&r == &i);
-                        } END_IF
-                    }
-
                     WHEN("the indirect is converted to a pointer")
                     {
                         value_t* p = static_cast<value_t*>(v);

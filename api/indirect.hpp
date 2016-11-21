@@ -26,7 +26,7 @@
 #define INDIRECT_HPP
 
 #include <optional.hpp>
-#include <utility.hpp>
+#include <type_traits.hpp>
 
 #include <functional>
 #include <iosfwd>
@@ -113,11 +113,6 @@ public:
         return target;
     }
 
-    constexpr operator T&() const noexcept
-    {
-        return *target;
-    }
-
     constexpr explicit operator T*() const noexcept
     {
         return target;
@@ -178,16 +173,16 @@ constexpr bool operator==(indirect<T1> const& lhs, indirect<T2> const& rhs) noex
     return get_pointer(lhs) == get_pointer(rhs);
 }
 
-template <typename T1, typename T2>
-constexpr bool operator==(indirect<T1> const& lhs, T2 const& rhs) noexcept
+template <typename T1, typename T2, std::enable_if_t<std::is_convertible<T1*, T2*>::value || std::is_convertible<T2*, T1*>::value, int> = 0>
+constexpr bool operator==(indirect<T1> const& lhs, T2& rhs) noexcept
 {
-    return get_pointer(lhs) == get_pointer(rhs);
+    return get_pointer(lhs) == &rhs;
 }
 
-template <typename T1, typename T2>
-constexpr bool operator==(T1 const& lhs, indirect<T2> const& rhs) noexcept
+template <typename T1, typename T2, std::enable_if_t<std::is_convertible<T1*, T2*>::value || std::is_convertible<T2*, T1*>::value, int> = 0>
+constexpr bool operator==(T1& lhs, indirect<T2> const& rhs) noexcept
 {
-    return get_pointer(lhs) == get_pointer(rhs);
+    return &lhs == get_pointer(rhs);
 }
 
 template <typename T1, typename T2>
@@ -320,11 +315,6 @@ public:
         return target;
     }
 
-    constexpr explicit operator T&() const
-    {
-        return value();
-    }
-
     constexpr explicit operator T*() const noexcept
     {
         return target;
@@ -413,16 +403,16 @@ constexpr bool operator==(indirect<T1> const& lhs, optional_indirect<T2> const& 
     return get_pointer(lhs) == get_pointer(rhs);
 }
 
-template <typename T1, typename T2>
-constexpr bool operator==(optional_indirect<T1> const& lhs, T2 const& rhs) noexcept
+template <typename T1, typename T2, std::enable_if_t<std::is_convertible<T1*, T2*>::value || std::is_convertible<T2*, T1*>::value, int> = 0>
+constexpr bool operator==(optional_indirect<T1> const& lhs, T2& rhs) noexcept
 {
-    return get_pointer(lhs) == get_pointer(rhs);
+    return get_pointer(lhs) == &rhs;
 }
 
-template <typename T1, typename T2>
-constexpr bool operator==(T1 const& lhs, optional_indirect<T2> const& rhs) noexcept
+template <typename T1, typename T2, std::enable_if_t<std::is_convertible<T1*, T2*>::value || std::is_convertible<T2*, T1*>::value, int> = 0>
+constexpr bool operator==(T1& lhs, optional_indirect<T2> const& rhs) noexcept
 {
-    return get_pointer(lhs) == get_pointer(rhs);
+    return &lhs == get_pointer(rhs);
 }
 
 template <typename T>

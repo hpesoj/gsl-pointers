@@ -25,6 +25,8 @@
 #ifndef OPTIONAL_HPP
 #define OPTIONAL_HPP
 
+#include <stdexcept>
+
 //=========
 // nullopt
 //=========

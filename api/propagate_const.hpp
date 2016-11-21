@@ -274,13 +274,13 @@ constexpr P get_pointer(propagate_const<T>& pc) noexcept(noexcept(P{static_cast<
     return static_cast<P>(pc);
 }
 
-template <typename T1, typename T2, typename = std::enable_if_t<!std::is_same<T1, T2>::value>>
+template <typename T1, typename T2>
 constexpr bool operator==(propagate_const<T1> const& lhs, T2 const& rhs) noexcept(noexcept(get_underlying(lhs) == rhs)) { return get_underlying(lhs) == rhs; }
-template <typename T1, typename T2, typename = std::enable_if_t<!std::is_same<T1, T2>::value>>
+template <typename T1, typename T2>
 constexpr bool operator==(T1 const& lhs, propagate_const<T2> const& rhs) noexcept(noexcept(lhs == get_underlying(rhs))) { return lhs == get_underlying(rhs); }
-template <typename T1, typename T2, typename = std::enable_if_t<!std::is_same<T1, T2>::value>>
+template <typename T1, typename T2>
 constexpr bool operator!=(propagate_const<T1> const& lhs, T2 const& rhs) noexcept(noexcept(get_underlying(lhs) != rhs)) { return get_underlying(lhs) != rhs; }
-template <typename T1, typename T2, typename = std::enable_if_t<!std::is_same<T1, T2>::value>>
+template <typename T1, typename T2>
 constexpr bool operator!=(T1 const& lhs, propagate_const<T2> const& rhs) noexcept(noexcept(lhs != get_underlying(rhs))) { return lhs != get_underlying(rhs); }
 
 template <typename T1, typename T2>

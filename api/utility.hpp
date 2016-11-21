@@ -35,10 +35,4 @@ constexpr T* get_pointer(T* p) noexcept
     return p;
 }
 
-template <typename T>
-constexpr T* get_pointer(T& r) noexcept
-{
-    return &r;
-}
-
 #endif // UTILITY_HPP
