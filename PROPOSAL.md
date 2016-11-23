@@ -119,20 +119,6 @@ When considering whether or not to make a conversion implicit, our logic is that
 
 In our case, both `indirect<T>` and `T&` are non-owning references to objects of type `T` (the lifetime of a temporary _can_ be extended by `T const&`, but ownership cannot be transferred as it could be with `T*`); they have no other meaning. Thus, implicit conversion from `T&` to `indirect<T>` is always logically correct. In addition, conversion from `T&` to `indirect<T>` is safe. Of course, `T&` _can_ theoretically reference an area of memory that doesn't contain a valid object, but by that point the user has already invoked undefined behaviour and all bets are off. Conversely, `T*` is _not_ always a non-owning reference to an object of type `T`; it could represent a dynamic resource to be managed, an array of objects, or even an iterator. Thus, implicit conversion from `T*` to `indirect<T>` is not always logically correct. In addition, conversion from `T*` to `indirect<T>` is not safe, because `indirect<T>` has no valid state corresponding to the null state of `T*`, so constructing `indirect<T>` from a null `T*` must either specify undefined behaviour or throw an exception. Thus, allowing implicit conversion from `T*` to `indirect<T>` would be incorrect; at most, `indirect<T>` should support _explicit_ construction from `T*` (discussed in the "[Construction from `T*`](#design/construction-ptr)" section).
 
-If, despite everything, we were to disable implicit conversion from `T&` (assuming explicit construction from `T*` is enabled), consider the resultant calling syntax for a function with an `indirect<int>` parameter:
-
-```c++
-foo(indirect<int>(&i));
-```
-
-Compare this with the calling syntax for a function taking a `T*` parameter: 
-
-```c++
-foo(&i); // with construction from `T*`
-```
-
-Considering that this syntactic inconvenience is likely to significantly reduce incentive to use `indirect<T>` over `T*`, the entire point of which is to encourage code correctness, and given that we consider implicit conversion from `T&` to `indirect<T>` to be logically correct, safe, and in-line with the design of existing standard library types, we see no reason why conversion from `T&` should not be enabled.
-
 ### <a name="design/conversion-lvalue-ref"></a>Conversion to `T&`
 
 ### <a name="design/construction-ptr"></a>Construction from `T*`
