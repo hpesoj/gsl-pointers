@@ -230,6 +230,25 @@ Another alternative to throwing an exception is to not support construction from
 
 #### <a name="design/make-functions"></a>The `make` functions
 
+The `make_indirect` free function is a factory function which takes a single `T&` and returns an `indirect<T>`. Its main purpose is to automatically deduce the template parameter of the constructed `indirect`:
+
+```c++
+int i = {};
+auto ii = make_indirect(i); // `decltype(ii)` is `indirect<int>`
+```
+
+Conceptually, `make_indirect` is similar to an implicit conversion, which is why there is no overload of `make_indirect` that takes a `T*`. If we were to provide such an overload, it the logical correctness and safety of `make_indirect` would be lost:
+
+```c++
+auto ix = make_indirect(x); // this may or may not throw, depending on `decltype(ix)`
+```
+
+We _could_ provide a function to allow automatic template parameter deduction from `T*`, but it would have to be named something that conveyed its unsafe nature (something like `cast_to_indirect`). Such a function is not included in this proposal.
+
+Even though `indirect<T>` implicitly converts to `optional_indirect<T>`, the corresponding `make_optional_indirect` function is provided for convenience.
+
+Incidentally, the `observer_ptr` proposal specifies that the factory function `make_observer` take a `T*`. We believe this to be a mistake; `make_observer` should instead take a `T&` (though we don't recommend adding implicit conversion from `T&` given its "smart pointer"-esque design). After all, `make_unique` and `make_shared` do not take a `T*`.
+
 #### <a name="design/conversion/to-lvalue-ref"></a>Conversion to `T&`
 
 #### <a name="design/conversion/to-ptr"></a>Conversion to `T*`
