@@ -11,11 +11,11 @@ _Joseph Thomson \<joseph.thomson@gmail.com\>_
 * [Motivation and scope](#motivation)
 * [Impact on the standard](#impact)
 * [Design decisions](#design)
-  * [Construction from `T&`](#design/construction-lvalue-ref)
-  * [Conversion to `T&`](#design/conversion-lvalue-ref)
-  * [Construction from `T*`](#design/construction-ptr)
-  * [Conversion to `T*`](#design/conversion-ptr)
-  * [Construction from `T&&`](#design/construction-rvalue-ref)
+  * [Conversion from `T&`](#design/conversion/from-lvalue-ref)
+    * [Conversion from `T&&`](#design/conversion/from-rvalue-ref)
+  * [Conversion to `T&`](#design/conversion/to-lvalue-ref)
+  * [Conversion from `T*`](#design/conversion/from-ptr)
+  * [Conversion to `T*`](#design/conversion/to-ptr)
   * [Assignment operators and the `{}` idiom](#design/assignment)
   * [Optional API functions](#design/optional)
   * [Comparison operations](#design/comparison)
@@ -105,10 +105,10 @@ indirect<int> c = new int(); // resource leak
 
 In addition, `T*` has an additional state that does not map onto any valid state of `indirect<T>`: the null pointer state. Therefore, when converting from a `T*` to `indirect<T>`, we can reasonably do one of two things when faced with a null pointer:
 
-1. Specify undefined behaviour
-2. Throw an exception
+1. Throw an exception
+2. Specify undefined behaviour
 
-Both of these behaviours require the programmer to actively account for the exceptional case (by either checking for a null pointer or by catching the exception), so implicit conversion from `T*` to `indirect<T>` is out of the question. And while conversion from `indirect<T>` to `T*` _is_ safe, it is still not logically correct, so it shouldn't be implicit either; the same logic applies to conversion from `T*` to `optional_indirect<T>` which while safe (the null pointer state can map onto the empty state), is still not logically correct.
+Both of these behaviours require the programmer to actively account for the exceptional case (by either catching the exception or by preemptively checking for a null pointer), so implicit conversion from `T*` to `indirect<T>` is out of the question. And while conversion from `indirect<T>` to `T*` _is_ safe, it is still not logically correct, so it shouldn't be implicit either; the same logic applies to conversion from `T*` to `optional_indirect<T>` which while safe (the null pointer state can map onto the empty state), is still not logically correct.
 
 In summary, we consider enabling a particular conversion (explicit _or_ implicit) if it is likely to be logically correct _some_ of the time. We consider making a conversion implicit if it is likely to be logically correct in the _vast majority_ of cases _and_ is reasonably safe. This means that implicit conversion to and from `T&` should be considered, while conversion to and from `T*` should only be explicit. Of course, there are other things to take into account when deciding whether or not to actually enable a conversion. We discuss the specifics of particular cases in the following sections.
 
@@ -194,7 +194,41 @@ If we disable construction from `T&&`, then `T*` becomes easier to use than `opt
 
 #### <a name="design/conversion/from-ptr"></a>Conversion from `T*`
 
-### <a name="design/make-functions"></a>The `make` functions
+`indirect<T>` explicitly constructs from `T*`, throwing an `invalid_argument` exception if passed a null pointer:
+
+```c++
+int* i = get_some_pointer();
+
+try {
+    auto ii = indirect<int>(i);
+} catch (invalid_argument& ex) {
+    …
+}
+```
+
+Since the conversion from `T*` to `indirect<T>` is not always logically correct and cannot be implemented safely, we decided that the conversion must be explicitly specified.
+
+When considering how to handle the null pointer case, we had two choices: throw an exception or specify undefined behaviour. Throwing an exception is preferable from a safety perspective because even uncaught exceptions can be handled by a `terminate_handler`, allowing the program to shut down or recover from the error in a controlled manner; with undefined behaviour, however, the most you can do is cross your fingers and hope for the best. The only time undefined behaviour is preferable to an exception is when it results in performance gains; this is especially important in low-level library components that make up the foundations of your program (and in the case of the C++ standard library, everyone else's programs as well). In this case, if performance is a concern, and you are _sure_ that the pointer will not be null, the user can dereference the pointer instead of explicitly constructing the `indirect`:
+
+```c++
+int* i = get_some_pointer();
+indirect<int> ii = *i; // you'd better be sure `i` is not null!
+```
+
+As a side note, if the source of the "not null" pointer is some legacy part of your interface that cannot be or hasn't yet been rewritten to use `indirect<T>` instead of `T*`, then you might benefit from using something like the [Guideline Support Library](https://github.com/Microsoft/GSL)'s `not_null` adapter, which provides additional run-time and compile-time assurances that a pointer is not null, while maintaining a more traditional pointer-like interface than `indirect`:
+
+```c++
+not_null<int*> i = get_some_pointer();
+indirect<int> ii = *i; // `i` shouldn't be null
+```
+
+Another alternative to throwing an exception is to not support construction from `T*` at all; this way, the user is responsible for checking whether a pointer is null, as they would be when converting `T*` to `T&`. We decided against this for a number of reasons:
+
+* No one is being forced to use the throwing constructor; the "default" operation (dereferencing `T*` then conversion from `T&` to `indirect<T>`) still has zero run-time overhead.
+* Undefined behaviour is bad; if providing an alternative to pointer dereferencing which throws instead of invoking undefined behaviour results in safer client code, then this is a net win.
+* Conversion of `T*` to `optional_indirect<T>` would be a huge hassle if an explicit constructor weren't provided (`auto oi = i ? *i : optional_indirect<T>()`); this would be especially annoying given that the conversion is perfectly safe; if we provide conversion from `T*` for `optional_indirect<T>` then we feels as through it should also be provided for `indirect<T>`.
+
+#### <a name="design/make-functions"></a>The `make` functions
 
 #### <a name="design/conversion/to-lvalue-ref"></a>Conversion to `T&`
 
