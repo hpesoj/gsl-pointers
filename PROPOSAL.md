@@ -251,6 +251,30 @@ Incidentally, the `observer_ptr` proposal specifies that the factory function `m
 
 #### <a name="design/conversion/to-lvalue-ref"></a>Conversion to `T&`
 
+`indirect<T>` is neither implicitly or explicitly convertible to `T&`. Despite conversion from `indirect<T>` (not `optional_indirect<T>`) to `T&` being both logically correct and safe, implicit conversion to `T&` has some side effects which make it undesirable.
+
+First, and possibly most significantly, enabling implicit conversion to `T&` also enables implicit conversion to `T`:
+
+```c++
+int i = {};
+indirect<int> ii = i;
+int j = ii; // conversion via `operator T&`
+```
+
+This behaviour would be expected of a reference-like type such as `reference_wrapper`, but is highly unusual for a pointer-like type such as `indirect`.
+
+Secondly, enabling implicit conversion to `T&` enables other operations that work on `T` or `T&` to work on `implicit<T>`; for example:
+
+```c++
+int i = {};
+indirect<int> ii = i;
+ii += 1; // increments `i` 
+```
+
+This is example has the potential to be particularly confusing because `indirect<T>` is in many ways like `T*`, so operations like `ii + 1` may be interpreted as a form of pointer arithmetic.
+
+These `T`-like behaviours that due to the fact that implicit conversion seems to imply functional equivalence, and should be enabled with extreme care. While `indirect<T>` represents the same kind of things as `T&`, it does not generally behave in the same way; thus, we have decided against enabling implicit conversion to `T&`.  
+
 #### <a name="design/conversion/to-ptr"></a>Conversion to `T*`
 
 ### <a name="design/assignment"></a>Assignment operators and the `{}` idiom
