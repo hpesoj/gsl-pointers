@@ -79,14 +79,25 @@ public:
     {
     }
 
-    constexpr explicit indirect(T* p) :
-        target(throw_if_null(p))
+    template <typename U, typename = std::enable_if_t<std::is_convertible<U*, T*>::value>>
+    constexpr indirect(indirect<U> const& i) noexcept :
+        target(get_pointer(i))
     {
     }
 
     template <typename U, typename = std::enable_if_t<std::is_convertible<U*, T*>::value>>
     constexpr indirect(indirect<U> const& i) noexcept :
         target(get_pointer(i))
+    {
+    }
+
+    constexpr explicit indirect(T* p) :
+        target(throw_if_null(p))
+    {
+    }
+
+    constexpr explicit indirect(optional_indirect<T> const& i) :
+        target(throw_if_null(get_pointer(i)))
     {
     }
 
@@ -270,12 +281,6 @@ public:
     {
     }
 
-    template <typename U, typename = std::enable_if_t<std::is_convertible<U*, T*>::value>>
-    constexpr optional_indirect(optional_indirect<U> const& i) noexcept :
-        target(get_pointer(i))
-    {
-    }
-
     constexpr optional_indirect(indirect<T> const& i) noexcept :
         target(get_pointer(i))
     {
@@ -283,6 +288,12 @@ public:
 
     template <typename U, typename = std::enable_if_t<std::is_convertible<U*, T*>::value>>
     constexpr optional_indirect(indirect<U> const& i) noexcept :
+        target(get_pointer(i))
+    {
+    }
+
+    template <typename U, typename = std::enable_if_t<std::is_convertible<U*, T*>::value>>
+    constexpr optional_indirect(optional_indirect<U> const& i) noexcept :
         target(get_pointer(i))
     {
     }
