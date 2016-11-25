@@ -9,33 +9,33 @@ _Joseph Thomson \<joseph.thomson@gmail.com\>_
 ## Table of contents
 
 * [Motivation and scope](#motivation)
+  * [Why not `T*`?](#motivation/why-not-ptr)
+  * [Why not `T&`?](#motivation/why-not-ref)
+  * [Why not `optional<T&>`?](#motivation/why-not-optional-ref)
+  * [Why not `observer_ptr<T>`?](#motivation/why-not-observer_ptr)
+  * [Why not `reference_wrapper<T>`?](#motivation/why-not-reference_wrapper)
+  * [Why not `not_null<T*>`?](#motivation/why-not-not_null)
 * [Impact on the standard](#impact)
 * [Design decisions](#design)
-  * [Conversion from `T&`](#design/conversion/from-lvalue-ref)
+  * [Type conversions](#design/conversion)
+    * [Conversion from `T&`](#design/conversion/from-lvalue-ref)
     * [Conversion from `T&&`](#design/conversion/from-rvalue-ref)
-  * [Conversion to `T&`](#design/conversion/to-lvalue-ref)
-  * [Conversion from `T*`](#design/conversion/from-ptr)
-  * [Conversion to `T*`](#design/conversion/to-ptr)
+    * [Conversion to `T&`](#design/conversion/to-lvalue-ref)
+    * [The `make` functions](#design/make)
+    * [Conversion from `T*`](#design/conversion/from-ptr)
+    * [Conversion to `T*`](#design/conversion/to-ptr)
+    * [The `get_pointer` function](#design/get_pointer)
   * [Assignment operators and the `{}` idiom](#design/assignment)
-  * [Optional API functions](#design/optional)
   * [Comparison operations](#design/comparison)
   * [Move behaviour](#design/move)
-  * [Relationships and immutability](#design/immutability)
-  * [Const-propagation](#design/const-propagation)
-  * [The `make` free functions](#design/make-functions)
-  * [The `cast` free functions](#design/cast-functions)
-  * [The `get_pointer` free functions](#design/get_pointer-functions)
+  * [The `cast` functions](#design/cast)
+  * [Permenant and changeable relationships](#design/relationships)
   * [Compatibility with `propagate_const`](#design/propagate-const)
   * [Use of inheritance by delegation ("`operator.` overloading")](#design/operator-dot)
-  * [Why not `T*`?](#design/why-not-ptr)
-  * [Why not `T&`?](#design/why-not-ref)
-  * [Why not `optional<T&>`?](#design/why-not-optional-ref)
-  * [Why not `optional<indirect<T>>`?](#design/why-not-optional-indirect)
-  * [Why not `observer_ptr<T>`?](#design/why-not-observer_ptr)
-  * [Why not `reference_wrapper<T>`?](#design/why-not-reference_wrapper)
-  * [Why not `not_null<T*>`?](#design/why-not-not_null)
+  * [The case for `optional_indirect`](#design/optional)
   * [Naming](#design/naming)
 * [Technical specifications](#technincal)
+* [Auxiliary proposal – the `get_pointer` function](#auxiliary)
 * [Acknowledgements](#acknoledgements)
 * [References](#references)
 
@@ -58,8 +58,6 @@ However, no such high-level types are provided by the standard to act as non-own
 | String   | `string`                                   | `string_view`                  |
 | Iterator | —                                          | _assorted_                     |
 
-### Current demand
-
 A number of existing and proposed high-level types attempt to address similar problems, but none of them adequately fit the use cases for which `indirect` and `optional_indirect` are designed. Their existence, however, shows that demand exists for solutions to the problems addressed by `indirect` and `optional_indirect`. Discussions of these other types can be found in the [design section](#design) of this proposal:
 
 * [Why not `optional<T&>`?](#design/why-not-optional-ref)
@@ -67,9 +65,21 @@ A number of existing and proposed high-level types attempt to address similar pr
 * [Why not `observer_ptr<T>`?](#design/why-not-observer_ptr)
 * [Why not `not_null<T*>`?](#design/why-not-not_null)
 
+#### <a name="motivation/why-not-ptr"></a>Why not `T*`?
+
+#### <a name="motivation/why-not-ref"></a>Why not `T&`?
+
+#### <a name="motivation/why-not-optional-ref"></a>Why not `optional<T&>`?
+
+#### <a name="motivation/why-not-observer_ptr"></a>Why not `observer_ptr<T>`?
+
+#### <a name="motivation/why-not-reference_wrapper"></a>Why not `reference_wrapper<T>`?
+
+#### <a name="motivation/why-not-not_null"></a>Why not `not_null<T*>`?
+
 ## <a name="impact"></a>Impact on the standard
 
-This proposal adds a single header, `<indirect>` containing both `indirect` and `optional_indirect`, which depends on the `<optional>` header for `nullopt_t`, `nullopt` and `bad_optional_access`. The `<optional>` header and all other library components will be unaffected.
+This proposal adds a single header, `<indirect>`, containing both `indirect` and `optional_indirect`, which depends on the `<optional>` header for `nullopt_t`, `nullopt` and `bad_optional_access`. The `<optional>` header and all other library components will be unaffected.
 
 The proposal could be modified to separate the definitions of `indirect` and `optional_indirect` into two headers, `<indirect>` and `<optional_indirect>` respectively, which would remove the dependency of `<indirect>` on `<optional>`. Alternatively, the `optional_indirect` class could instead be added to the `<optional>` header.
 
@@ -79,7 +89,7 @@ The proposed additions can be implemented using C++11 library and language featu
 
 When design decisions are discussed here with reference to `indirect` only, assume that the discussion applies equally to `optional_indirect` unless otherwise stated. 
 
-### <a name="design/conversions"></a>Type conversions
+### <a name="design/conversion"></a>Type conversions
 
 When deciding which type conversions to enable for `indirect`, and whether specific conversions should be _explicit_ or _implicit_, we considered both the logical correctness of a potential conversion (i.e. whether it makes sense) and its potential impact on the correctness of client code (i.e. whether it is safe). We consider a conversion to be _logically correct_ if the object before the conversion represents the _same kind of thing_ as the object after the conversion. Logical correctness should ideally be enforced by the type system, and explicit conversions often represent some violation of this enforcement; therefore, a conversion should be explicit unless it is nearly always logically correct. We consider a conversion to be _unsafe_ if it has behaviour which, if not actively accounted for, could result in programming errors in client code. Implicit conversions can easily happen without the programmer realizing, so it is imperative that they be safe.
 
@@ -146,7 +156,7 @@ ri = j; // `ri` now references `j`
 
 This behaviour is arguably _more_ surprising with `reference_wrapper` given its otherwise reference-like semantics. It could be argued that a pointer-like type such as `indirect` would be expected to rebind on assignment, while a reference-like type such as `reference_wrapper` could reasonably be expected to assign to the underlying object. Thus, we feel confident that users will be comfortable with the rebinding semantics of `indirect`.
 
-##### <a name="design/conversion/from-rvalue-ref"></a>Conversion from `T&&`
+#### <a name="design/conversion/from-rvalue-ref"></a>Conversion from `T&&`
 
 While conversion from `T&` to `indirect<T>` is always logically correct, it is not necessarily semantically correct in the wider context. Consider this:
 
@@ -163,14 +173,14 @@ int const& a = 42; // temporary `int{42}` destroyed when `a` goes out of scope
 Obviously, dangling references are undesirable, as they can lead to undefined behaviour. One option would be to explicitly disable construction from `T&&`; however, this would preclude passing temporary objects to functions taking `indirect<T const>` parameters:
 
 ```c++
-auto f = [](indirect<foo const> x) { … }
+auto f = [](indirect<foo const> x) { … };
 f(make_foo()); // error: constructor `indirect<foo const>(foo&&)` is deleted 
 ```
 
 This might not seem a big deal, since you could just use `T const&` instead and use `indirect<T const>` internal to your function if need be, but its impact on the usability of `optional_indirect<T const>` is far greater:
 
 ```c++
-auto f = [](optional_indirect<foo const> x) { … }
+auto f = [](optional_indirect<foo const> x) { … };
 foo tmp = make_foo();
 f(optional_indirect<foo const>(tmp));
 ```
@@ -178,7 +188,7 @@ f(optional_indirect<foo const>(tmp));
 Not only must a temporary object be explicitly created, the `optional_indirect` must also be explicitly constructed, since `T*` is [not implicitly convertible](#design/conversion/from-ptr) to `optional_indirect<T>`. Compare this to the syntax required if `f` instead takes a pointer:
 
 ```c++
-auto f = [](foo const* x) { … }
+auto f = [](foo const* x) { … };
 foo tmp = make_foo();
 f(&tmp);
 ```
@@ -186,11 +196,24 @@ f(&tmp);
 Then compare this again to the syntax required if `optional_indirect<T>` did not disable construction from `T&&`:
 
 ```c++
-auto f = [](optional_indirect<foo const> x) { … }
+auto f = [](optional_indirect<foo const> x) { … };
 f(make_foo());
 ```
 
-If we disable construction from `T&&`, then `T*` becomes easier to use than `optional_indirect<T>`. If we do not disable construction from `T&&`, then `optional_indirect<T>` becomes easier to use than `T*`. Since use of `optional_indirect<T>` encourages more logically correct code than does use of `T*`, we want to _encourage_ instead of discourage use of `indirect`. Therefore, in balance, we have decided against disabling construction from `T&&`. Users will just have to be aware that lifetime extension of temporary objects does not occur with `indirect<T const>` as it does with `T const&`. We also note that the designers of `basic_string_view` have not disabled construction from rvalue references; though we cannot be sure of their reasoning, it is likely to have been along similar lines.
+If we disable construction from `T&&`, then `T*` becomes easier to use than `optional_indirect<T>`. If we do not disable construction from `T&&`, then `optional_indirect<T>` becomes easier to use than `T*`. Since use of `optional_indirect<T>` encourages more logically correct code than does use of `T*`, we want to _encourage_ instead of discourage use of `indirect`. Therefore, in balance, we have decided against disabling construction from `T&&`. Users will just have to be aware that lifetime extension of temporary objects does not occur with `indirect<T const>` as it does with `T const&`. Indeed, even disabling construction from `T&&` does not prevent the user from accidentially creating dangling references; it is just one extra (fairly obvious) case to consider on top of:
+
+```c++
+vector<int> vec = { 1, 2, 3 };
+indirect<int> ii = vec[1];
+vec.push_back(4); // `ii` may now be dangling
+```
+
+We also note that the designers of `basic_string_view` have not disabled construction from rvalue references; though we cannot be sure of their reasoning, it is likely to have been along similar lines:
+
+```c++
+auto get_string = []() -> string { … };
+string_view v = get_string(); // `v` will be left dangling
+```
 
 #### <a name="design/conversion/from-ptr"></a>Conversion from `T*`
 
@@ -228,7 +251,7 @@ Another alternative to throwing an exception is to not support construction from
 * Undefined behaviour is bad; if providing an alternative to pointer dereferencing which throws instead of invoking undefined behaviour results in safer client code, then this is a net win.
 * Conversion of `T*` to `optional_indirect<T>` would be a huge hassle if an explicit constructor weren't provided (`auto oi = i ? *i : optional_indirect<T>()`); this would be especially annoying given that the conversion is perfectly safe; if we provide conversion from `T*` for `optional_indirect<T>` then we feels as through it should also be provided for `indirect<T>`.
 
-#### <a name="design/make-functions"></a>The `make` functions
+#### <a name="design/make"></a>The `make` functions
 
 The `make_indirect` free function is a factory function which takes a single `T&` and returns an `indirect<T>`. Its main purpose is to automatically deduce the template parameter of the constructed `indirect`:
 
@@ -251,69 +274,162 @@ Incidentally, the `observer_ptr` proposal specifies that the factory function `m
 
 #### <a name="design/conversion/to-lvalue-ref"></a>Conversion to `T&`
 
-`indirect<T>` is neither implicitly or explicitly convertible to `T&`. Despite conversion from `indirect<T>` (not `optional_indirect<T>`) to `T&` being both logically correct and safe, implicit conversion to `T&` has some side effects which make it undesirable.
-
-First, and possibly most significantly, enabling implicit conversion to `T&` also enables implicit conversion to `T`:
-
-```c++
-int i = {};
-indirect<int> ii = i;
-int j = ii; // conversion via `operator T&`
-```
-
-This behaviour would be expected of a reference-like type such as `reference_wrapper`, but is highly unusual for a pointer-like type such as `indirect`.
-
-Secondly, enabling implicit conversion to `T&` enables other operations that work on `T` or `T&` to work on `implicit<T>`; for example:
+`indirect<T>` is neither implicitly or explicitly convertible to `T&`. Despite conversion from `indirect<T>` to `T&` being both logically correct and safe, implicit conversion to `T&` has some side effects which make it undesirable. For example, enabling implicit conversion to `T&` also enables implicit conversion to `T`, as well as other operations defined for `T`, `T&` or `T const&`:
 
 ```c++
 int i = {};
 indirect<int> ii = i;
 ii += 1; // increments `i` 
+int j = ii; // makes a copy of `i`
 ```
 
-This is example has the potential to be particularly confusing because `indirect<T>` is in many ways like `T*`, so operations like `ii + 1` may be interpreted as a form of pointer arithmetic.
+This behaviour would be expected of a reference-like type such as `reference_wrapper`, but is highly unusual for a pointer-like type such as `indirect`. Enabling arithmetic operations directly on `indirect<T>` like in this example has the potential to be particularly confusing because `indirect<T>` is in many ways like `T*`, so operations like `ii + 1` may be interpreted as a form of pointer arithmetic.
 
-These `T`-like behaviours that due to the fact that implicit conversion seems to imply functional equivalence, and should be enabled with extreme care. While `indirect<T>` represents the same kind of things as `T&`, it does not generally behave in the same way; thus, we have decided against enabling implicit conversion to `T&`.  
+The fact that enabling implicit conversion from `indirect<T>` to `T&` causes `indirect<T>` to act like `T` could reflect that fact that implicit conversion seems to imply functional equivalence, and should be enabled with extreme care. While `indirect<T>` represents the same kind of thing as `T&`, it should not generally behave in the same way; thus, we have decided against enabling implicit conversion to `T&`.  
+
+We also decided against enabling explicit conversion from `indirect<T>` to `T&`, as `operator*` is already performs this function:
+
+```c++
+int i = {};
+indirect<int> ii = i;
+int& r = *ii; // `r` references `i`
+```
+
+In addition, `optional_indirect` defines the member function `value` (borrowed from `optional`), which throws a `bad_optional_access` if the `optional_indirect` is empty. If explicit conversion to `T&` were enabled, it isn't clear whether conversion from `optional_indirect<T>` to `T&` would be `noexcept` like conversion from `indirect<T>` to `T&`, or whether it would throw like `value` and explicit construction of `indirect<T>` from `T*`. Omitting conversion to `T&` altogether means we don't have to make that somewhat arbitrary choice.
 
 #### <a name="design/conversion/to-ptr"></a>Conversion to `T*`
 
+`indirect<T>` explicitly converts to `T*`:
+
+```c++
+int i = {};
+indirect<int> ii = i;
+int* p = static_cast<int*>(ii); // `p` points to `i`
+```
+
+While conversion to `T*` is safe for both `indirect<T>` and `optional_indirect<T>`, it is not logically correct, so we decided not to make the conversion implicit. In addition, enabling implicit conversion to `T*` would enable a number of pointer operations such as `operator[]`:
+
+```c++
+int i = {};
+indirect<int> ii = i;
+ii[0] = 42; // `i` now equals `42`
+```
+
+This is reflective of the fact that pointers are multi-purpose types that can represent more than just non-owning references to objects.
+
+Of course, as with [conversion _from_ `T*`](#design/conversion/from-ptr), it is always an option to not support conversion to `T*` at all. Enabling explicit conversion to `T*` is desirable mainly because it is awkward to obtain a `T*` from an `indirect<T>` and _especially_ from an `optional_indirect<T>`:
+
+```c++
+int i = {};
+indirect<int> ii = i;
+optional_indirect<int> oi = i;
+int* p = &*ii;
+int* q = oi ? &*oi : nullptr;
+```
+
+### <a name="design/get_pointer"></a>The `get_pointer` function
+
+The `get_pointer` free function is provided as a convenient alternative to explicit conversion from `indirect<T>` to `T*`; the advantage of `get_pointer` over `static_cast<T*>` is that the pointer type is deduced automatically:
+
+```c++
+int i = {};
+indirect<int> ii = i;
+auto p = get_pointer(ii); // `decltype(p)` is `int*`
+```
+
+Current standard library smart pointer types `unique_ptr` and `shared_ptr` both provide a `get` member function to serve this purpose. We were concerned that the name `get` for a function returning a raw pointer would be both insufficiently descriptive for a type whose name does not contain the suffix `_ptr` (see the ["Naming" section](#design/naming)), and have unexpected behaviour for a type which is likely to be initialized from `T&` rather than `T*`, especially for users who are familiar with `reference_wrapper`, whose `get` function returns `T&`:
+
+```c++
+int i = {};
+
+reference_wrapper<int> ri = i;
+auto x = ri.get(); // `decltype(x)` is `int`
+
+indirect<int> ii = i;
+auto y = ii.get(); // `decltype(y)` is `int*`
+```
+
+Given that `indirect` already enables [explicit conversion to `T*`](#design/conversion/to-ptr), we felt that providing a free function was most appropriate, and the name `get_pointer` seemed descriptive and similar enough to the name `get` to imply equivalent functionality.
+
+Regardless of whether this proposal gains traction, we believe that adding `get_pointer` overloads for all pointer-like standard library types would be useful for generic programming in general, although [compatibility with `propagate_const`](#design/propagate_const) was the specific use case that lead to its conception. We include an [auxiliary proposal](#auxiliary) for its inclusion which can be considered independently of the proposal for `indirect`. 
+
 ### <a name="design/assignment"></a>Assignment operators and the `{}` idiom
 
-### <a name="design/optional"></a>Optional API functions
+`indirect` and `optional_indirect` do not explicitly define any assignment operators. This enables automatic support of the `{}` idiom for resetting an object to its default state:
+
+```c++
+int i = {};
+
+optional_indirect<int> oi = i;
+oi = {}; // `oi` is now empty
+
+indirect<int const> ii = i;
+ii = {}; // error: cannot default construct `indirect`
+```
+
+If assignment operators were explicitly implemented, extra (non-trivial) measures would need to be taken to ensure that this idiom worked correctly. Since `indirect` and `optional_indirect` are likely to be implemented as a simple pointer, and default copy and move assignment operators are generated, the compiler should be able to easily avoid the additional copy using the "as if" rule, so there should be no performance penalty for this design choice.
 
 ### <a name="design/comparison"></a>Comparison operations
 
+Naturally, the full range of comparison operators are defined for `indirect` (as well as a `hash` implementation). Given that `T&` implicitly converts to `indirect<T>`, we also provide equality and inequality comparison operators for comparison of `indirect<T>` with `T&`:
+
+```c++
+int i = {};
+int j = {};
+indirect<int> ii = i;
+assert(ii == i);
+assert(ii != j);
+```
+
+The signatures of these equality comparison functions look something like this:
+
+```c++
+template <typename T1, typename T2>
+bool operator==(indirect<T1> const& lhs, T2& rhs);
+```
+
+They only partake in overload resolution if `T1*` is convertible to `T2*` or vice-verca.
+
+There is likely to be some concern that making an equality comparison of `T&` compare the address of the reference object is surprising behaviour. Indeed, there is no existing instance of this kind of behaviour in the standard. However, we believe that this behaviour poses no more risk than allowing [assignment from `T&`](#design/conversion/from-lvalue-ref) to assign the address of the referenced object (which is already the behaviour of `reference_wrapper`). Once users have familiarized themselves with `indirect`, we believe that this behaviour will seem quite natural.
+
 ### <a name="design/move"></a>Move behaviour
 
-### <a name="design/immutability"></a>Relationships and immutability
+Neither `indirect` not `optional_indirect` not define distinct move behaviour (moving is equivalent to copying); this behaviour is shared by `optional`. It could be argued that a moved-from `optional_indirect` should become disengaged, but in reality we have no way of knowing how client code wants a moved-from `optional_indirect` to behave, and such behaviour would incur a potentially unnecessary run-time cost. In addition, a moved-from `indirect` cannot be disengaged, so having different behaviour for `optional_indirect` would be potentially surprising.
 
-### <a name="design/const-propagation"></a>Const-propagation
+An additional advantage of keeping the compiler-generated move operations is that `indirect` and `optional_indirect` can be [trivially copyable](http://en.cppreference.com/w/cpp/concept/TriviallyCopyable) (they can be copied using [`std::memcpy`](http://en.cppreference.com/w/cpp/string/byte/memcpy), a performance optimization that some library components employ).
 
-### <a name="design/cast-functions"></a>The `cast` functions
+### <a name="design/cast"></a>The `cast` functions
 
-### <a name="design/get_pointer-functions"></a>The `get_pointer` free functions
+Given that `indirect` is intended to replace the use of pointers in many places, we felt that the ability to cast would be missed. Thus, we provide three sets of `cast` functions:
+
+* `static_indirect_cast`
+* `dynamic_indirect_cast`
+* `const_indirect_cast`
+
+The naming convention follows that established by the `shared_ptr` case functions (e.g. `static_pointer_cast`). Overloads are provided for both `indirect` and `optional_indirect`. We chose not to provide a `reinterpret_indirect_cast` as `indirect` is a high-level type and `reinterpret_cast` really only makes sense when manipulating the low-level representation of objects in memory.
+
+The cast operations are implemented in terms of the corresponding `static_cast`, `dynamic_cast` and `const_cast` operations for `T&` and `T*` for `indirect` and `optional_indirect` respectively. In particular, this means that `dynamic_indirect_cast` will throw an exception in the cast of an invalid cast of an `indirect` and will return an empty `optional_indirect` in the case of an invalid cast of an `optional_indirect`.
+
+### <a name="design/relationships"></a>Permenant and changeable relationships
+
+We have seen some people state that they use `T&` to model permenant relationships and `T*` to model relationships that can change. This descriptive ability is not lost with `indirect`; in fact, it is enhanced. The `const` mechanism provides a natural way to model permenancy in C++. `indirect` and `optional_indirect` provide a natural way to model required and optional relationships. Combining these gives greater flexibility than `T&` or `T*` can alone:
+
+* `indirect<T>` – a required, changeable relationship
+* `indirect<T> const` – a required, permanent relationship (equivalent to `T&`)
+* `optional_indirect<T>` – an optional, changeable relationship (equivalent to `T*`)
+* `optional_indirect<T> const` – an optional, permanent relationship
 
 ### <a name="design/propagate-const"></a>Compatibility with `propagate_const`
 
 ### <a name="design/operator-dot"></a>Use of inheritance by delegation ("`operator.` overloading")
 
-### <a name="design/why-not-ptr"></a>Why not `T*`?
-
-### <a name="design/why-not-ref"></a>Why not `T&`?
-
-### <a name="design/why-not-optional-ref"></a>Why not `optional<T&>`?
-
-### <a name="design/why-not-optional-indirect"></a>Why not `optional<indirect<T>>`?
-
-### <a name="design/why-not-observer_ptr"></a>Why not `observer_ptr<T>`?
-
-### <a name="design/why-not-reference_wrapper"></a>Why not `reference_wrapper<T>`?
-
-### <a name="design/why-not-not_null"></a>Why not `not_null<T*>`?
+### <a name="design/optional"></a>The case for `optional_indirect`
 
 ### <a name="design/naming"></a>Naming
 
 ## <a name="technincal"></a>Technical specifications
+
+## <a name="auxiliary"></a>Auxiliary proposal – the `get_pointer` function
 
 ## <a name="acknoledgements"></a>Acknowledgements
 
