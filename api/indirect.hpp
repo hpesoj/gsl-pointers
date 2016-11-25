@@ -46,13 +46,7 @@ template <typename T>
 constexpr T* get_pointer(indirect<T> const&) noexcept;
 
 template <typename T>
-constexpr T* get_pointer(indirect<T>&) noexcept;
-
-template <typename T>
 constexpr T* get_pointer(optional_indirect<T> const&) noexcept;
-
-template <typename T>
-constexpr T* get_pointer(optional_indirect<T>&) noexcept;
 
 //==========
 // indirect
@@ -91,14 +85,14 @@ public:
     }
 
     template <typename U, typename = std::enable_if_t<std::is_convertible<U*, T*>::value>>
-    constexpr indirect(indirect<U> const& v) noexcept :
-        target(get_pointer(v))
+    constexpr indirect(indirect<U> const& i) noexcept :
+        target(get_pointer(i))
     {
     }
 
     template <typename U, typename = std::enable_if_t<std::is_convertible<U*, T*>::value>>
-    constexpr explicit indirect(optional_indirect<U> const& v) :
-        target(throw_if_null(get_pointer(v)))
+    constexpr explicit indirect(optional_indirect<U> const& i) :
+        target(throw_if_null(get_pointer(i)))
     {
     }
 
@@ -131,33 +125,27 @@ constexpr indirect<T> make_indirect(T& r) noexcept
 }
 
 template <typename T, typename U>
-constexpr indirect<T> static_indirect_cast(indirect<U> const& v) noexcept
+constexpr indirect<T> static_indirect_cast(indirect<U> const& i) noexcept
 {
-    return static_cast<T&>(*v);
+    return static_cast<T&>(*i);
 }
 
 template <typename T, typename U>
-constexpr indirect<T> dynamic_indirect_cast(indirect<U> const& v)
+constexpr indirect<T> dynamic_indirect_cast(indirect<U> const& i)
 {
-    return dynamic_cast<T&>(*v);
+    return dynamic_cast<T&>(*i);
 }
 
 template <typename T, typename U>
-constexpr indirect<T> const_indirect_cast(indirect<U> const& v) noexcept
+constexpr indirect<T> const_indirect_cast(indirect<U> const& i) noexcept
 {
-    return const_cast<T&>(*v);
+    return const_cast<T&>(*i);
 }
 
 template <typename T>
-constexpr T* get_pointer(indirect<T> const& v) noexcept
+constexpr T* get_pointer(indirect<T> const& i) noexcept
 {
-    return static_cast<T*>(v);
-}
-
-template <typename T>
-constexpr T* get_pointer(indirect<T>& v) noexcept
-{
-    return static_cast<T*>(v);
+    return static_cast<T*>(i);
 }
 
 template <typename T>
@@ -227,15 +215,15 @@ constexpr bool operator>=(indirect<T1> const& lhs, indirect<T2> const& rhs) noex
 }
 
 template <typename T>
-std::ostream& operator<<(std::ostream& s, indirect<T> const& v)
+std::ostream& operator<<(std::ostream& s, indirect<T> const& i)
 {
-    return s << get_pointer(v);
+    return s << get_pointer(i);
 }
 
 template <typename T>
-std::istream& operator>>(std::istream& s, indirect<T> const& v)
+std::istream& operator>>(std::istream& s, indirect<T> const& i)
 {
-    return get_pointer(v) >> s;
+    return get_pointer(i) >> s;
 }
 
 namespace std
@@ -244,9 +232,9 @@ namespace std
 template <typename T>
 struct hash<indirect<T>>
 {
-    constexpr std::size_t operator()(indirect<T> const& v) const noexcept
+    constexpr std::size_t operator()(indirect<T> const& i) const noexcept
     {
-        return hash<T*>()(get_pointer(v));
+        return hash<T*>()(get_pointer(i));
     }
 };
 
@@ -282,20 +270,30 @@ public:
     {
     }
 
+    template <typename U, typename = std::enable_if_t<std::is_convertible<U*, T*>::value>>
+    constexpr optional_indirect(optional_indirect<U> const& i) noexcept :
+        target(get_pointer(i))
+    {
+    }
+
+    constexpr optional_indirect(indirect<T> const& i) noexcept :
+        target(get_pointer(i))
+    {
+    }
+
+    template <typename U, typename = std::enable_if_t<std::is_convertible<U*, T*>::value>>
+    constexpr optional_indirect(indirect<U> const& i) noexcept :
+        target(get_pointer(i))
+    {
+    }
+
+    constexpr explicit optional_indirect(std::nullptr_t) noexcept :
+        target(nullptr)
+    {
+    }
+
     constexpr explicit optional_indirect(T* p) noexcept :
         target(p)
-    {
-    }
-
-    template <typename U, typename = std::enable_if_t<std::is_convertible<U*, T*>::value>>
-    constexpr optional_indirect(optional_indirect<U> const& v) noexcept :
-        target(get_pointer(v))
-    {
-    }
-
-    template <typename U, typename = std::enable_if_t<std::is_convertible<U*, T*>::value>>
-    constexpr optional_indirect(indirect<U> const& v) noexcept :
-        target(get_pointer(v))
     {
     }
 
@@ -349,33 +347,27 @@ constexpr optional_indirect<T> make_optional_indirect(T& r) noexcept
 }
 
 template <typename T, typename U>
-constexpr optional_indirect<T> static_indirect_cast(optional_indirect<U> const& v) noexcept
+constexpr optional_indirect<T> static_indirect_cast(optional_indirect<U> const& i) noexcept
 {
-    return optional_indirect<T>(static_cast<T*>(get_pointer(v)));
+    return optional_indirect<T>(static_cast<T*>(get_pointer(i)));
 }
 
 template <typename T, typename U>
-constexpr optional_indirect<T> dynamic_indirect_cast(optional_indirect<U> const& v) noexcept
+constexpr optional_indirect<T> dynamic_indirect_cast(optional_indirect<U> const& i) noexcept
 {
-    return optional_indirect<T>(dynamic_cast<T*>(get_pointer(v)));
+    return optional_indirect<T>(dynamic_cast<T*>(get_pointer(i)));
 }
 
 template <typename T, typename U>
-constexpr optional_indirect<T> const_indirect_cast(optional_indirect<U> const& v) noexcept
+constexpr optional_indirect<T> const_indirect_cast(optional_indirect<U> const& i) noexcept
 {
-    return optional_indirect<T>(const_cast<T*>(get_pointer(v)));
+    return optional_indirect<T>(const_cast<T*>(get_pointer(i)));
 }
 
 template <typename T>
-constexpr T* get_pointer(optional_indirect<T> const& v) noexcept
+constexpr T* get_pointer(optional_indirect<T> const& i) noexcept
 {
-    return static_cast<T*>(v);
-}
-
-template <typename T>
-constexpr T* get_pointer(optional_indirect<T>& v) noexcept
-{
-    return static_cast<T*>(v);
+    return static_cast<T*>(i);
 }
 
 template <typename T>
@@ -493,15 +485,15 @@ constexpr bool operator>=(optional_indirect<T1> const& lhs, optional_indirect<T2
 }
 
 template <typename T>
-std::ostream& operator<<(std::ostream& s, optional_indirect<T> const& v)
+std::ostream& operator<<(std::ostream& s, optional_indirect<T> const& i)
 {
-    return s << get_pointer(v);
+    return s << get_pointer(i);
 }
 
 template <typename T>
-std::istream& operator>>(std::istream& s, optional_indirect<T> const& v)
+std::istream& operator>>(std::istream& s, optional_indirect<T> const& i)
 {
-    return get_pointer(v) >> s;
+    return get_pointer(i) >> s;
 }
 
 namespace std
@@ -510,9 +502,9 @@ namespace std
 template <typename T>
 struct hash<optional_indirect<T>>
 {
-    constexpr std::size_t operator()(optional_indirect<T> const& v) const noexcept
+    constexpr std::size_t operator()(optional_indirect<T> const& i) const noexcept
     {
-        return hash<T*>()(get_pointer(v));
+        return hash<T*>()(get_pointer(i));
     }
 };
 
