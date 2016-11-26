@@ -421,6 +421,80 @@ We have seen some people state that they use `T&` to model permenant relationshi
 
 ### <a name="design/propagate-const"></a>Compatibility with `propagate_const`
 
+The term _const-propagation_ refers to the behaviour whereby the read-only status of an object (as denoted by the `const` keyword) is forwarded it its constituent components. Const-propagation occurs by default from an object to its members:
+
+```c++
+struct foo {
+    int bar = {};
+};
+
+foo const f;
+f.bar = 42; // error: `foo::bar` is read-only
+```
+
+This const-propagation can be disabled using the `mutable` keyword:
+
+```c++
+struct foo {
+    mutable int bar = {};
+};
+
+foo const f;
+f.bar = 42; // a-okay
+```
+
+However, const-propagation does not occur in the case of reference data members:
+
+```c++
+struct foo {
+    int& bar;
+};
+
+int i = {};
+foo const f = { i };
+f.bar = 42; // a-okay
+```
+
+Nor does it occur from pointer to pointee:
+
+```c++
+struct foo {
+    int* bar;
+};
+
+int i = {};
+foo const f = { &i };
+*f.bar = 42; // a-okay
+```
+
+We have decided that `indirect` should not exhibit const-propagation behaviour for a number of reasons:
+
+* _Consistency_: existing pointer-like types `unique_ptr` and `shared_ptr` do not exhibit const-propagation.
+* _Flexibility_: there is no obvious way to opt-out of const-propagation if it is built into a type by default.
+* _Convenience_: correct const-propagation behaviour necessarily requires copy operations to be disabled.
+* _Correctness_: we view const-propagation as a _value-like_ behaviour while indirect is a _pointer-like_ type.
+
+Instead we are opting to instead make `indirect` compatible with the proposed [`propagate_const`](http://en.cppreference.com/w/cpp/experimental/propagate_const) interface adapter. Unfortunately, `propagate_const` as it stands is not compatible with `indirect`. Thus, there are two options: either change the design of `indirect` to work with `propagate_const`, or change the design of `propagate_const` to work with `indirect`.
+
+For `indirect` to work with `propagate_const` as it stands, we would need to make two changes:
+
+* Add a member function `get` which returns a pointer to the referenced object.
+* Enable explicit conversion from `indirect` to `bool`.
+
+Our objections to a `get` member function are detailed in our [discussion of the `get_pointer` function](#design/get_pointer), and while conversion to `bool` makes sense for `optional_indirect`, it makes little sense for `indirect`, and we feel its inclusion would be misleading for users who might understandably think that its presence indicates that `indirect` posesses some kind of "empty" state. Thus, we would rather not make these changes just to accommodate `propagate_const`. We instead propose a couple of changes to the design of `propagate_const`:
+
+* Depend on the `get_pointer` free function, not a `get` member function, for provision of a pointer to the underlying object; `propagate_const<T>` should provide a const-propagating `get` member function only if `T` has a function called `get` with the appropriate signature.
+* Remove the requirement that `T` convert to `bool`; conversion from `propagate_const<T>` to `bool` should be enabled only if `T` converts to `bool`.
+
+It may seem presumptuous of us to suggest that another proposal be adjusted to accommodate our needs, but we believe the current incompatibilities are indicative of overly restrictive requirements on the type `T` on the part of `propagate_const`. The job of `propagate_const` is to adapt the interface of an existing pointer-like type `T` to have const-propagation semantics. Conversion to `bool` is an extraneous requirement for const-propagation. Imposing a required interface beyond the existence of `operator*` and `operator->` is also unnecessary; a non-member function such as `get_pointer` is a far less invasive mechanism that follows the philosophy of other free functions such as `begin` and `end`, which are intended to allow the non-invasive adaptation of non-standard types to work with standard generic algorithms.
+
+We believe that our suggested changes should benefit the users of `propagate_const` regardless of whether this proposal is accepted. We also propose some other modifications which, while inessential, should further facilitate operation with `indirect` and improve the usability of `propagate_const` in general:
+
+* Conversion to pointer to `element_type*` should be explicit if conversion from `T` to `element_type*`; currently, only implicit conversion is supported.
+* Implicit conversion to `T` and the const version of `T` should be supported, as this kind of conversion is only currently supported for the `propagate_const<T*>` specialization (via conversion to `element_type*`). This would require a mechanism by which `propagate_const` can determine the const version of an arbitrary type `T`. We suggest that an additional requirement be made of `T`: the existence of a member type `T::const_type` (for example, `unique_ptr<T>::const_type` would be `unique_ptr<T const>`); we have provided `const_type` for indirect in this proposal.
+
+A sample implementation of a version of `propagate_const` with these changes can be found [here](https://github.com/hpesoj/cpp-indirects/blob/master/tests/propagate_const.hpp).
+
 ### <a name="design/operator-dot"></a>Use of inheritance by delegation ("`operator.` overloading")
 
 ### <a name="design/optional"></a>The case for `optional_indirect`
