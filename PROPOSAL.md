@@ -11,9 +11,9 @@ _Joseph Thomson \<joseph.thomson@gmail.com\>_
 * [Motivation and scope](#motivation)
   * [Why not `T*`?](#motivation/why-not-ptr)
   * [Why not `T&`?](#motivation/why-not-ref)
+  * [Why not `reference_wrapper<T>`?](#motivation/why-not-reference_wrapper)
   * [Why not `optional<T&>`?](#motivation/why-not-optional-ref)
   * [Why not `observer_ptr<T>`?](#motivation/why-not-observer_ptr)
-  * [Why not `reference_wrapper<T>`?](#motivation/why-not-reference_wrapper)
   * [Why not `not_null<T*>`?](#motivation/why-not-not_null)
 * [Impact on the standard](#impact)
 * [Design decisions](#design)
@@ -59,6 +59,18 @@ However, no such standardized high-level types act as _non-owning_ references to
 
 A number of existing and proposed high-level types attempt to address similar problems, but we believe none of them adequately fit the use cases for which `indirect` and `optional_indirect` are designed. Their existence, however, shows that demand exists for solutions to the problems addressed by `indirect` and `optional_indirect`.
 
+|                        | Construction | Assignment | Comparison |
+|------------------------|--------------|------------|------------|
+| `T`                    | value        | value      | value      |
+| `optional<T>`          | value        | value      | value      |
+| `T&`                   | reference    | value      | value      |
+| `reference_wrapper<T>` | reference    | reference  | value      |
+| `optional<T&>`         | reference    | reference  | value      |
+| `T*`                   | reference    | reference  | reference  |
+| `observer_ptr<T>`      | reference    | reference  | reference  |
+| `not_null<T>`          | reference    | reference  | reference  |
+| `indirect<T>`          | reference    | reference  | reference  |
+
 #### <a name="motivation/why-not-ptr"></a>Why not `T*`?
 
 Take the following data member declaration:
@@ -67,18 +79,18 @@ Take the following data member declaration:
   widget* component;
 ```
 
-What does `component` represent? We can't be sure, because pointers are multi-purpose. It may represent a single `widget` or an array of `widget`s, it may or may not have ownership of the `widget` it points to, and it may or may not be valid to set it to the null state. We have to look at the wider context to understand what it actually represents. We can do better:
+We can't be sure what `component` represents, because pointers are multi-purpose. It may represent a single `widget` or an array of `widget`s; it may or may not have ownership of the `widget` it points to; and it may or may not be valid to set it to the null state. We have to look at the wider context to understand what it actually represents. However, if we use `indirect`:
 
 ```c++
-  optional_indirect<widget> component;
+  indirect<widget> component;
 ```
 
-We now know _immediately_, without looking at any other code, that `component` is an _optional_, _non-owning_ reference to a _single_ `widget`. In addition, we get compile-time assurances that we didn't with a pointer:
+We now know _immediately_, without looking at any other code, that `component` is a _non-owning_ reference to a _single_ `widget`. In addition, we get compile-time assurances that we didn't with a pointer:
 
-* `optional_indirect<T>` is always default initialized (to its _empty_ state)
-* `optional_indirect<T>` does not define the subscript operator (it isn't an array)
-* `optional_indirect<T>` does not define arithmetic operations (it isn't an iterator)
-* `optional_indirect<T>` does not implicitly convert to `void*` (it doesn't "own" anything)
+* `indirect<T>` must be initialized (it has no "null" state)
+* `indirect<T>` does not define the subscript operator
+* `indirect<T>` does not define arithmetic operations
+* `indirect<T>` does not implicitly convert to `void*`
 
 These assurances eliminate a variety of sources of undefined behaviour:
 
@@ -89,15 +101,15 @@ component += 1;        // not an iterator
 delete component;      // not an owner
 ```
 
-Some feel that these compile-time assurances aren't compelling enough to justify the use of `optional_indirect` over `T*`, and that once all other uses of pointers have been covered by other high-level types (e.g. `unique_ptr`, `std::string`, `string_view`, `array`, `array_view`, …) the only use case that will be left for raw pointers will be as optional, non-owning references; therefore, wherever you see a `T*` it will be safe to assume that it is "an optional, non-owning reference to `T`". This is not true for a number of reasons:
+Some feel that these compile-time assurances aren't compelling enough to justify the use of `indirect` over `T*`, and that once all other uses of pointers have been covered by other high-level types (e.g. `unique_ptr`, `std::string`, `string_view`, `array`, `array_view`, …) the only use case that will be left for raw pointers will be as non-owning references; therefore, wherever you see a `T*` it will be safe to assume that it is "a non-owning reference to `T`". This is not true for a number of reasons:
 
-* This is only a convention; people are not obliged to use `T*` only to mean "an optional, non-owning reference to `T`".
-* Plenty of existing code doesn't follow this convention; even if everyone followed convention from this point forward, you still cannot make the assumption that `T*` always means "an optional, non-owning reference to `T`".
-* Low-level code (new and existing) necessarily uses `T*` to mean all sorts of things; even if all new and old code followed the convention where appropriate, there would still be code where `T*` does not mean "an optional, non-owning reference to `T`", so you _still_ cannot make that assumption.
+* This is only a convention; people are not obliged to use `T*` only to mean "a non-owning reference to `T`".
+* Plenty of existing code doesn't follow this convention; even if everyone followed convention from this point forward, you still cannot make the assumption that `T*` always means "a non-owning reference to `T`".
+* Low-level code (new and existing) necessarily uses `T*` to mean all sorts of things; even if all new and old code followed the convention where appropriate, there would still be code where `T*` does not mean "a non-owning reference to `T`", so you _still_ cannot make that assumption.
 
-Conversely, wherever you see `optional_indirect<T>` in some code, you _know_ that it means "an optional, non-owning reference to `T`". Explicitly documenting intent is generally better than letting readers of your code make assumptions about your intent.
+Conversely, wherever you see `indirect<T>` in some code, you _know_ that it means "a non-owning reference to `T`". Explicitly documenting intent is generally better than letting readers of your code make assumptions about your intent.
 
-Documentation of intent aside, we consider code correctness to be of high importance. We believe the ability to misuse pointers comes from their suboptimal design as optional, non-owning reference types. A well-designed type is _efficient_ and has an API that is _minimal_ yet _expressive_ and _hard to use incorrectly_. Pointers as non-owning reference types may be efficient and do have a somewhat expressive API, but their API is not minimal and is very easy to use incorrectly. Case in point, this is syntactically correct but logically incorrect code:
+Documentation of intent aside, we consider code correctness to be of high importance. We believe the ability to misuse pointers comes from their suboptimal design as non-owning reference types. A well-designed type is _efficient_ and has an API that is _minimal_ yet _expressive_ and _hard to use incorrectly_. Pointers as non-owning reference types may be efficient and do have a somewhat expressive API, but their API is not minimal and is very easy to use incorrectly. Case in point, this is syntactically correct but logically incorrect code:
 
 ```c++
 int i = 0;
@@ -106,15 +118,36 @@ p += 1; // did I mean `*p += 1`?
 *p = 42; // undefined behaviour
 ```
 
-`optional_indirect` is _as_ efficient as a pointer, and has been _purpose-designed_ as an optional, non-owning reference type to have a minimal API that is expressive and hard to use incorrectly.
+`indirect<T>` is _as_ efficient as `T*`, and has been _purpose-designed_ as a non-owning reference type to have a minimal API that is expressive and hard to use incorrectly.
 
 #### <a name="motivation/why-not-ref"></a>Why not `T&`?
+
+Take the following data member declaration:
+
+```c++
+  widget& component;
+```
+
+Just as with `indirect<widget>`, we know that `component` is a non-owning reference to a `widget`; there is no other meaning of `widget&`. In addition, we get all the previously listed compile-time assurances provided by `indirect<widget>`. However, `indirect<T>` offers different advantages over `T&`:
+
+* `indirect<T>` can be "rebound" to reference different objects after construction
+* `indirect<T>` can be stored in arrays and standard library containers
+
+The inability to "rebind" `T&` also means that any class with reference data members is by default not copy assignable. This is not a problem with `indirect<T>`. The inability to store `T&` in arrays and containers stems from the fact that pointers to references are not allowed (taking the address of a reference returns a pointer to the referenced object). Since `indirect<T>` is an object type, it has no such limitation.
+
+If we consider the design of `T&` in the same way that we considered that of `T*`, we would say that `T&` is efficient and has a minimal API that is hard to use correctly but lacks expressive power (it cannot be rebound or pointed to). `indirect<T>` is _as_ efficient as `T&`, and has been _purpose-designed_ as a non-owning reference type to have a minimal API that is expressive and hard to use incorrectly.
+
+However, unlike `T*`, `T&` still has legitimate uses in high-level code. Indeed, the reasons to use `indirect<T>` over `T&` are the same as the reasons to use `T*` over `T&` (it's just there are further reasons to use `indirect<T>` over `T*`). This is because `indirect<T>` is semantically more similar to `T*` than to `T&`, specifically when it comes to _assignment_ and _comparison_. For example:
+
+
+
+#### <a name="motivation/why-not-reference_wrapper"></a>Why not `reference_wrapper<T>`?
+
+
 
 #### <a name="motivation/why-not-optional-ref"></a>Why not `optional<T&>`?
 
 #### <a name="motivation/why-not-observer_ptr"></a>Why not `observer_ptr<T>`?
-
-#### <a name="motivation/why-not-reference_wrapper"></a>Why not `reference_wrapper<T>`?
 
 #### <a name="motivation/why-not-not_null"></a>Why not `not_null<T*>`?
 
