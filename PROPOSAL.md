@@ -1,10 +1,10 @@
-# A proposal to add non-owning indirection class templates `indirect` and `optional_indirect`
+# A proposal to add non-owning pointer-like class templates `indirect` and `optional_indirect`
 
 _Joseph Thomson \<joseph.thomson@gmail.com\>_
 
 ## Introduction
 
-`indirect<T>` and `optional_indirect<T>` are high-level indirection types that reference objects of type `T` without implying ownership. An `indirect<T>` is an indirect reference to an object of type `T`, while an `optional_indirect<T>` is an _optional_ indirect reference to an object of type `T`. Both `indirect` and `optional_indirect` have reference-like construction semantics and pointer-like assignment and indirection semantics.
+`indirect<T>` and `optional_indirect<T>` are high-level pointer-like types that reference objects of type `T` without implying ownership. An `indirect<T>` is a reference to an object of type `T`, while an `optional_indirect<T>` is an _optional_ reference to an object of type `T`. Both `indirect` and `optional_indirect` have pointer-like semantics but reference-like construction and comparison syntax.
 
 ## Table of contents
 
@@ -41,7 +41,7 @@ _Joseph Thomson \<joseph.thomson@gmail.com\>_
 
 ## <a name="motivation"></a>Motivation and scope
 
-Modern C++ [guidelines](https://github.com/isocpp/CppCoreGuidelines) recommend against using pointers to manage dynamically allocated resources, arrays, strings and optional values, instead encouraging the use of higher-level abstractions such as [`std::unique_ptr`](http://en.cppreference.com/w/cpp/memory/unique_ptr), [`std::shared_ptr`](http://en.cppreference.com/w/cpp/memory/shared_ptr), [`std::vector`](http://en.cppreference.com/w/cpp/container/vector), [`std::array`](http://en.cppreference.com/w/cpp/container/array), [`std::array_view`](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n3851.pdf) _(not yet standardized)_, [`std::string`](http://en.cppreference.com/w/cpp/string/basic_string), [`std::string_view`](http://en.cppreference.com/w/cpp/string/basic_string_view) and [`std::optional`](http://en.cppreference.com/w/cpp/utility/optional). These types provide:
+Modern C++ [guidelines](https://github.com/isocpp/CppCoreGuidelines) recommend against using pointers to manage dynamically allocated resources, arrays, strings and optional values, instead encouraging the use of higher-level abstractions such as [`unique_ptr`](http://en.cppreference.com/w/cpp/memory/unique_ptr), [`shared_ptr`](http://en.cppreference.com/w/cpp/memory/shared_ptr), [`vector`](http://en.cppreference.com/w/cpp/container/vector), [`array`](http://en.cppreference.com/w/cpp/container/array), [`array_view`](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n3851.pdf) _(not yet standardized)_, [`string`](http://en.cppreference.com/w/cpp/string/basic_string), [`string_view`](http://en.cppreference.com/w/cpp/string/basic_string_view) and [`optional`](http://en.cppreference.com/w/cpp/utility/optional). These types provide:
 
 * Compile-time safety
 * Run-time safety
@@ -49,23 +49,64 @@ Modern C++ [guidelines](https://github.com/isocpp/CppCoreGuidelines) recommend a
 * Modern, easy-to-use interfaces
 * Resource management
 
-However, no such high-level types are provided by the standard to act as non-owning references to other objects; thus, pointers are still widely used in modern C++ code for this purpose, despite presenting many of the same disadvantages that led to their replacement in other use cases. This is the role played by `indirect` and `optional_indirect`:
+However, no such standardized high-level types act as _non-owning_ references to other objects; thus, pointers are still widely used in modern C++ code for this purpose, despite having many of the same problems that led to their replacement in other cases. This is the role played by `indirect` and `optional_indirect`:
 
 |          | Owned                                      | Non-Owned                      |
 |----------|--------------------------------------------|--------------------------------|
 | Single   | `unique_ptr` `shared_ptr` `optional`       | `indirect` `optional_indirect` |
 | Array    | `array` `vector` `unique_ptr` `shared_ptr` | `array_view`                   |
 | String   | `string`                                   | `string_view`                  |
-| Iterator | —                                          | _assorted_                     |
 
-A number of existing and proposed high-level types attempt to address similar problems, but none of them adequately fit the use cases for which `indirect` and `optional_indirect` are designed. Their existence, however, shows that demand exists for solutions to the problems addressed by `indirect` and `optional_indirect`. Discussions of these other types can be found in the [design section](#design) of this proposal:
-
-* [Why not `optional<T&>`?](#design/why-not-optional-ref)
-* [Why not `reference_wrapper<T>`?](#design/why-not-reference_wrapper)
-* [Why not `observer_ptr<T>`?](#design/why-not-observer_ptr)
-* [Why not `not_null<T*>`?](#design/why-not-not_null)
+A number of existing and proposed high-level types attempt to address similar problems, but we believe none of them adequately fit the use cases for which `indirect` and `optional_indirect` are designed. Their existence, however, shows that demand exists for solutions to the problems addressed by `indirect` and `optional_indirect`.
 
 #### <a name="motivation/why-not-ptr"></a>Why not `T*`?
+
+Take the following data member declaration:
+
+```c++
+  widget* component;
+```
+
+What does `component` represent? We can't be sure, because pointers are multi-purpose. It may represent a single `widget` or an array of `widget`s, it may or may not have ownership of the `widget` it points to, and it may or may not be valid to set it to the null state. We have to look at the wider context to understand what it actually represents. We can do better:
+
+```c++
+  optional_indirect<widget> component;
+```
+
+We now know _immediately_, without looking at any other code, that `component` is an _optional_, _non-owning_ reference to a _single_ `widget`. In addition, we get compile-time assurances that we didn't with a pointer:
+
+* `optional_indirect<T>` is always default initialized (to its _empty_ state)
+* `optional_indirect<T>` does not define the subscript operator (it isn't an array)
+* `optional_indirect<T>` does not define arithmetic operations (it isn't an iterator)
+* `optional_indirect<T>` does not implicitly convert to `void*` (it doesn't "own" anything)
+
+These assurances eliminate a variety of sources of undefined behaviour:
+
+```c++
+widget* component;     // not initialized
+auto w = component[1]; // not an array
+component += 1;        // not an iterator
+delete component;      // not an owner
+```
+
+Some feel that these compile-time assurances aren't compelling enough to justify the use of `optional_indirect` over `T*`, and that once all other uses of pointers have been covered by other high-level types (e.g. `unique_ptr`, `std::string`, `string_view`, `array`, `array_view`, …) the only use case that will be left for raw pointers will be as optional, non-owning references; therefore, wherever you see a `T*` it will be safe to assume that it is "an optional, non-owning reference to `T`". This is not true for a number of reasons:
+
+* This is only a convention; people are not obliged to use `T*` only to mean "an optional, non-owning reference to `T`".
+* Plenty of existing code doesn't follow this convention; even if everyone followed convention from this point forward, you still cannot make the assumption that `T*` always means "an optional, non-owning reference to `T`".
+* Low-level code (new and existing) necessarily uses `T*` to mean all sorts of things; even if all new and old code followed the convention where appropriate, there would still be code where `T*` does not mean "an optional, non-owning reference to `T`", so you _still_ cannot make that assumption.
+
+Conversely, wherever you see `optional_indirect<T>` in some code, you _know_ that it means "an optional, non-owning reference to `T`". Explicitly documenting intent is generally better than letting readers of your code make assumptions about your intent.
+
+Documentation of intent aside, we consider code correctness to be of high importance. We believe the ability to misuse pointers comes from their suboptimal design as optional, non-owning reference types. A well-designed type is _efficient_ and has an API that is _minimal_ yet _expressive_ and _hard to use incorrectly_. Pointers as non-owning reference types may be efficient and do have a somewhat expressive API, but their API is not minimal and is very easy to use incorrectly. Case in point, this is syntactically correct but logically incorrect code:
+
+```c++
+int i = 0;
+int* p = &i;
+p += 1; // did I mean `*p += 1`?
+*p = 42; // undefined behaviour
+```
+
+`optional_indirect` is _as_ efficient as a pointer, and has been _purpose-designed_ as an optional, non-owning reference type to have a minimal API that is expressive and hard to use incorrectly.
 
 #### <a name="motivation/why-not-ref"></a>Why not `T&`?
 
