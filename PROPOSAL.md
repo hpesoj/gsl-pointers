@@ -137,17 +137,118 @@ The inability to "rebind" `T&` also means that any class with reference data mem
 
 If we consider the design of `T&` in the same way that we considered that of `T*`, we would say that `T&` is efficient and has a minimal API that is hard to use correctly but lacks expressive power (it cannot be rebound or pointed to). `indirect<T>` is _as_ efficient as `T&`, and has been _purpose-designed_ as a non-owning reference type to have a minimal API that is expressive and hard to use incorrectly.
 
-However, unlike `T*`, `T&` still has legitimate uses in high-level code. Indeed, the reasons to use `indirect<T>` over `T&` are the same as the reasons to use `T*` over `T&` (it's just there are further reasons to use `indirect<T>` over `T*`). This is because `indirect<T>` is semantically more similar to `T*` than to `T&`, specifically when it comes to _assignment_ and _comparison_. For example:
+However, unlike `T*`, `T&` still has legitimate uses in high-level code. Indeed, the reasons to use `indirect<T>` over `T&` are the same as the reasons to use `T*` over `T&` (it's just there are further reasons to use `indirect<T>` over `T*`). This is because `indirect<T>` is semantically more similar to `T*` than to `T&`. The most obvious instance in which `indirect<T>` should _not_ be used in place of `T&` is when taking function parameters by const reference, since `indirect<T>` cannot be constructed from an rvalue:
 
+```c++
+void f(foo const&);
+void g(indirect<foo const>);
 
+f(make_foo()); // a-okay
+g(make_foo()); // error: `indirect(indirect&&)` is deleted
+```
+
+Pass by const reference is generally employed as an _optimization_ to avoid making an unnecessary copy of an object that would otherwise be passed by value. Conversely, `indirect<T>` should replace `T&` as a function parameter when what you really want is a `T*` but you are using `T&` to eliminate the possibility of a null pointer. For example, this:
+
+```c++
+class foo 
+  bar const* b;
+public:
+  foo(bar const& b) : b(&b) {}
+};
+```
+
+Would be improved by using `indirect`:
+
+```c++
+class foo 
+  indirect<bar const> b;
+public:
+  foo(indirect<bar const> b) : b(b) {}
+};
+```
+
+Another example where `indirect<T>` should not be used in place of `T&` is with the array subscript operator. Usually, `operator[]` returns `T&` because its value semantics mean that it can largely be treated as if it _were_ `T`. Returning `indirect<T>` in this case would be akin to returning `T*`, and would not provide the same level of syntactic transparency. In cases like this, the decision to use either `T&` or `indirect<T>` depends on whether you want value or reference semantics.
 
 #### <a name="motivation/why-not-reference_wrapper"></a>Why not `reference_wrapper<T>`?
 
+The issues with `T&` that are solved by `indirect<T>` are also solved by `reference_wrapper<T>`:
 
+* `reference_wrapper<T>` can be "rebound" to reference different objects after construction
+* `reference_wrapper<T>` can be stored in arrays and standard library containers
+
+However, `reference_wrapper<T>` has value comparison semantics, while `indirect<T>` has reference comparison semantics. This difference is significant, especially when it comes to the use of standard algorithms and containers. For example:
+
+```c++
+int i[] = { 1, 1, 2, 3, 5 };
+set<indirect<int>> s{begin(i), end(i)};
+assert(s.size() == 5);
+```
+
+A `set` of `indirect<T>` behaves rather like a `set` of `T*`: the value of an `indirect<T>` is the address of the object to which it refers, so even objects that have the same value are stored as unique entries in the `set`. Conversely:
+
+```c++
+int i[] = { 1, 1, 2, 3, 5 };
+set<reference_wrapper<int>> s{begin(i), end(i)};
+assert(s.size() == 4);
+```
+
+A `set` of `reference_wrapper<T>` behaves rather like a `set` of `T`: the value of a `reference_wrapper<T>` is the value of the object to which it refers, so objects that have the same value cannot be stored in the set simultaneously.
+
+In addition, `reference_wrapper<T>` converts implicitly to `T&`, which means that, like `T&`, it behaves in many other ways like `T`. For example:
+
+```c++
+int i = {};
+auto r = ref(i);
+auto j = r++; // effect: `int j = i++`
+```
+
+There are several other ways in which the design of `indirect<T>` is different from `reference_wrapper<T>`, but this is not surprising since `indirect<T>` is designed to have pointer-like semantics while `reference_wrapper<T>` is designed to have reference-like semantics (with the exception of assignment).
 
 #### <a name="motivation/why-not-optional-ref"></a>Why not `optional<T&>`?
 
+Aside from the fact that it has not yet been standardized, the design of `optional<T&>` described in the [auxiliary proposal](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2013/n3672.html#optional_ref) of [N3672](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2013/n3672.html) has value comparison semantics like `reference_wrapper<T>`. Essentially, `optional<T&>` is `optional<reference_wrapper<T>>` with a slightly modified interface, not unlike how `optional_indirect<T>` is `optional<indirect<T>>` with a slightly modified interface. If `indirect<T>` and `reference_wrapper<T>` are not interchangeable, then neither are `optional_indirect<T>` and `optional<T&>`.
+
 #### <a name="motivation/why-not-observer_ptr"></a>Why not `observer_ptr<T>`?
+
+Both `indirect` and [`observer_ptr`](http://en.cppreference.com/w/cpp/experimental/observer_ptr) (proposed in [N4282](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n4282.pdf)) are pointer-like types intended to replace `T*` when it represents a single object of type `T` without implying ownership. The stated objective of `observer_ptr` is as a "vocabulary type", a type that documents the author's intended purpose. Given that documentation of intent is a significant aim of this proposal, it seems that there is substantial overlap of the objectives of this proposal and those of N4282.
+
+The fundamental difference between `indirect` and `observer_ptr` is that the design of the latter seems to have been based on `unique_ptr`. We would argue that, while such a design is suitable for a pointer-like type that manages the lifetime of the object to which it points (a.k.a. a "smart pointer"), it is not optimal for a non-owning pointer-like type. We believe that `indirect` is better suited to its intended purpose than `observer_ptr`.
+
+Firstly, like `unique_ptr<T>`, `observer_ptr<T>` required explicit construction from `T*`, which makes for code that is somewhat verbose:
+
+```c++
+foo f, g;
+observer_ptr<foo> o{&f);
+o = make_observer(&g);
+assert(o == make_observer(&g));
+o->bar();
+```
+
+In contrast, the ability to convert `T&` to `indirect<T>` makes code using `indirect` somewhat more concise:
+
+```c++
+foo f, g;
+indirect<foo> i = f;
+i = g;
+assert(i == g);
+i->bar();
+```
+
+However, the most significant difference between `indirect` and `observer_ptr` is the fact that `indirect<T>` lacks a "null" state. With `indirect<T>` there is a compile-time assurance that it _must_ refer to an object of type `T`. There is no counterpart to `observer_ptr<T>` that provides the same compile-time assurance. Meanwhile, `optional_indirect<T>` is provided as the counterpart to `indirect<T>` with a "null" state.
+
+There are a number of other differences between `indirect`/`optional_indirect` and `observer_ptr`, but they are less important:
+
+* `observer_ptr<T>` has the "ownership" operations `reset` and `release`.
+* `indirect<T>` has "safe" construction from `T*` which throws if called with a null `T*`.
+* `optional_indirect<T>` has the "safe" accessor function `value` which throws if called on an empty `optional_indirect`.
+* `indirect<T>` and `optional_indirect<T>` have cast operations `static_indirect_cast`, `dynamic_indirect_cast` and `const_indirect_cast`.
+
+Of course, this proposal and N4282 do not conflict in any technical way. It is entirely possible for both types to coexist. However, we feel that it may be confusing to C++ programmers to have two standard types which solve essentially the same problem. Of course, if there is a case to be made for a non-owning pointer-like type with a "smart pointer"-esque design, we would certainly like to hear it.
+
+As an addendum, we have a few observations on the current design of `observer_ptr`:
+
+* While the `release` function makes sense for `unique_ptr` as a way to atomically transfer ownership from a `unique_ptr<T>` to a `T*`, it makes little sense for `observer_ptr` as it does not own the object to which it points.
+* The `make_observer` function currently takes a `T*`. We believe it would be more consistent for it to take a `T&`, given that neither `make_unique` not `make_shared` takes a `T*`.
 
 #### <a name="motivation/why-not-not_null"></a>Why not `not_null<T*>`?
 
@@ -232,62 +333,37 @@ This behaviour is arguably _more_ surprising with `reference_wrapper` given its 
 
 #### <a name="design/conversion/from-rvalue-ref"></a>Conversion from `T&&`
 
-While conversion from `T&` to `indirect<T>` is always logically correct, it is not necessarily semantically correct in the wider context. Consider this:
+Conversion from `T&&` to `indirect<T>` is disallowed:
 
 ```c++
-indirect<int const> a = 42; // equivalent to `indirect<int const> a = int{42}`
+indirect<int const> a = 42; // error: `indirect<int const>(T&&)` is deleted
 ```
 
-When the constructor of `a` returns, the temporary `int{42}` is destroyed and `a` is left _dangling_, pointing to a non-existent object. This is not a problem with `T const&` because of a C++ rule which means that the lifetime of a temporary object may be extended by binding to a const lvalue reference:
+If this were allowed, when the constructor of `a` returned, the temporary `int{42}` would be destroyed and `a` would be left _dangling_—pointing to a non-existent object. Obviously, dangling references are undesirable, as they can lead to undefined behaviour. This is not a problem with `T const&` because of a C++ rule which means that the lifetime of a temporary object may be extended by binding to a const lvalue reference:
 
 ```c++
 int const& a = 42; // temporary `int{42}` destroyed when `a` goes out of scope
 ```
 
-Obviously, dangling references are undesirable, as they can lead to undefined behaviour. One option would be to explicitly disable construction from `T&&`; however, this would preclude passing temporary objects to functions taking `indirect<T const>` parameters:
+The biggest side-effect of prohibiting conversion from `T&&` is that temporaries cannot be passed to functions taking parameters of type `indirect<T const>`. We believe this is not a problem, since `indirect<T const>` should not be used as a substitute for "pass by const reference"; rather, `indirect<T>` is intended to replace `T&` when it used as a "not null" `T*`. In these cases, the object that `indirect<T>` references is expected to still exist after the function returns, which means that passing a temporary object makes no sense anyway. For example:
 
 ```c++
-auto f = [](indirect<foo const> x) { … };
-f(make_foo()); // error: constructor `indirect<foo const>(foo&&)` is deleted 
+class component {
+  indirect<widget> owner;
+public:
+  component(indirect<widget> owner) : owner(owner) {}
+};
 ```
 
-This might not seem a big deal, since you could just use `T const&` instead and use `indirect<T const>` internal to your function if need be, but its impact on the usability of `optional_indirect<T const>` is far greater:
+Here, the `widget` is expected to be alive after the `component` constructor returns, since the component stores a reference to the `widget`. Conversely, here is an instance where pass by const reference is appropriate:
 
 ```c++
-auto f = [](optional_indirect<foo const> x) { … };
-foo tmp = make_foo();
-f(optional_indirect<foo const>(tmp));
+float length(vec3 const& v) {
+  return sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+}
 ```
 
-Not only must a temporary object be explicitly created, the `optional_indirect` must also be explicitly constructed, since `T*` is [not implicitly convertible](#design/conversion/from-ptr) to `optional_indirect<T>`. Compare this to the syntax required if `f` instead takes a pointer:
-
-```c++
-auto f = [](foo const* x) { … };
-foo tmp = make_foo();
-f(&tmp);
-```
-
-Then compare this again to the syntax required if `optional_indirect<T>` did not disable construction from `T&&`:
-
-```c++
-auto f = [](optional_indirect<foo const> x) { … };
-f(make_foo());
-```
-
-If we disable construction from `T&&`, then `T*` becomes easier to use than `optional_indirect<T>`. If we do not disable construction from `T&&`, then `optional_indirect<T>` becomes easier to use than `T*`. Since use of `optional_indirect<T>` encourages more logically correct code than does use of `T*`, we want to _encourage_ instead of discourage use of `indirect`. Therefore, in balance, we have decided against disabling construction from `T&&`. Users will just have to be aware that lifetime extension of temporary objects does not occur with `indirect<T const>` as it does with `T const&`. Indeed, even disabling construction from `T&&` does not prevent the user from accidentially creating dangling references; it is just one extra (fairly obvious) case to consider on top of:
-
-```c++
-vector<int> vec = { 1, 2, 3 };
-indirect<int> ii = vec[1];
-vec.push_back(4); // `ii` may now be dangling
-```
-
-We also note that the designers of `basic_string_view` have not disabled construction from rvalue references; though we cannot be sure of their reasoning, it is likely to have been along similar lines:
-
-```c++
-auto get_string = []() -> string { … };
-string_view v = get_string(); // `v` will be left dangling
-```
+Here, `length` could have taken a `vec3` by value; pass by const reference is simply used as an optimization technique to avoid making an unnecessary copy. If you find yourself wanting to pass a temporary to a function taking an `indirect<T>`, chances are the function should actually be taking `T const&`.
 
 #### <a name="design/conversion/from-ptr"></a>Conversion from `T*`
 
