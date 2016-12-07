@@ -1,4 +1,4 @@
-# A proposal to add non-owning pointer-like class templates `indirect` and `optional_indirect`
+# A proposal to add non-owning pointer-like types `indirect` and `optional_indirect`
 
 _Joseph Thomson \<joseph.thomson@gmail.com\>_
 
@@ -15,6 +15,7 @@ _Joseph Thomson \<joseph.thomson@gmail.com\>_
   * [Why not `optional<T&>`?](#motivation/why-not-optional-ref)
   * [Why not `observer_ptr<T>`?](#motivation/why-not-observer_ptr)
   * [Why not `not_null<T*>`?](#motivation/why-not-not_null)
+  * [Why not `not_null<observer_ptr<T>>`?](#motivation/why-not-not_null_observer_ptr)
 * [Impact on the standard](#impact)
 * [Design decisions](#design)
   * [Type conversions](#design/conversion)
@@ -243,7 +244,7 @@ There are a number of other differences between `indirect`/`optional_indirect` a
 * `optional_indirect<T>` has the "safe" accessor function `value` which throws if called on an empty `optional_indirect`.
 * `indirect<T>` and `optional_indirect<T>` have cast operations `static_indirect_cast`, `dynamic_indirect_cast` and `const_indirect_cast`.
 
-Of course, this proposal and N4282 do not conflict in any technical way. It is entirely possible for both types to coexist. However, we feel that it may be confusing to C++ programmers to have two standard types which solve essentially the same problem. Of course, if there is a case to be made for a non-owning pointer-like type with a "smart pointer"-esque design, we would certainly like to hear it.
+Of course, this proposal and N4282 do not conflict in any technical way. It is entirely possible for both types to coexist. However, we feel that it may be confusing to have two standard types which solve essentially the same problem. Of course, if there is a case to be made for a non-owning pointer-like type with a "smart pointer"-esque design, we would certainly like to hear it.
 
 As an addendum, we have a few observations on the current design of `observer_ptr`:
 
@@ -251,6 +252,32 @@ As an addendum, we have a few observations on the current design of `observer_pt
 * The `make_observer` function currently takes a `T*`. We believe it would be more consistent for it to take a `T&`, given that neither `make_unique` not `make_shared` takes a `T*`.
 
 #### <a name="motivation/why-not-not_null"></a>Why not `not_null<T*>`?
+
+Aside from the fact that it is not proposed for inclusion in the standard, the [GSL](https://github.com/Microsoft/GSL) adapter type [`not_null<T*>`](https://github.com/Microsoft/GSL/blob/master/gsl/gsl) is essentially just a `T*` that [should not be null](https://github.com/Microsoft/GSL/issues/417). Just like `T*`, `not_null<T*>` could represent any of a range of things (e.g. a single object, an array, a string, an iterator, an owned resource). Conversely, `indirect<T>` only ever represents a non-owning reference to a single object of type `T`.
+
+#### <a name="motivation/why-not-not_null_observer_ptr"></a>Why not `not_null<observer_ptr<T>>`?
+
+Since `observer_ptr<T>` performs roughly the same function as `optional_indirect<T>`, and `indirect<T>` is essentially a "not null" `optional_indirect<T>`, presumably `not_null<observer_ptr<T>>` could perform roughly the same function as `indirect<T>`. Therefore, why not use `not_null<observer_ptr<T>>` and `observer_ptr<T>` instead of `indirect<T>` and `optional_indirect<T>`?
+
+The practical problem with this approach is that it is not safe to convert from `observer_ptr<T>` to `not_null<observer_ptr<T>>`. For example:
+
+```c++
+not_null<observer_ptr<foo>> o{make_observer(&f)}; // unnecessary run-time check for "null"
+```
+
+Using `indirect<T>` does not incur such a run-time cost, nor does conversion from `indirect<T>` to `optional<indirect<T>>`:
+
+```c++
+optional<indirect<foo>> o = make_indirect(f); // no run-time check
+```
+
+Of course, `optional_indirect` is provided to address other problems with `optional<indirect<T>>`, so perhaps it would be possible to provide a counterpart to address the problems with `not_null<observer_ptr<T>>`:
+
+```c++
+not_null_observer_ptr<foo> o = make_not_null_observer(f); // no run-time check
+```
+
+However, at this point we have two types that are essentially `indirect` and `optional_indirect` with different names and slightly different designs.
 
 ## <a name="impact"></a>Impact on the standard
 
