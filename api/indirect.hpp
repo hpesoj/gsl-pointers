@@ -56,7 +56,7 @@ template <typename T>
 class indirect
 {
 public:
-    using value_type = T;
+    using element_type = T;
     using const_type = indirect<std::add_const_t<T>>;
 
 private:
@@ -259,7 +259,7 @@ template <typename T>
 class optional_indirect
 {
 public:
-    using value_type = T;
+    using element_type = T;
     using const_type = optional_indirect<T const>;
 
 private:
@@ -313,12 +313,12 @@ public:
         return target != nullptr;
     }
 
-    constexpr T& operator*() const noexcept
+    constexpr T& operator*() const
     {
         return *target;
     }
 
-    constexpr T* operator->() const noexcept
+    constexpr T* operator->() const
     {
         return target;
     }
@@ -339,7 +339,7 @@ public:
     }
 
     template <typename U, typename T_ = T, std::enable_if_t<std::is_copy_constructible<T_>::value, int> = 0>
-    constexpr T value_or(U&& default_value) const noexcept
+    constexpr T value_or(U&& default_value) const
     {
         return target ? *target : static_cast<T>(std::forward<U>(default_value));
     }
