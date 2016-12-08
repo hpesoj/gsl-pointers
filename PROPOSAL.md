@@ -86,7 +86,15 @@ We can't be sure what `component` represents, because pointers are multi-purpose
   indirect<widget> component;
 ```
 
-We now know _immediately_, without looking at any other code, that `component` is a _non-owning_ reference to a _single_ `widget`. In addition, we get compile-time assurances that we didn't with a pointer:
+We now know _immediately_, without looking at any other code, that `component` is a _non-owning_ reference to a _single_ `widget`. It has been suggested that once all other uses of pointers have been covered by other high-level types (e.g. `unique_ptr`, `string`, `string_view`, `array`, `array_view`, …) the only use case that will be left for raw pointers will be as non-owning references; therefore, wherever you see a `T*` it will be safe to assume that it is "a non-owning reference to `T`". This is not true for a number of reasons:
+
+* This is only a convention; people are not obliged to use `T*` only to mean "a non-owning reference to `T`".
+* Plenty of existing code doesn't follow this convention; even if everyone followed convention from this point forward, you still cannot make the assumption that `T*` always means "a non-owning reference to `T`".
+* Low-level code (new and existing) necessarily uses `T*` to mean all sorts of things; even if all new and old code followed the convention where appropriate, there would still be code where `T*` does not mean "a non-owning reference to `T`", so you _still_ cannot make that assumption.
+
+Conversely, wherever you see `indirect<T>` in some code, you _know_ that it means "a non-owning reference to `T`". Explicitly documenting intent is generally better than letting readers of your code make assumptions about your intent.
+
+In addition to documentation of intent, we get compile-time assurances that we didn't with a pointer:
 
 * `indirect<T>` must be initialized (it has no "null" state)
 * `indirect<T>` does not define the subscript operator
@@ -102,15 +110,7 @@ component += 1;        // not an iterator
 delete component;      // not an owner
 ```
 
-Some feel that these compile-time assurances aren't compelling enough to justify the use of `indirect` over `T*`, and that once all other uses of pointers have been covered by other high-level types (e.g. `unique_ptr`, `std::string`, `string_view`, `array`, `array_view`, …) the only use case that will be left for raw pointers will be as non-owning references; therefore, wherever you see a `T*` it will be safe to assume that it is "a non-owning reference to `T`". This is not true for a number of reasons:
-
-* This is only a convention; people are not obliged to use `T*` only to mean "a non-owning reference to `T`".
-* Plenty of existing code doesn't follow this convention; even if everyone followed convention from this point forward, you still cannot make the assumption that `T*` always means "a non-owning reference to `T`".
-* Low-level code (new and existing) necessarily uses `T*` to mean all sorts of things; even if all new and old code followed the convention where appropriate, there would still be code where `T*` does not mean "a non-owning reference to `T`", so you _still_ cannot make that assumption.
-
-Conversely, wherever you see `indirect<T>` in some code, you _know_ that it means "a non-owning reference to `T`". Explicitly documenting intent is generally better than letting readers of your code make assumptions about your intent.
-
-Documentation of intent aside, we consider code correctness to be of high importance. We believe the ability to misuse pointers comes from their suboptimal design as non-owning reference types. A well-designed type is _efficient_ and has an API that is _minimal_ yet _expressive_ and _hard to use incorrectly_. Pointers as non-owning reference types may be efficient and do have a somewhat expressive API, but their API is not minimal and is very easy to use incorrectly. Case in point, this is syntactically correct but logically incorrect code:
+We consider code correctness to be of high importance, and believe the ability to misuse pointers comes from their suboptimal design as non-owning reference types. A well-designed type is _efficient_ and has an API that is _minimal_ yet _expressive_ and _hard to use incorrectly_. Pointers as non-owning reference types may be efficient and do have a somewhat expressive API, but their API is not minimal and is very easy to use incorrectly. Case in point, this is syntactically correct but logically incorrect code:
 
 ```c++
 int i = 0;
@@ -310,7 +310,7 @@ Case in point, none of the following conversions would make logical sense:
 ```c++
 int arr[] = { 1, 2, 3 };
 
-indirect<int> a = arr; // this wouldn't work with a `std::array`
+indirect<int> a = arr; // this wouldn't work with an `array`
 indirect<int> b = end(arr); // doesn't point to a valid object
 indirect<int> c = new int(); // resource leak
 ```
@@ -573,7 +573,7 @@ There is likely to be some concern that making an equality comparison of `T&` co
 
 Neither `indirect` not `optional_indirect` not define distinct move behaviour (moving is equivalent to copying); this behaviour is shared by `optional`. It could be argued that a moved-from `optional_indirect` should become disengaged, but in reality we have no way of knowing how client code wants a moved-from `optional_indirect` to behave, and such behaviour would incur a potentially unnecessary run-time cost. In addition, a moved-from `indirect` cannot be disengaged, so having different behaviour for `optional_indirect` would be potentially surprising.
 
-An additional advantage of keeping the compiler-generated move operations is that `indirect` and `optional_indirect` can be [trivially copyable](http://en.cppreference.com/w/cpp/concept/TriviallyCopyable) (they can be copied using [`std::memcpy`](http://en.cppreference.com/w/cpp/string/byte/memcpy), a performance optimization that some library components employ).
+An additional advantage of keeping the compiler-generated move operations is that `indirect` and `optional_indirect` can be [trivially copyable](http://en.cppreference.com/w/cpp/concept/TriviallyCopyable) (they can be copied using [`memcpy`](http://en.cppreference.com/w/cpp/string/byte/memcpy), a performance optimization that some library components employ).
 
 ### <a name="design/cast"></a>The `cast` functions
 
