@@ -692,10 +692,10 @@ namespace std {
 // [1.1.4] `indirect` for object types
 template <class T> class indirect;
 
-// [1.1.4] `indirect` creation
+// [1.1.5] `indirect` creation
 template <class T> indirect<T> make_indirect(T&) noexcept;
 
-// [1.1.4] `indirect` relational operators
+// [1.1.6] `indirect` relational operators
 template <class T1, class T2> constexpr bool operator==(const indirect<T1>&, const indirect<T2>&) noexcept;
 template <class T1, class T2> constexpr bool operator!=(const indirect<T1>&, const indirect<T2>&) noexcept;
 template <class T1, class T2> constexpr bool operator<(const indirect<T1>&, const indirect<T2>&) noexcept;
@@ -703,35 +703,35 @@ template <class T1, class T2> constexpr bool operator<=(const indirect<T1>&, con
 template <class T1, class T2> constexpr bool operator>(const indirect<T1>&, const indirect<T2>&) noexcept;
 template <class T1, class T2> constexpr bool operator>=(const indirect<T1>&, const indirect<T2>&) noexcept;
 
-// [1.1.4] `indirect` comparison with `T&`
+// [1.1.7] `indirect` comparison with `T&`
 template <class T1, class T2> constexpr bool operator==(const indirect<T1>&, T2&) noexcept;
 template <class T1, class T2> constexpr bool operator!=(T1&, const indirect<T2>&) noexcept;
 
-// [1.1.5] `indirect` specialized algorithms
+// [1.1.8] `indirect` specialized algorithms
 template <class T> void swap(indirect<T>&, indirect<T>&) noexcept;
 
-// [1.1.6] `indirect` casts
+// [1.1.9] `indirect` casts
 template <class T, class U> constexpr indirect<T> static_indirect_cast(const indirect<U>&) noexcept;
 template <class T, class U> constexpr indirect<T> dynamic_indirect_cast(const indirect<U>&);
 template <class T, class U> constexpr indirect<T> const_indirect_cast(const indirect<U>&) noexcept;
 
-// [1.1.7] `indirect` `get_pointer`
+// [1.1.10] `indirect` `get_pointer`
 template <class T> constexpr T* get_pointer(const indirect<T>&) noexcept;
 
-// [1.1.8] `indirect` I/O
+// [1.1.11] `indirect` I/O
 template <class T> ostream& operator<<(ostream&, const indirect<T>&);
 
-// [1.1.9] `indirect` hash support
+// [1.1.12] `indirect` hash support
 template <class T> struct hash;
 template <class T> struct hash<indirect<T>>;
 
-// [1.1.10] `optional_indirect` for object types
+// [1.1.13] `optional_indirect` for object types
 template <class T> class optional_indirect;
 
-// [1.1.11] `optional_indirect` creation
+// [1.1.14] `optional_indirect` creation
 template <class T> optional_indirect<T> make_optional_indirect(T&) noexcept;
 
-// [1.1.12] `optional_indirect` relational operators
+// [1.1.15] `optional_indirect` relational operators
 template <class T1, class T2> constexpr bool operator==(const optional_indirect<T1>&, const optional_indirect<T2>&) noexcept;
 template <class T1, class T2> constexpr bool operator!=(const optional_indirect<T1>&, const optional_indirect<T2>&) noexcept;
 template <class T1, class T2> constexpr bool operator<(const optional_indirect<T1>&, const optional_indirect<T2>&) noexcept;
@@ -739,29 +739,29 @@ template <class T1, class T2> constexpr bool operator<=(const optional_indirect<
 template <class T1, class T2> constexpr bool operator>(const optional_indirect<T1>&, const optional_indirect<T2>&) noexcept;
 template <class T1, class T2> constexpr bool operator>=(const optional_indirect<T1>&, const optional_indirect<T2>&) noexcept;
 
-// [1.1.13] `optional_indirect` comparison with `nullopt`
+// [1.1.16] `optional_indirect` comparison with `nullopt`
 template <class T> constexpr bool operator==(const optional_indirect<T>&, nullopt_t) noexcept;
 template <class T> constexpr bool operator!=(nullopt_t, const optional_indirect<T>&) noexcept;
 
-// [1.1.14] `optional_indirect` comparison with `T&`
+// [1.1.17] `optional_indirect` comparison with `T&`
 template <class T1, class T2> constexpr bool operator==(const optional_indirect<T1>&, T2&) noexcept;
 template <class T1, class T2> constexpr bool operator!=(T1&, const optional_indirect<T2>&) noexcept;
 
-// [1.1.15] `optional_indirect` specialized algorithms
+// [1.1.18] `optional_indirect` specialized algorithms
 template <class T> void swap(optional_indirect<T>&, optional_indirect<T>&) noexcept;
 
-// [1.1.16] `optional_indirect` casts
+// [1.1.19] `optional_indirect` casts
 template <class T, class U> constexpr optional_indirect<T> static_indirect_cast(const optional_indirect<U>&) noexcept;
 template <class T, class U> constexpr optional_indirect<T> dynamic_indirect_cast(const optional_indirect<U>&) noexcept;
 template <class T, class U> constexpr optional_indirect<T> const_indirect_cast(const optional_indirect<U>&) noexcept;
 
-// [1.1.17] `optional_indirect` `get_pointer`
+// [1.1.20] `optional_indirect` `get_pointer`
 template <class T> constexpr T* get_pointer(const optional_indirect<T>&) noexcept;
 
-// [1.1.18] `optional_indirect` I/O
+// [1.1.21] `optional_indirect` I/O
 template <class T> ostream& operator<<(ostream&, const optional_indirect<T>&);
 
-// [1.1.19] `optional_indirect` hash support
+// [1.1.22] `optional_indirect` hash support
 template <class T> struct hash;
 template <class T> struct hash<optional_indirect<T>>;
 
@@ -775,6 +775,101 @@ An instance of `optional_indirect<T>` is said to be _disengaged_ if it has been 
 An instance of `optional<T>` is said to be _engaged_ if it is not disengaged. 
 
 #### 1.1.4 `indirect` for object types
+
+```c++
+namespace std {
+
+template <class T> indirect {
+public:
+  using element_type = T;
+  using const_type = indirect<add_const_t<T>>;
+  
+  // [1.1.4.1] constructors
+  constexpr indirect(T&) noexcept;
+  template <class U> constexpr indirect(indirect<U> const&) noexcept;
+  constexpr explicit indirect(T*);
+  constexpr explicit indirect(optional_indirect<T> const&);
+  template <class U> constexpr explicit indirect(optional_indirect<U> const&);
+
+  // [1.1.4.2] observers
+  constexpr T& operator*() const noexcept;
+  constexpr T* operator->() const noexcept;
+  constexpr explicit operator T*() const noexcept;
+
+  // [1.1.4.3] modifiers
+  void swap(indirect&) noexcept;
+
+  // disabled conversion from rvalue
+  indirect(T&&) = delete;
+  
+private:
+  T* p; // exposition only
+};
+
+} // namespace std
+```
+
+##### 1.1.4.1 `indirect` constructors
+
+```c++
+constexpr indirect(T& r) noexcept;
+```
+* _Effects:_ Constructs an `indirect` that references `r`.
+* _Postconditions:_ `get_pointer(*this) == &r`.
+
+```c++
+template <class U> constexpr indirect(indirect<U> const& i) noexcept;
+```
+* _Effects:_ Constructs an `indirect` that references `*i`.
+* _Postconditions:_ `get_pointer(*this) == get_pointer(i)`.
+* _Remarks:_ This constructor shall not participate in overload resolution unless `U*` is convertible to `T*`.
+
+```c++
+constexpr indirect(T* p);
+```
+* _Effects:_ Constructs an `indirect` that references `*p`.
+* _Postconditions:_ `get_pointer(*this) == p`.
+* _Throws:_ `invalid_argument` if `!p`.
+
+```c++
+constexpr indirect(optional_indirect<T> const& i);
+```
+* _Effects:_ Constructs an `indirect` that references `*i`.
+* _Postconditions:_ `get_pointer(*this) == get_pointer(i)`.
+* _Throws:_ `invalid_argument` if `!i`.
+
+```c++
+template <class U> constexpr indirect(optional_indirect<U> const& i);
+```
+* _Effects:_ Constructs an `indirect` that references `*i`.
+* _Postconditions:_ `get_pointer(*this) == get_pointer(i)`.
+* _Throws:_ `invalid_argument` if `!i`.
+* _Remarks:_ This constructor shall not participate in overload resolution unless `U*` is convertible to `T*`.
+
+##### 1.1.4.2 `indirect` observers
+
+```c++
+constexpr T& operator*() const;
+```
+* _Returns:_ `*get_pointer(*this)`.
+
+```c++
+constexpr T* operator->() const;
+```
+* _Returns:_ `*get_pointer(*this)`.
+* _Note:_ Use typically requires that `T` be a complete type.
+
+```c++
+constexpr explicit operator T*() const noexcept;
+```
+* _Returns:_ Pointer to the referenced object.
+
+##### 1.1.4.3 `indirect` modifiers
+
+```c++
+void swap(indirect& i) noexcept;
+```
+* _Effects:_ Modifies `*this` and `i` such that `*this` now references the object that was referenced by `i` before the `swap` was invoked, and `i` now references the object that was referenced by `*this` before `swap` was invoked.
 
 ## <a name="auxiliary"></a>Auxiliary proposal – the `get_pointer` function
 
