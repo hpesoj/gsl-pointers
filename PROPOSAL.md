@@ -680,6 +680,102 @@ A sample implementation of a version of `propagate_const` with these changes can
 
 ## <a name="technincal"></a>Technical specifications
 
+### 1.1 Indirect types
+
+#### <a name="technical/synopsis"></a>1.1.1 In general
+
+#### <a name="technical/synopsis"></a>1.1.2 Header `<indirect>` synopsis
+
+```c++
+namespace std {
+
+// [1.1.4] `indirect` for object types
+template <class T> class indirect;
+
+// [1.1.4] `indirect` creation
+template <class T> indirect<T> make_indirect(T&) noexcept;
+
+// [1.1.4] `indirect` relational operators
+template <class T1, class T2> constexpr bool operator==(const indirect<T1>&, const indirect<T2>&) noexcept;
+template <class T1, class T2> constexpr bool operator!=(const indirect<T1>&, const indirect<T2>&) noexcept;
+template <class T1, class T2> constexpr bool operator<(const indirect<T1>&, const indirect<T2>&) noexcept;
+template <class T1, class T2> constexpr bool operator<=(const indirect<T1>&, const indirect<T2>&) noexcept;
+template <class T1, class T2> constexpr bool operator>(const indirect<T1>&, const indirect<T2>&) noexcept;
+template <class T1, class T2> constexpr bool operator>=(const indirect<T1>&, const indirect<T2>&) noexcept;
+
+// [1.1.4] `indirect` comparison with `T&`
+template <class T1, class T2> constexpr bool operator==(const indirect<T1>&, T2&) noexcept;
+template <class T1, class T2> constexpr bool operator!=(T1&, const indirect<T2>&) noexcept;
+
+// [1.1.5] `indirect` specialized algorithms
+template <class T> void swap(indirect<T>&, indirect<T>&) noexcept;
+
+// [1.1.6] `indirect` casts
+template <class T, class U> constexpr indirect<T> static_indirect_cast(const indirect<U>&) noexcept;
+template <class T, class U> constexpr indirect<T> dynamic_indirect_cast(const indirect<U>&);
+template <class T, class U> constexpr indirect<T> const_indirect_cast(const indirect<U>&) noexcept;
+
+// [1.1.7] `indirect` `get_pointer`
+template <class T> constexpr T* get_pointer(const indirect<T>&) noexcept;
+
+// [1.1.8] `indirect` I/O
+template <class T> ostream& operator<<(ostream&, const indirect<T>&);
+
+// [1.1.9] `indirect` hash support
+template <class T> struct hash;
+template <class T> struct hash<indirect<T>>;
+
+// [1.1.10] `optional_indirect` for object types
+template <class T> class optional_indirect;
+
+// [1.1.11] `optional_indirect` creation
+template <class T> optional_indirect<T> make_optional_indirect(T&) noexcept;
+
+// [1.1.12] `optional_indirect` relational operators
+template <class T1, class T2> constexpr bool operator==(const optional_indirect<T1>&, const optional_indirect<T2>&) noexcept;
+template <class T1, class T2> constexpr bool operator!=(const optional_indirect<T1>&, const optional_indirect<T2>&) noexcept;
+template <class T1, class T2> constexpr bool operator<(const optional_indirect<T1>&, const optional_indirect<T2>&) noexcept;
+template <class T1, class T2> constexpr bool operator<=(const optional_indirect<T1>&, const optional_indirect<T2>&) noexcept;
+template <class T1, class T2> constexpr bool operator>(const optional_indirect<T1>&, const optional_indirect<T2>&) noexcept;
+template <class T1, class T2> constexpr bool operator>=(const optional_indirect<T1>&, const optional_indirect<T2>&) noexcept;
+
+// [1.1.13] `optional_indirect` comparison with `nullopt`
+template <class T> constexpr bool operator==(const optional_indirect<T>&, nullopt_t) noexcept;
+template <class T> constexpr bool operator!=(nullopt_t, const optional_indirect<T>&) noexcept;
+
+// [1.1.14] `optional_indirect` comparison with `T&`
+template <class T1, class T2> constexpr bool operator==(const optional_indirect<T1>&, T2&) noexcept;
+template <class T1, class T2> constexpr bool operator!=(T1&, const optional_indirect<T2>&) noexcept;
+
+// [1.1.15] `optional_indirect` specialized algorithms
+template <class T> void swap(optional_indirect<T>&, optional_indirect<T>&) noexcept;
+
+// [1.1.16] `optional_indirect` casts
+template <class T, class U> constexpr optional_indirect<T> static_indirect_cast(const optional_indirect<U>&) noexcept;
+template <class T, class U> constexpr optional_indirect<T> dynamic_indirect_cast(const optional_indirect<U>&) noexcept;
+template <class T, class U> constexpr optional_indirect<T> const_indirect_cast(const optional_indirect<U>&) noexcept;
+
+// [1.1.17] `optional_indirect` `get_pointer`
+template <class T> constexpr T* get_pointer(const optional_indirect<T>&) noexcept;
+
+// [1.1.18] `optional_indirect` I/O
+template <class T> ostream& operator<<(ostream&, const optional_indirect<T>&);
+
+// [1.1.19] `optional_indirect` hash support
+template <class T> struct hash;
+template <class T> struct hash<optional_indirect<T>>;
+
+} // namespace std
+```
+
+#### 1.1.3 Definitions
+
+An instance of `optional_indirect<T>` is said to be _disengaged_ if it has been default constructed, constructed with or assigned with a value of type `nullopt_t`, constructed with or assigned with a disengaged indirect object of type `indirect_optional<T>`.
+
+An instance of `optional<T>` is said to be _engaged_ if it is not disengaged. 
+
+#### 1.1.4 `indirect` for object types
+
 ## <a name="auxiliary"></a>Auxiliary proposal – the `get_pointer` function
 
 ## <a name="acknoledgements"></a>Acknowledgements
