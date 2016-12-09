@@ -80,7 +80,7 @@ Take the following data member declaration:
   widget* component;
 ```
 
-We can't be sure what `component` represents, because pointers are multi-purpose. It may represent a single `widget` or an array of `widget`s; it may or may not have ownership of the `widget` it points to; and it may or may not be valid to set it to the null state. We have to look at the wider context to understand what it actually represents. However, if we use `indirect`:
+It isn't clear what `component` represents because pointers are multi-purpose. It may represent a single `widget` or an array of `widget`s, it may or may not have ownership of the `widget` it points to, and a null `component` may or may not be valid. We have to look at the wider context to understand what it actually represents. However, if we use `indirect`:
 
 ```c++
   indirect<widget> component;
@@ -92,7 +92,7 @@ We now know _immediately_, without looking at any other code, that `component` i
 * Plenty of existing code doesn't follow this convention; even if everyone followed convention from this point forward, you still cannot make the assumption that `T*` always means "a non-owning reference to `T`".
 * Low-level code (new and existing) necessarily uses `T*` to mean all sorts of things; even if all new and old code followed the convention where appropriate, there would still be code where `T*` does not mean "a non-owning reference to `T`", so you _still_ cannot make that assumption.
 
-Conversely, wherever you see `indirect<T>` in some code, you _know_ that it means "a non-owning reference to `T`". Explicitly documenting intent is generally better than letting readers of your code make assumptions about your intent.
+Conversely, wherever you see `indirect<T>`, you _know_ that it is a non-owning reference to `T`. Explicitly documenting intent is generally better than letting readers of your code make assumptions about your intent.
 
 In addition to documentation of intent, we get compile-time assurances that we didn't with a pointer:
 
@@ -110,16 +110,7 @@ component += 1;        // not an iterator
 delete component;      // not an owner
 ```
 
-We consider code correctness to be of high importance, and believe the ability to misuse pointers comes from their suboptimal design as non-owning reference types. A well-designed type is _efficient_ and has an API that is _minimal_ yet _expressive_ and _hard to use incorrectly_. Pointers as non-owning reference types may be efficient and do have a somewhat expressive API, but their API is not minimal and is very easy to use incorrectly. Case in point, this is syntactically correct but logically incorrect code:
-
-```c++
-int i = 0;
-int* p = &i;
-p += 1; // did I mean `*p += 1`?
-*p = 42; // undefined behaviour
-```
-
-`indirect<T>` is _as_ efficient as `T*`, and has been _purpose-designed_ as a non-owning reference type to have a minimal API that is expressive and hard to use incorrectly.
+We consider code correctness to be of high importance, and believe the ability to misuse pointers comes from their suboptimal design as non-owning reference types. A well-designed type is _efficient_ and has an API that is _minimal_ yet _expressive_ and _hard to use incorrectly_. Pointers as non-owning reference types may be efficient and do have a somewhat expressive API, but their API is not minimal and is very easy to use incorrectly. `indirect<T>` is _as_ efficient as `T*`, and has been _purpose-designed_ as a non-owning reference type to have a minimal API that is expressive and hard to use incorrectly.
 
 #### <a name="motivation/why-not-ref"></a>Why not `T&`?
 
@@ -129,7 +120,7 @@ Take the following data member declaration:
   widget& component;
 ```
 
-Just as with `indirect<widget>`, we know that `component` is a non-owning reference to a `widget`; there is no other meaning of `widget&`. In addition, we get all the previously listed compile-time assurances provided by `indirect<widget>`. However, `indirect<T>` offers different advantages over `T&`:
+Just as with `indirect<widget>`, we know that `component` is a non-owning reference to a `widget` (there is no other possible use of `widget&` in this context). In addition, we get all the previously listed compile-time assurances provided by `indirect<widget>`. However, `indirect<T>` offers different advantages over `T&`:
 
 * `indirect<T>` can be "rebound" to reference different objects after construction
 * `indirect<T>` can be stored in arrays and standard library containers
@@ -138,7 +129,7 @@ The inability to "rebind" `T&` also means that any class with reference data mem
 
 If we consider the design of `T&` in the same way that we considered that of `T*`, we would say that `T&` is efficient and has a minimal API that is hard to use correctly but lacks expressive power (it cannot be rebound or pointed to). `indirect<T>` is _as_ efficient as `T&`, and has been _purpose-designed_ as a non-owning reference type to have a minimal API that is expressive and hard to use incorrectly.
 
-However, unlike `T*`, `T&` still has legitimate uses in high-level code. Indeed, the reasons to use `indirect<T>` over `T&` are the same as the reasons to use `T*` over `T&` (it's just there are further reasons to use `indirect<T>` over `T*`). This is because `indirect<T>` is semantically more similar to `T*` than to `T&`. The most obvious instance in which `indirect<T>` should _not_ be used in place of `T&` is when taking function parameters by const reference, since `indirect<T>` cannot be constructed from an rvalue:
+However, unlike with `T*`, there are still legitimate uses for `T&` in high-level code. Indeed, the reasons to use `indirect<T>` over `T&` are the same as the reasons to use `T*` over `T&` (it's just there are further reasons to use `indirect<T>` over `T*`). This is because `indirect<T>` is semantically more similar to `T*` than to `T&`. For example, `indirect<T>` should generally _not_ be used in place of `T&` as a function parameter when passing by const reference, as this would proclude passing rvalues as arguments:
 
 ```c++
 void f(foo const&);
@@ -148,7 +139,7 @@ f(make_foo()); // a-okay
 g(make_foo()); // error: `indirect(indirect&&)` is deleted
 ```
 
-Pass by const reference is generally employed as an _optimization_ to avoid making an unnecessary copy of an object that would otherwise be passed by value. Conversely, `indirect<T>` should replace `T&` as a function parameter when what you really want is a `T*` but you are using `T&` to eliminate the possibility of a null pointer. For example, this:
+Passing by const reference is an _optimization_ that avoids making an unnecessary copy of an object that would otherwise be passed by value. However, `indirect<T>` _should_ replace `T&` as a function parameter when what you really want is a `T*` but you are using `T&` to eliminate the possibility of a null pointer. For example:
 
 ```c++
 class foo 
@@ -158,7 +149,7 @@ public:
 };
 ```
 
-Would be improved by using `indirect`:
+This would be improved by using `indirect`:
 
 ```c++
 class foo 
@@ -168,7 +159,7 @@ public:
 };
 ```
 
-Another example where `indirect<T>` should not be used in place of `T&` is with the array subscript operator. Usually, `operator[]` returns `T&` because its value semantics mean that it can largely be treated as if it _were_ `T`. Returning `indirect<T>` in this case would be akin to returning `T*`, and would not provide the same level of syntactic transparency. In cases like this, the decision to use either `T&` or `indirect<T>` depends on whether you want value or reference semantics.
+Another example of an inappropriate use of `indirect<T>` is in place of `T&` as the return type of an array subscript operator. Usually, `operator[]` returns `T&` because its value semantics allow it to be treated as if it _were_ `T`. Returning `indirect<T>` in this case would be akin to returning `T*`, and would not provide the same level of syntactic transparency.
 
 #### <a name="motivation/why-not-reference_wrapper"></a>Why not `reference_wrapper<T>`?
 
@@ -185,7 +176,7 @@ set<indirect<int>> s{begin(i), end(i)};
 assert(s.size() == 5);
 ```
 
-A `set` of `indirect<T>` behaves rather like a `set` of `T*`: the value of an `indirect<T>` is the address of the object to which it refers, so even objects that have the same value are stored as unique entries in the `set`. Conversely:
+`set<indirect<T>>` behaves rather like `set<T*>`: the value of an `indirect<T>` or a `T*` is the the _identity_ (memory address) of the `T` object, so different objects that have the same value are stored as unique entries in the `set`. In contrast:
 
 ```c++
 int i[] = { 1, 1, 2, 3, 5 };
@@ -193,17 +184,9 @@ set<reference_wrapper<int>> s{begin(i), end(i)};
 assert(s.size() == 4);
 ```
 
-A `set` of `reference_wrapper<T>` behaves rather like a `set` of `T`: the value of a `reference_wrapper<T>` is the value of the object to which it refers, so objects that have the same value cannot be stored in the set simultaneously.
+`set<reference_wrapper<T>>` behaves rather like `set<T>`: the value of a `reference_wrapper<T>` or a `T` is the _value_ of the `T` object, so different objects that have the same value cannot exist in the set simultaneously. The difference is that a `set<reference_wrapper<T>>` does not own the objects it contains.
 
-In addition, `reference_wrapper<T>` converts implicitly to `T&`, which means that, like `T&`, it behaves in many other ways like `T`. For example:
-
-```c++
-int i = {};
-auto r = ref(i);
-auto j = r++; // effect: `int j = i++`
-```
-
-There are several other ways in which the design of `indirect<T>` is different from `reference_wrapper<T>`, but this is not surprising since `indirect<T>` is designed to have pointer-like semantics while `reference_wrapper<T>` is designed to have reference-like semantics (with the exception of assignment).
+There are several other ways in which `indirect<T>` differs from `reference_wrapper<T>`, but this is not surprising since `indirect<T>` is designed to have mostly pointer-like semantics while `reference_wrapper<T>` is designed to have mostly reference-like semantics.
 
 #### <a name="motivation/why-not-optional-ref"></a>Why not `optional<T&>`?
 
@@ -211,11 +194,11 @@ Aside from the fact that it has not yet been standardized, the design of `option
 
 #### <a name="motivation/why-not-observer_ptr"></a>Why not `observer_ptr<T>`?
 
-Both `indirect` and [`observer_ptr`](http://en.cppreference.com/w/cpp/experimental/observer_ptr) (proposed in [N4282](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n4282.pdf)) are pointer-like types intended to replace `T*` when it represents a single object of type `T` without implying ownership. The stated objective of `observer_ptr` is as a "vocabulary type", a type that documents the author's intended purpose. Given that documentation of intent is a significant aim of this proposal, it seems that there is substantial overlap of the objectives of this proposal and those of N4282.
+Both `indirect` and [`observer_ptr`](http://en.cppreference.com/w/cpp/experimental/observer_ptr) (proposed in [N4282](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n4282.pdf)) are pointer-like types intended to replace `T*` wherever it represents a single object of type `T` without implying ownership. The stated objective of `observer_ptr` is as a "vocabulary type"—a type that documents the author's intended purpose. Given that documentation of intent is a significant aim of this proposal, it seems that there is substantial overlap of the objectives of this proposal and those of N4282.
 
-The fundamental difference between `indirect` and `observer_ptr` is that the design of the latter seems to have been based on `unique_ptr`. We would argue that, while such a design is suitable for a pointer-like type that manages the lifetime of the object to which it points (a.k.a. a "smart pointer"), it is not optimal for a non-owning pointer-like type. We believe that `indirect` is better suited to its intended purpose than `observer_ptr`.
+The fundamental difference between `indirect` and `observer_ptr` is that the latter seems to be based on `unique_ptr`. We would argue that, while such a design is suitable for a pointer-like type that manages the lifetime of the object to which it refers (a "smart pointer"), it is sub-optimal for a non-owning pointer-like type. We believe that `indirect` is better suited to its intended purpose than `observer_ptr`.
 
-Firstly, like `unique_ptr<T>`, `observer_ptr<T>` required explicit construction from `T*`, which makes for code that is somewhat verbose:
+Firstly, like `unique_ptr<T>`, the only way to construct an `observer_ptr<T>` is by explicit construction from `T*`:
 
 ```c++
 foo f, g;
@@ -235,7 +218,9 @@ assert(i == g);
 i->bar();
 ```
 
-However, the most significant difference between `indirect` and `observer_ptr` is the fact that `indirect<T>` lacks a "null" state. With `indirect<T>` there is a compile-time assurance that it _must_ refer to an object of type `T`. There is no counterpart to `observer_ptr<T>` that provides the same compile-time assurance. Meanwhile, `optional_indirect<T>` is provided as the counterpart to `indirect<T>` with a "null" state.
+Conversion from `T&` would be wrong for an owning smart pointer, as `T&` is never used to transfer ownership of a dynamic resource. However, there is no reason why it shouldn't be allowed when ownership is not transferred (see [Conversion from `T&`](#design/conversion/from-lvalue-ref). 
+
+However, the most significant difference between `indirect` and `observer_ptr` is that `indirect<T>` lacks a "null" state. With `indirect<T>` there is a compile-time assurance that it _must_ refer to an object of type `T`. There is no counterpart to `observer_ptr<T>` that provides the same compile-time assurance. Meanwhile, `optional_indirect<T>` is provided as the counterpart to `indirect<T>` with a "null" state.
 
 There are a number of other differences between `indirect`/`optional_indirect` and `observer_ptr`, but they are less important:
 
@@ -244,40 +229,34 @@ There are a number of other differences between `indirect`/`optional_indirect` a
 * `optional_indirect<T>` has the "safe" accessor function `value` which throws if called on an empty `optional_indirect`.
 * `indirect<T>` and `optional_indirect<T>` have cast operations `static_indirect_cast`, `dynamic_indirect_cast` and `const_indirect_cast`.
 
-Of course, this proposal and N4282 do not conflict in any technical way. It is entirely possible for both types to coexist. However, we feel that it may be confusing to have two standard types which solve essentially the same problem. Of course, if there is a case to be made for a non-owning pointer-like type with a "smart pointer"-esque design, we would certainly like to hear it.
+Of course, this proposal and N4282 do not conflict in any technical way, so it is entirely possible for both types to coexist. However, we feel that it may be confusing to have two types in the standard that solve essentially the same problem. Of course, if there is a case to be made for a non-owning pointer-like type with a "smart pointer" design, we would certainly like to hear it.
 
 As an addendum, we have a few observations on the current design of `observer_ptr`:
 
 * While the `release` function makes sense for `unique_ptr` as a way to atomically transfer ownership from a `unique_ptr<T>` to a `T*`, it makes little sense for `observer_ptr` as it does not own the object to which it points.
-* The `make_observer` function currently takes a `T*`. We believe it would be more consistent for it to take a `T&`, given that neither `make_unique` not `make_shared` takes a `T*`.
+* The `make_observer` function currently takes a `T*`; we believe it would be more consistent for it to take a `T&`, given that neither `make_unique` not `make_shared` takes a `T*`.
 
 #### <a name="motivation/why-not-not_null"></a>Why not `not_null<T*>`?
 
-Aside from the fact that it is not proposed for inclusion in the standard, the [GSL](https://github.com/Microsoft/GSL) adapter type [`not_null<T*>`](https://github.com/Microsoft/GSL/blob/master/gsl/gsl) is essentially just a `T*` that [should not be null](https://github.com/Microsoft/GSL/issues/417). Just like `T*`, `not_null<T*>` could represent any of a range of things (e.g. a single object, an array, a string, an iterator, an owned resource). Conversely, `indirect<T>` only ever represents a non-owning reference to a single object of type `T`.
+Aside from the fact that it is not currently proposed for inclusion in the standard, the [Guideline Support Library](https://github.com/Microsoft/GSL)'s [`not_null<T*>`](https://github.com/Microsoft/GSL/blob/master/gsl/gsl) adapter is essentially just a `T*` that [should not be null](https://github.com/Microsoft/GSL/issues/417). Just like `T*`, `not_null<T*>` could represent any of a range of things (e.g. a single object, an array, a string, an iterator). Conversely, `indirect<T>` only ever represents a non-owning reference to a single object of type `T`.
+
+The one case we can see `not_null<T*>` being used in place of `indirect<T>` is in legacy APIs where a function has a `T*` parameter that should not take a null argument. Replacing `T*` with `indirect<T>` would cause existing client code to fail to compile, as `T*` is not convertible to `indirect<T>`. Replacing `T*` with `not_null<T*>` may give some degree of compile-time and/or run-time enforcement of this "not null" precondition without breaking client code.
 
 #### <a name="motivation/why-not-not_null_observer_ptr"></a>Why not `not_null<observer_ptr<T>>`?
 
-Since `observer_ptr<T>` performs roughly the same function as `optional_indirect<T>`, and `indirect<T>` is essentially a "not null" `optional_indirect<T>`, presumably `not_null<observer_ptr<T>>` could perform roughly the same function as `indirect<T>`. Therefore, why not use `not_null<observer_ptr<T>>` and `observer_ptr<T>` instead of `indirect<T>` and `optional_indirect<T>`?
-
-The practical problem with this approach is that it is not safe to convert from `observer_ptr<T>` to `not_null<observer_ptr<T>>`. For example:
+Since `observer_ptr<T>` performs roughly the same function as `optional_indirect<T>`, and `indirect<T>` is essentially a "not null" `optional_indirect<T>`, presumably `not_null<observer_ptr<T>>` could perform roughly the same function as `indirect<T>`. The problem is that conversion from `observer_ptr<T>` to `not_null<observer_ptr<T>>` is not safe. For example:
 
 ```c++
-not_null<observer_ptr<foo>> o{make_observer(&f)}; // unnecessary run-time check for "null"
+observer_ptr<foo> o = make_observer(&f)}; // safe
+not_null<observer_ptr<foo>> n{o}; // unsafe
 ```
 
-Using `indirect<T>` does not incur such a run-time cost, nor does conversion from `indirect<T>` to `optional<indirect<T>>`:
+`not_null` is designed to be used by static analysis tools, and this basic usage would be flagged as unsafe by such a tool, because as far as it knows, the `observer_ptr` returned by `make_observer` _could_ be null. Of course, such tools could make an explicit exception for `make_observer`, but we interpret this issue as an indication that we have things the wrong way around. If the "not null" case is the default, as with `indirect`, no such problems arise:
 
 ```c++
-optional<indirect<foo>> o = make_indirect(f); // no run-time check
+indirect<foo> i = f; // safe
+optional<indirect<foo>> o = i; // safe
 ```
-
-Of course, `optional_indirect` is provided to address other problems with `optional<indirect<T>>`, so perhaps it would be possible to provide a counterpart to address the problems with `not_null<observer_ptr<T>>`:
-
-```c++
-not_null_observer_ptr<foo> o = make_not_null_observer(f); // no run-time check
-```
-
-However, at this point we have two types that are essentially `indirect` and `optional_indirect` with different names and slightly different designs.
 
 ## <a name="impact"></a>Impact on the standard
 
@@ -514,7 +493,7 @@ indirect<int> ii = i;
 auto p = get_pointer(ii); // `decltype(p)` is `int*`
 ```
 
-Current standard library smart pointer types `unique_ptr` and `shared_ptr` both provide a `get` member function to serve this purpose. We were concerned that the name `get` for a function returning a raw pointer would be both insufficiently descriptive for a type whose name does not contain the suffix `_ptr` (see the ["Naming" section](#design/naming)), and have unexpected behaviour for a type which is likely to be initialized from `T&` rather than `T*`, especially for users who are familiar with `reference_wrapper`, whose `get` function returns `T&`:
+Current standard library smart pointer types `unique_ptr` and `shared_ptr` both provide a `get` member function to serve this purpose. We were concerned that the name `get` for a function returning a raw pointer would be both insufficiently descriptive for a type whose name does not contain the suffix `_ptr` (see [Naming](#design/naming)), and have unexpected behaviour for a type which is likely to be initialized from `T&` rather than `T*`, especially for users who are familiar with `reference_wrapper`, whose `get` function returns `T&`:
 
 ```c++
 int i = {};
@@ -675,6 +654,12 @@ A sample implementation of a version of `propagate_const` with these changes can
 ### <a name="design/operator-dot"></a>Use of inheritance by delegation ("`operator.` overloading")
 
 ### <a name="design/optional"></a>The case for `optional_indirect`
+
+While `optional<indirect<T>>` is certainly functional as an optional `indirect<T>`, it has a few issues.
+
+Firstly, the size of an `optional<indirect<T>>` is generally twice that of an `indirect<T>`. This is because `optional<T>` is typically implemented using a `bool` data member to indicate whether it is _engaged_. Since `indirect<T>` is typically implemented as a `T*` and does not use the null pointer state, `optional<indirect<T>>` would ideally use the null state to represent its _disengaged_ state. However, such a specialization would not be possible because `optional<T>` must provide access to the underlying `T` object (via `operator*`, `operator->` and `value`).
+
+Secondly, the syntax 
 
 ### <a name="design/naming"></a>Naming
 
