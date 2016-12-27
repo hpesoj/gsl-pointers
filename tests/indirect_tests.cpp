@@ -240,7 +240,7 @@ SCENARIO("`indirect` and `optional_indirect` are trivially copyable")
     //CHECK(std::is_trivially_copyable<optional_indirect<int const>>::value);
 }
 
-SCENARIO("indirects can be constructed`")
+SCENARIO("indirects can be constructed")
 {
     FOR_EACH_TYPE(value_t, int, int const)
     {
@@ -267,48 +267,6 @@ SCENARIO("indirects can be constructed`")
                     }
                 }
 
-                GIVEN("a indirect explicitly constructed from a pointer")
-                {
-                    final_t v{&i};
-
-                    REQUIRE(v == i);
-                    REQUIRE(v != j);
-                }
-
-                GIVEN("a indirect explicitly constructed from a null pointer")
-                {
-                    IF(is_indirect_v<indirect_t>)
-                    {
-                        REQUIRE_THROWS(final_t v{static_cast<value_t*>(nullptr)});
-                    } END_IF
-
-                    IF(is_optional_indirect_v<indirect_t>)
-                    {
-                        final_t v{static_cast<value_t*>(nullptr)};
-
-                        REQUIRE(!v);
-                        REQUIRE(v != i);
-                        REQUIRE(v != j);
-                    } END_IF
-                }
-
-                GIVEN("a indirect explicitly constructed from a `nullptr`")
-                {
-                    IF(is_indirect_v<indirect_t>)
-                    {
-                        REQUIRE_THROWS(final_t v{nullptr});
-                    } END_IF
-
-                    IF(is_optional_indirect_v<indirect_t>)
-                    {
-                        final_t v{nullptr};
-
-                        REQUIRE(!v);
-                        REQUIRE(v != i);
-                        REQUIRE(v != j);
-                    } END_IF
-                }
-
                 IF(is_optional_indirect_v<indirect_t>)
                 {
                     GIVEN("a default constructed indirect")
@@ -316,7 +274,7 @@ SCENARIO("indirects can be constructed`")
                         final_t v;
 
                         REQUIRE(!v);
-                        REQUIRE(v == nullopt);
+                        REQUIRE(v == nullref);
 
                         WHEN("it is assigned a reference")
                         {
@@ -324,14 +282,14 @@ SCENARIO("indirects can be constructed`")
 
                             REQUIRE(v);
                             REQUIRE(v == i);
-                            REQUIRE(v != nullopt);
+                            REQUIRE(v != nullref);
 
                             THEN("it is assigned an empty indirect")
                             {
                                 v = {};
 
                                 REQUIRE(!v);
-                                REQUIRE(v == nullopt);
+                                REQUIRE(v == nullref);
                                 REQUIRE(v != i);
                             }
                         }
@@ -342,7 +300,7 @@ SCENARIO("indirects can be constructed`")
                         final_t v = {};
 
                         REQUIRE(!v);
-                        REQUIRE(v == nullopt);
+                        REQUIRE(v == nullref);
                     }
                 } END_IF
             } NEXT_TYPE
