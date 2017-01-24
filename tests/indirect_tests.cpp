@@ -274,7 +274,7 @@ SCENARIO("indirects can be constructed")
                         final_t v;
 
                         REQUIRE(!v);
-                        REQUIRE(v == nullref);
+                        REQUIRE(v == nullind);
 
                         WHEN("it is assigned a reference")
                         {
@@ -282,14 +282,14 @@ SCENARIO("indirects can be constructed")
 
                             REQUIRE(v);
                             REQUIRE(v == i);
-                            REQUIRE(v != nullref);
+                            REQUIRE(v != nullind);
 
                             THEN("it is assigned an empty indirect")
                             {
                                 v = {};
 
                                 REQUIRE(!v);
-                                REQUIRE(v == nullref);
+                                REQUIRE(v == nullind);
                                 REQUIRE(v != i);
                             }
                         }
@@ -300,7 +300,7 @@ SCENARIO("indirects can be constructed")
                         final_t v = {};
 
                         REQUIRE(!v);
-                        REQUIRE(v == nullref);
+                        REQUIRE(v == nullind);
                     }
                 } END_IF
             } NEXT_TYPE

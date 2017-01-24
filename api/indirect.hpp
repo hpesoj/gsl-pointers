@@ -203,15 +203,15 @@ struct hash<indirect<T>>
 } // namespace std
 
 //=========
-// nullref
+// nullind
 //=========
 
-struct nullref_t
+struct nullind_t
 {
-    constexpr explicit nullref_t(int) noexcept {}
+    constexpr explicit nullind_t(int) noexcept {}
 };
 
-constexpr nullref_t nullref{ 0 };
+constexpr nullind_t nullind{ 0 };
 
 //===================
 // optional_indirect
@@ -239,7 +239,7 @@ public:
     {
     }
 
-    constexpr optional_indirect(nullref_t) noexcept :
+    constexpr optional_indirect(nullind_t) noexcept :
         target()
     {
     }
@@ -372,13 +372,13 @@ constexpr bool operator==(T1& lhs, optional_indirect<T2> const& rhs) noexcept
 }
 
 template <typename T>
-constexpr bool operator==(optional_indirect<T> const& lhs, nullref_t) noexcept
+constexpr bool operator==(optional_indirect<T> const& lhs, nullind_t) noexcept
 {
     return !lhs;
 }
 
 template <typename T>
-constexpr bool operator==(nullref_t, optional_indirect<T> const& rhs) noexcept
+constexpr bool operator==(nullind_t, optional_indirect<T> const& rhs) noexcept
 {
     return !rhs;
 }
@@ -414,15 +414,15 @@ constexpr bool operator!=(T1& lhs, optional_indirect<T2> const& rhs) noexcept
 }
 
 template <typename T>
-constexpr bool operator!=(optional_indirect<T> const& lhs, nullref_t) noexcept
+constexpr bool operator!=(optional_indirect<T> const& lhs, nullind_t) noexcept
 {
-    return !(lhs == nullref);
+    return !(lhs == nullind);
 }
 
 template <typename T>
-constexpr bool operator!=(nullref_t, optional_indirect<T> const& rhs) noexcept
+constexpr bool operator!=(nullind_t, optional_indirect<T> const& rhs) noexcept
 {
-    return !(nullref == rhs);
+    return !(nullind == rhs);
 }
 
 template <typename T1, typename T2>
