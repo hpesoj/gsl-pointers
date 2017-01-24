@@ -22,8 +22,8 @@
 
 #pragma once
 
-#ifndef INDIRECT_HPP
-#define INDIRECT_HPP
+#ifndef OBSERVER_HPP
+#define OBSERVER_HPP
 
 #include <functional>
 #include <iosfwd>
@@ -31,35 +31,35 @@
 #include <utility>
 
 //==========
-// indirect
+// observer
 //==========
 
 template <typename T>
-class indirect;
+class observer;
 
 template <typename T>
-constexpr T* get_pointer(indirect<T> const&) noexcept;
+constexpr T* get_pointer(observer<T> const&) noexcept;
 
 template <typename T>
-class indirect
+class observer
 {
 public:
     using element_type = T;
-    using const_type = indirect<std::add_const_t<T>>;
+    using const_type = observer<std::add_const_t<T>>;
 
 private:
     T* target;
 
 public:
-    constexpr indirect(T& r) noexcept :
+    constexpr observer(T& r) noexcept :
         target(&r)
     {
     }
 
-    constexpr indirect(T&&) noexcept = delete;
+    constexpr observer(T&&) noexcept = delete;
 
     template <typename U, typename = std::enable_if_t<std::is_convertible<U*, T*>::value>>
-    constexpr indirect(indirect<U> const& i) noexcept :
+    constexpr observer(observer<U> const& i) noexcept :
         target(get_pointer(i))
     {
     }
@@ -79,7 +79,7 @@ public:
         return target;
     }
 
-    void swap(indirect& other) noexcept
+    void swap(observer& other) noexcept
     {
         using std::swap;
         swap(target, other.target);
@@ -87,103 +87,103 @@ public:
 };
 
 template <typename T>
-constexpr indirect<T> make_indirect(T& r) noexcept
+constexpr observer<T> make_observer(T& r) noexcept
 {
     return r;
 }
 
 template <typename T, typename U>
-constexpr indirect<T> static_indirect_cast(indirect<U> const& i) noexcept
+constexpr observer<T> static_observer_cast(observer<U> const& i) noexcept
 {
     return static_cast<T&>(*i);
 }
 
 template <typename T, typename U>
-constexpr indirect<T> dynamic_indirect_cast(indirect<U> const& i)
+constexpr observer<T> dynamic_observer_cast(observer<U> const& i)
 {
     return dynamic_cast<T&>(*i);
 }
 
 template <typename T, typename U>
-constexpr indirect<T> const_indirect_cast(indirect<U> const& i) noexcept
+constexpr observer<T> const_observer_cast(observer<U> const& i) noexcept
 {
     return const_cast<T&>(*i);
 }
 
 template <typename T>
-constexpr T* get_pointer(indirect<T> const& i) noexcept
+constexpr T* get_pointer(observer<T> const& i) noexcept
 {
     return static_cast<T*>(i);
 }
 
 template <typename T>
-void swap(indirect<T>& lhs, indirect<T>& rhs)
+void swap(observer<T>& lhs, observer<T>& rhs)
 {
     lhs.swap(rhs);
 }
 
 template <typename T1, typename T2>
-constexpr bool operator==(indirect<T1> const& lhs, indirect<T2> const& rhs) noexcept
+constexpr bool operator==(observer<T1> const& lhs, observer<T2> const& rhs) noexcept
 {
     return get_pointer(lhs) == get_pointer(rhs);
 }
 
 template <typename T1, typename T2, std::enable_if_t<std::is_convertible<T1*, T2*>::value || std::is_convertible<T2*, T1*>::value, int> = 0>
-constexpr bool operator==(indirect<T1> const& lhs, T2& rhs) noexcept
+constexpr bool operator==(observer<T1> const& lhs, T2& rhs) noexcept
 {
     return get_pointer(lhs) == &rhs;
 }
 
 template <typename T1, typename T2, std::enable_if_t<std::is_convertible<T1*, T2*>::value || std::is_convertible<T2*, T1*>::value, int> = 0>
-constexpr bool operator==(T1& lhs, indirect<T2> const& rhs) noexcept
+constexpr bool operator==(T1& lhs, observer<T2> const& rhs) noexcept
 {
     return &lhs == get_pointer(rhs);
 }
 
 template <typename T1, typename T2>
-constexpr bool operator!=(indirect<T1> const& lhs, indirect<T2> const& rhs) noexcept
+constexpr bool operator!=(observer<T1> const& lhs, observer<T2> const& rhs) noexcept
 {
     return !(lhs == rhs);
 }
 
 template <typename T1, typename T2, std::enable_if_t<std::is_convertible<T1*, T2*>::value || std::is_convertible<T2*, T1*>::value, int> = 0>
-constexpr bool operator!=(indirect<T1> const& lhs, T2& rhs) noexcept
+constexpr bool operator!=(observer<T1> const& lhs, T2& rhs) noexcept
 {
     return !(lhs == rhs);
 }
 
 template <typename T1, typename T2, std::enable_if_t<std::is_convertible<T1*, T2*>::value || std::is_convertible<T2*, T1*>::value, int> = 0>
-constexpr bool operator!=(T1& lhs, indirect<T2> const& rhs) noexcept
+constexpr bool operator!=(T1& lhs, observer<T2> const& rhs) noexcept
 {
     return !(lhs == rhs);
 }
 
 template <typename T1, typename T2>
-constexpr bool operator<(indirect<T1> const& lhs, indirect<T2> const& rhs) noexcept
+constexpr bool operator<(observer<T1> const& lhs, observer<T2> const& rhs) noexcept
 {
     return std::less<std::common_type_t<T1*, T2*>>()(get_pointer(lhs), get_pointer(rhs));
 }
 
 template <typename T1, typename T2>
-constexpr bool operator>(indirect<T1> const& lhs, indirect<T2> const& rhs) noexcept
+constexpr bool operator>(observer<T1> const& lhs, observer<T2> const& rhs) noexcept
 {
     return rhs < lhs;
 }
 
 template <typename T1, typename T2>
-constexpr bool operator<=(indirect<T1> const& lhs, indirect<T2> const& rhs) noexcept
+constexpr bool operator<=(observer<T1> const& lhs, observer<T2> const& rhs) noexcept
 {
     return !(rhs < lhs);
 }
 
 template <typename T1, typename T2>
-constexpr bool operator>=(indirect<T1> const& lhs, indirect<T2> const& rhs) noexcept
+constexpr bool operator>=(observer<T1> const& lhs, observer<T2> const& rhs) noexcept
 {
     return !(lhs < rhs);
 }
 
 template <typename T>
-std::ostream& operator<<(std::ostream& s, indirect<T> const& i)
+std::ostream& operator<<(std::ostream& s, observer<T> const& i)
 {
     return s << get_pointer(i);
 }
@@ -192,9 +192,9 @@ namespace std
 {
 
 template <typename T>
-struct hash<indirect<T>>
+struct hash<observer<T>>
 {
-    constexpr std::size_t operator()(indirect<T> const& i) const noexcept
+    constexpr std::size_t operator()(observer<T> const& i) const noexcept
     {
         return hash<T*>()(get_pointer(i));
     }
@@ -202,78 +202,62 @@ struct hash<indirect<T>>
 
 } // namespace std
 
-//=========
-// nullind
-//=========
-
-struct nullind_t
-{
-    constexpr explicit nullind_t(int) noexcept {}
-};
-
-constexpr nullind_t nullind{ 0 };
-
-//===================
-// optional_indirect
-//===================
+//==============
+// observer_ptr
+//==============
 
 template <typename T>
-class optional_indirect;
+class observer_ptr;
 
 template <typename T>
-constexpr T* get_pointer(optional_indirect<T> const&) noexcept;
+constexpr T* get_pointer(observer_ptr<T> const&) noexcept;
 
 template <typename T>
-class optional_indirect
+class observer_ptr
 {
 public:
     using element_type = T;
-    using const_type = optional_indirect<T const>;
+    using const_type = observer_ptr<T const>;
 
 private:
     T* target;
 
 public:
-    constexpr optional_indirect() noexcept :
+    constexpr observer_ptr() noexcept :
         target()
     {
     }
 
-    constexpr optional_indirect(nullind_t) noexcept :
-        target()
-    {
-    }
-
-    constexpr optional_indirect(T& r) noexcept :
+    constexpr observer_ptr(T& r) noexcept :
         target(&r)
     {
     }
 
-    constexpr optional_indirect(T&&) noexcept = delete;
+    constexpr observer_ptr(T&&) noexcept = delete;
 
-    constexpr optional_indirect(indirect<T> const& i) noexcept :
+    constexpr observer_ptr(observer<T> const& i) noexcept :
         target(get_pointer(i))
     {
     }
 
     template <typename U, typename = std::enable_if_t<std::is_convertible<U*, T*>::value>>
-    constexpr optional_indirect(indirect<U> const& i) noexcept :
+    constexpr observer_ptr(observer<U> const& i) noexcept :
         target(get_pointer(i))
     {
     }
 
     template <typename U, typename = std::enable_if_t<std::is_convertible<U*, T*>::value>>
-    constexpr optional_indirect(optional_indirect<U> const& i) noexcept :
+    constexpr observer_ptr(observer_ptr<U> const& i) noexcept :
         target(get_pointer(i))
     {
     }
 
-    constexpr explicit optional_indirect(std::nullptr_t) noexcept :
+    constexpr observer_ptr(std::nullptr_t) noexcept :
         target(nullptr)
     {
     }
 
-    constexpr explicit optional_indirect(T* p) noexcept :
+    constexpr explicit observer_ptr(T* p) noexcept :
         target(p)
     {
     }
@@ -298,7 +282,7 @@ public:
         return target;
     }
 
-    void swap(optional_indirect& other) noexcept
+    void swap(observer_ptr& other) noexcept
     {
         using std::swap;
         swap(target, other.target);
@@ -306,151 +290,151 @@ public:
 };
 
 template <typename T>
-constexpr optional_indirect<T> make_optional_indirect(T& r) noexcept
+constexpr observer_ptr<T> make_observer(T* r) noexcept
 {
-    return r;
+    return observer_ptr<T>(r);
 }
 
 template <typename T, typename U>
-constexpr optional_indirect<T> static_indirect_cast(optional_indirect<U> const& i) noexcept
+constexpr observer_ptr<T> static_observer_cast(observer_ptr<U> const& i) noexcept
 {
-    return optional_indirect<T>(static_cast<T*>(get_pointer(i)));
+    return observer_ptr<T>(static_cast<T*>(get_pointer(i)));
 }
 
 template <typename T, typename U>
-constexpr optional_indirect<T> dynamic_indirect_cast(optional_indirect<U> const& i) noexcept
+constexpr observer_ptr<T> dynamic_observer_cast(observer_ptr<U> const& i) noexcept
 {
-    return optional_indirect<T>(dynamic_cast<T*>(get_pointer(i)));
+    return observer_ptr<T>(dynamic_cast<T*>(get_pointer(i)));
 }
 
 template <typename T, typename U>
-constexpr optional_indirect<T> const_indirect_cast(optional_indirect<U> const& i) noexcept
+constexpr observer_ptr<T> const_observer_cast(observer_ptr<U> const& i) noexcept
 {
-    return optional_indirect<T>(const_cast<T*>(get_pointer(i)));
+    return observer_ptr<T>(const_cast<T*>(get_pointer(i)));
 }
 
 template <typename T>
-constexpr T* get_pointer(optional_indirect<T> const& i) noexcept
+constexpr T* get_pointer(observer_ptr<T> const& i) noexcept
 {
     return static_cast<T*>(i);
 }
 
 template <typename T>
-void swap(optional_indirect<T>& lhs, optional_indirect<T>& rhs) noexcept
+void swap(observer_ptr<T>& lhs, observer_ptr<T>& rhs) noexcept
 {
     lhs.swap(rhs);
 }
 
 template <typename T1, typename T2>
-constexpr bool operator==(optional_indirect<T1> const& lhs, optional_indirect<T2> const& rhs) noexcept
+constexpr bool operator==(observer_ptr<T1> const& lhs, observer_ptr<T2> const& rhs) noexcept
 {
     return get_pointer(lhs) == get_pointer(rhs);
 }
 
 template <typename T1, typename T2>
-constexpr bool operator==(optional_indirect<T1> const& lhs, indirect<T2> const& rhs) noexcept
+constexpr bool operator==(observer_ptr<T1> const& lhs, observer<T2> const& rhs) noexcept
 {
     return get_pointer(lhs) == get_pointer(rhs);
 }
 
 template <typename T1, typename T2>
-constexpr bool operator==(indirect<T1> const& lhs, optional_indirect<T2> const& rhs) noexcept
+constexpr bool operator==(observer<T1> const& lhs, observer_ptr<T2> const& rhs) noexcept
 {
     return get_pointer(lhs) == get_pointer(rhs);
 }
 
 template <typename T1, typename T2, std::enable_if_t<std::is_convertible<T1*, T2*>::value || std::is_convertible<T2*, T1*>::value, int> = 0>
-constexpr bool operator==(optional_indirect<T1> const& lhs, T2& rhs) noexcept
+constexpr bool operator==(observer_ptr<T1> const& lhs, T2& rhs) noexcept
 {
     return get_pointer(lhs) == &rhs;
 }
 
 template <typename T1, typename T2, std::enable_if_t<std::is_convertible<T1*, T2*>::value || std::is_convertible<T2*, T1*>::value, int> = 0>
-constexpr bool operator==(T1& lhs, optional_indirect<T2> const& rhs) noexcept
+constexpr bool operator==(T1& lhs, observer_ptr<T2> const& rhs) noexcept
 {
     return &lhs == get_pointer(rhs);
 }
 
 template <typename T>
-constexpr bool operator==(optional_indirect<T> const& lhs, nullind_t) noexcept
+constexpr bool operator==(observer_ptr<T> const& lhs, std::nullptr_t) noexcept
 {
     return !lhs;
 }
 
 template <typename T>
-constexpr bool operator==(nullind_t, optional_indirect<T> const& rhs) noexcept
+constexpr bool operator==(std::nullptr_t, observer_ptr<T> const& rhs) noexcept
 {
     return !rhs;
 }
 
 template <typename T1, typename T2>
-constexpr bool operator!=(optional_indirect<T1> const& lhs, optional_indirect<T2> const& rhs) noexcept
+constexpr bool operator!=(observer_ptr<T1> const& lhs, observer_ptr<T2> const& rhs) noexcept
 {
     return !(lhs == rhs);
 }
 
 template <typename T1, typename T2>
-constexpr bool operator!=(optional_indirect<T1> const& lhs, indirect<T2> const& rhs) noexcept
+constexpr bool operator!=(observer_ptr<T1> const& lhs, observer<T2> const& rhs) noexcept
 {
     return !(lhs == rhs);
 }
 
 template <typename T1, typename T2>
-constexpr bool operator!=(indirect<T1> const& lhs, optional_indirect<T2> const& rhs) noexcept
+constexpr bool operator!=(observer<T1> const& lhs, observer_ptr<T2> const& rhs) noexcept
 {
     return !(lhs == rhs);
 }
 
 template <typename T1, typename T2, std::enable_if_t<std::is_convertible<T1*, T2*>::value || std::is_convertible<T2*, T1*>::value, int> = 0>
-constexpr bool operator!=(optional_indirect<T1> const& lhs, T2& rhs) noexcept
+constexpr bool operator!=(observer_ptr<T1> const& lhs, T2& rhs) noexcept
 {
     return !(lhs == rhs);
 }
 
 template <typename T1, typename T2, std::enable_if_t<std::is_convertible<T1*, T2*>::value || std::is_convertible<T2*, T1*>::value, int> = 0>
-constexpr bool operator!=(T1& lhs, optional_indirect<T2> const& rhs) noexcept
+constexpr bool operator!=(T1& lhs, observer_ptr<T2> const& rhs) noexcept
 {
     return !(lhs == rhs);
 }
 
 template <typename T>
-constexpr bool operator!=(optional_indirect<T> const& lhs, nullind_t) noexcept
+constexpr bool operator!=(observer_ptr<T> const& lhs, std::nullptr_t) noexcept
 {
-    return !(lhs == nullind);
+    return !(lhs == nullptr);
 }
 
 template <typename T>
-constexpr bool operator!=(nullind_t, optional_indirect<T> const& rhs) noexcept
+constexpr bool operator!=(std::nullptr_t, observer_ptr<T> const& rhs) noexcept
 {
-    return !(nullind == rhs);
+    return !(nullptr == rhs);
 }
 
 template <typename T1, typename T2>
-constexpr bool operator<(optional_indirect<T1> const& lhs, optional_indirect<T2> const& rhs) noexcept
+constexpr bool operator<(observer_ptr<T1> const& lhs, observer_ptr<T2> const& rhs) noexcept
 {
     return std::less<std::common_type_t<T1*, T2*>>()(get_pointer(lhs), get_pointer(rhs));
 }
 
 template <typename T1, typename T2>
-constexpr bool operator>(optional_indirect<T1> const& lhs, optional_indirect<T2> const& rhs) noexcept
+constexpr bool operator>(observer_ptr<T1> const& lhs, observer_ptr<T2> const& rhs) noexcept
 {
     return rhs < lhs;
 }
 
 template <typename T1, typename T2>
-constexpr bool operator<=(optional_indirect<T1> const& lhs, optional_indirect<T2> const& rhs) noexcept
+constexpr bool operator<=(observer_ptr<T1> const& lhs, observer_ptr<T2> const& rhs) noexcept
 {
     return !(rhs < lhs);
 }
 
 template <typename T1, typename T2>
-constexpr bool operator>=(optional_indirect<T1> const& lhs, optional_indirect<T2> const& rhs) noexcept
+constexpr bool operator>=(observer_ptr<T1> const& lhs, observer_ptr<T2> const& rhs) noexcept
 {
     return !(lhs < rhs);
 }
 
 template <typename T>
-std::ostream& operator<<(std::ostream& s, optional_indirect<T> const& i)
+std::ostream& operator<<(std::ostream& s, observer_ptr<T> const& i)
 {
     return s << get_pointer(i);
 }
@@ -459,9 +443,9 @@ namespace std
 {
 
 template <typename T>
-struct hash<optional_indirect<T>>
+struct hash<observer_ptr<T>>
 {
-    constexpr std::size_t operator()(optional_indirect<T> const& i) const noexcept
+    constexpr std::size_t operator()(observer_ptr<T> const& i) const noexcept
     {
         return hash<T*>()(get_pointer(i));
     }
@@ -469,4 +453,4 @@ struct hash<optional_indirect<T>>
 
 } // namespace std
 
-#endif // INDIRECT_HPP
+#endif // OBSERVER_HPP

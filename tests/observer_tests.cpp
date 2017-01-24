@@ -23,7 +23,7 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.h"
 
-#include <indirect.hpp>
+#include <observer.hpp>
 #include <propagate_const.hpp>
 
 #include <algorithm>
@@ -144,20 +144,20 @@ std::vector<std::string> tokenize(std::string const& s)
 #define END_IF }}, 0); doctest::detail::getContextState()->currentIteration.pop_back(); }
 
 template <typename T>
-struct is_indirect : std::false_type {};
+struct is_observer : std::false_type {};
 template <typename T>
-struct is_indirect<indirect<T>> : std::true_type {};
+struct is_observer<observer<T>> : std::true_type {};
 
 template <typename T>
-constexpr bool is_indirect_v = is_indirect<T>::value;
+constexpr bool is_observer_v = is_observer<T>::value;
 
 template <typename T>
-struct is_optional_indirect : std::false_type {};
+struct is_observer_ptr : std::false_type {};
 template <typename T>
-struct is_optional_indirect<optional_indirect<T>> : std::true_type {};
+struct is_observer_ptr<observer_ptr<T>> : std::true_type {};
 
 template <typename T>
-constexpr bool is_optional_indirect_v = is_optional_indirect<T>::value;
+constexpr bool is_observer_ptr_v = is_observer_ptr<T>::value;
 
 template <typename T>
 struct is_propagate_const : std::false_type {};
@@ -183,15 +183,15 @@ struct replace<T const, U>
 };
 
 template <typename T, typename U>
-struct replace<indirect<T>, U>
+struct replace<observer<T>, U>
 {
-    using type = indirect<replace_t<T, U>>;
+    using type = observer<replace_t<T, U>>;
 };
 
 template <typename T, typename U>
-struct replace<optional_indirect<T>, U>
+struct replace<observer_ptr<T>, U>
 {
-    using type = optional_indirect<replace_t<T, U>>;
+    using type = observer_ptr<replace_t<T, U>>;
 };
 
 template <typename T, typename U>
@@ -231,27 +231,27 @@ struct derived_other : base
 
 } // namespace
 
-SCENARIO("`indirect` and `optional_indirect` are trivially copyable")
+SCENARIO("`observer` and `observer_ptr` are trivially copyable")
 {
     // !!! Not working on MSVC
-    //CHECK(std::is_trivially_copyable<indirect<int>>::value);
-    //CHECK(std::is_trivially_copyable<indirect<int const>>::value);
-    //CHECK(std::is_trivially_copyable<optional_indirect<int>>::value);
-    //CHECK(std::is_trivially_copyable<optional_indirect<int const>>::value);
+    //CHECK(std::is_trivially_copyable<observer<int>>::value);
+    //CHECK(std::is_trivially_copyable<observer<int const>>::value);
+    //CHECK(std::is_trivially_copyable<observer_ptr<int>>::value);
+    //CHECK(std::is_trivially_copyable<observer_ptr<int const>>::value);
 }
 
-SCENARIO("indirects can be constructed")
+SCENARIO("observers can be constructed")
 {
     FOR_EACH_TYPE(value_t, int, int const)
     {
-        FOR_EACH_TYPE(indirect_t, indirect<value_t>, optional_indirect<value_t>)
+        FOR_EACH_TYPE(observer_t, observer<value_t>, observer_ptr<value_t>)
         {
-            FOR_EACH_TYPE(final_t, indirect_t, propagate_const<indirect_t>)
+            FOR_EACH_TYPE(final_t, observer_t, propagate_const<observer_t>)
             {
                 value_t i = {};
                 value_t j = {};
 
-                GIVEN("a indirect implicitly constructed from a reference")
+                GIVEN("a observer implicitly constructed from a reference")
                 {
                     final_t v = i;
 
@@ -267,14 +267,14 @@ SCENARIO("indirects can be constructed")
                     }
                 }
 
-                IF(is_optional_indirect_v<indirect_t>)
+                IF(is_observer_ptr_v<observer_t>)
                 {
-                    GIVEN("a default constructed indirect")
+                    GIVEN("a default constructed observer")
                     {
                         final_t v;
 
                         REQUIRE(!v);
-                        REQUIRE(v == nullind);
+                        REQUIRE(v == nullptr);
 
                         WHEN("it is assigned a reference")
                         {
@@ -282,25 +282,25 @@ SCENARIO("indirects can be constructed")
 
                             REQUIRE(v);
                             REQUIRE(v == i);
-                            REQUIRE(v != nullind);
+                            REQUIRE(v != nullptr);
 
-                            THEN("it is assigned an empty indirect")
+                            THEN("it is assigned an empty observer")
                             {
                                 v = {};
 
                                 REQUIRE(!v);
-                                REQUIRE(v == nullind);
+                                REQUIRE(v == nullptr);
                                 REQUIRE(v != i);
                             }
                         }
                     }
 
-                    GIVEN("a indirect constructed using the `{}` syntax")
+                    GIVEN("a observer constructed using the `{}` syntax")
                     {
                         final_t v = {};
 
                         REQUIRE(!v);
-                        REQUIRE(v == nullind);
+                        REQUIRE(v == nullptr);
                     }
                 } END_IF
             } NEXT_TYPE
@@ -308,21 +308,21 @@ SCENARIO("indirects can be constructed")
     } NEXT_TYPE
 }
 
-SCENARIO("indirects convert to references and pointers")
+SCENARIO("observers convert to references and pointers")
 {
     FOR_EACH_TYPE(value_t, int, int const)
     {
-        FOR_EACH_TYPE(indirect_t, indirect<value_t>, optional_indirect<value_t>)
+        FOR_EACH_TYPE(observer_t, observer<value_t>, observer_ptr<value_t>)
         {
-            FOR_EACH_TYPE(final_t, indirect_t, propagate_const<indirect_t>)
+            FOR_EACH_TYPE(final_t, observer_t, propagate_const<observer_t>)
             {
                 value_t i = {};
 
-                GIVEN("a indirect constructed from an reference")
+                GIVEN("a observer constructed from an reference")
                 {
                     final_t v = i;
 
-                    WHEN("the indirect is converted to a pointer")
+                    WHEN("the observer is converted to a pointer")
                     {
                         value_t* p = static_cast<value_t*>(v);
 
@@ -334,18 +334,18 @@ SCENARIO("indirects convert to references and pointers")
     } NEXT_TYPE
 }
 
-SCENARIO("indirects can be copied")
+SCENARIO("observers can be copied")
 {
     FOR_EACH_TYPE(value_t, int, int const)
     {
-        FOR_EACH_TYPE(indirect_t, indirect<value_t>, optional_indirect<value_t>)
+        FOR_EACH_TYPE(observer_t, observer<value_t>, observer_ptr<value_t>)
         {
-            FOR_EACH_TYPE(final_t, indirect_t, propagate_const<indirect_t>)
+            FOR_EACH_TYPE(final_t, observer_t, propagate_const<observer_t>)
             {
                 value_t i = {};
                 value_t j = {};
 
-                GIVEN("a copy constructed indirect")
+                GIVEN("a copy constructed observer")
                 {
                     final_t v = i;
                     final_t w = v;
@@ -380,18 +380,18 @@ SCENARIO("indirects can be copied")
     } NEXT_TYPE
 }
 
-SCENARIO("indirects can be moved")
+SCENARIO("observers can be moved")
 {
     FOR_EACH_TYPE(value_t, int, int const)
     {
-        FOR_EACH_TYPE(indirect_t, indirect<value_t>, optional_indirect<value_t>)
+        FOR_EACH_TYPE(observer_t, observer<value_t>, observer_ptr<value_t>)
         {
-            FOR_EACH_TYPE(final_t, indirect_t, propagate_const<indirect_t>)
+            FOR_EACH_TYPE(final_t, observer_t, propagate_const<observer_t>)
             {
                 value_t i = {};
                 value_t j = {};
 
-                GIVEN("a move constructed indirect")
+                GIVEN("a move constructed observer")
                 {
                     final_t v = i;
                     final_t w = std::move(v);
@@ -426,18 +426,18 @@ SCENARIO("indirects can be moved")
     } NEXT_TYPE
 }
 
-SCENARIO("indirects can be swapped")
+SCENARIO("observers can be swapped")
 {
     FOR_EACH_TYPE(value_t, int, int const)
     {
-        FOR_EACH_TYPE(indirect_t, indirect<value_t>, optional_indirect<value_t>)
+        FOR_EACH_TYPE(observer_t, observer<value_t>, observer_ptr<value_t>)
         {
-            FOR_EACH_TYPE(final_t, indirect_t, propagate_const<indirect_t>)
+            FOR_EACH_TYPE(final_t, observer_t, propagate_const<observer_t>)
             {
                 value_t i = {};
                 value_t j = {};
 
-                GIVEN("a indirect swapped with a indirect")
+                GIVEN("a observer swapped with a observer")
                 {
                     final_t v = i;
                     final_t w = j;
@@ -448,7 +448,7 @@ SCENARIO("indirects can be swapped")
                     REQUIRE(w == i);
                 }
 
-                GIVEN("a indirect swapped with itself")
+                GIVEN("a observer swapped with itself")
                 {
                     final_t v = i;
 
@@ -461,18 +461,18 @@ SCENARIO("indirects can be swapped")
     } NEXT_TYPE
 }
 
-SCENARIO("indirects can be used to access the objects they reference")
+SCENARIO("observers can be used to access the objects they reference")
 {
     FOR_EACH_TYPE(value_t, int, int const)
     {
-        FOR_EACH_TYPE(indirect_t, indirect<value_t>, optional_indirect<value_t>)
+        FOR_EACH_TYPE(observer_t, observer<value_t>, observer_ptr<value_t>)
         {
-            FOR_EACH_TYPE(final_t, indirect_t, propagate_const<indirect_t>)
+            FOR_EACH_TYPE(final_t, observer_t, propagate_const<observer_t>)
             {
                 value_t i = 1;
                 value_t j = 2;
 
-                GIVEN("a indirect constructed from an reference")
+                GIVEN("a observer constructed from an reference")
                 {
                     final_t v = i;
 
@@ -494,7 +494,7 @@ SCENARIO("indirects can be used to access the objects they reference")
 
                         IF(!is_const_v<value_t>)
                         {
-                            WHEN("the indirected object is assigned a reference")
+                            WHEN("the observered object is assigned a reference")
                             {
                                 *v = i;
 
@@ -515,17 +515,17 @@ SCENARIO("indirects can be used to access the objects they reference")
     } NEXT_TYPE
 }
 
-SCENARIO("indirects support arithmetic comparison")
+SCENARIO("observers support arithmetic comparison")
 {
     FOR_EACH_TYPE(value_t, int, int const)
     {
-        FOR_EACH_TYPE(indirect_t, indirect<value_t>, optional_indirect<value_t>)
+        FOR_EACH_TYPE(observer_t, observer<value_t>, observer_ptr<value_t>)
         {
-            FOR_EACH_TYPE(final_t, indirect_t, propagate_const<indirect_t>)
+            FOR_EACH_TYPE(final_t, observer_t, propagate_const<observer_t>)
             {
                 std::array<value_t, 2> is = { 1, 2 };
 
-                GIVEN("indirects constructed from entries in an array")
+                GIVEN("observers constructed from entries in an array")
                 {
                     final_t u = is[0];
                     final_t v = is[0];
@@ -594,29 +594,29 @@ SCENARIO("indirects support arithmetic comparison")
     } NEXT_TYPE
 }
 
-SCENARIO("indirects can be static cast")
+SCENARIO("observers can be static cast")
 {
     FOR_EACH_TYPE(derived_t, derived, derived const)
     {
         using base_t = replace_t<derived_t, base>;
 
-        FOR_EACH_TYPE(derived_indirect_t, indirect<derived_t>, optional_indirect<derived_t>)
+        FOR_EACH_TYPE(derived_observer_t, observer<derived_t>, observer_ptr<derived_t>)
         {
-            using base_indirect_t = replace_t<derived_indirect_t, base>;
+            using base_observer_t = replace_t<derived_observer_t, base>;
 
-            FOR_EACH_TYPE(derived_final_t, derived_indirect_t/*, propagate_const<derived_indirect_t>*/)
+            FOR_EACH_TYPE(derived_final_t, derived_observer_t/*, propagate_const<derived_observer_t>*/)
             {
                 using base_final_t = replace_t<derived_final_t, base>;
 
                 derived_t d;
 
-                GIVEN("a indirect to `base` initialized with a `derived`")
+                GIVEN("a observer to `base` initialized with a `derived`")
                 {
                     base_final_t v = d;
 
-                    WHEN("it is static cast to a indirect to `derived`")
+                    WHEN("it is static cast to a observer to `derived`")
                     {
-                        derived_final_t w = static_indirect_cast<derived_t>(v);
+                        derived_final_t w = static_observer_cast<derived_t>(v);
 
                         REQUIRE(w == v);
                         REQUIRE(w == d);
@@ -627,51 +627,51 @@ SCENARIO("indirects can be static cast")
     } NEXT_TYPE
 }
 
-SCENARIO("indirects can be dynamic cast")
+SCENARIO("observers can be dynamic cast")
 {
     FOR_EACH_TYPE(derived_t, derived, derived const)
     {
         using base_t = replace_t<derived_t, base>;
         using derived_other_t = replace_t<derived_t, derived_other>;
 
-        FOR_EACH_TYPE(derived_indirect_t, indirect<derived_t>, optional_indirect<derived_t>)
+        FOR_EACH_TYPE(derived_observer_t, observer<derived_t>, observer_ptr<derived_t>)
         {
-            using base_indirect_t = replace_t<derived_indirect_t, base>;
+            using base_observer_t = replace_t<derived_observer_t, base>;
 
-            FOR_EACH_TYPE(derived_final_t, derived_indirect_t/*, propagate_const<derived_indirect_t>*/)
+            FOR_EACH_TYPE(derived_final_t, derived_observer_t/*, propagate_const<derived_observer_t>*/)
             {
                 using base_final_t = replace_t<derived_final_t, base>;
 
                 derived_t d;
                 derived_other_t e;
 
-                GIVEN("a indirect to `base` initialized with a `derived`")
+                GIVEN("a observer to `base` initialized with a `derived`")
                 {
                     base_final_t v = d;
 
-                    WHEN("it is dynamic cast to a indirect to `derived`")
+                    WHEN("it is dynamic cast to a observer to `derived`")
                     {
-                        derived_final_t w = dynamic_indirect_cast<derived_t>(v);
+                        derived_final_t w = dynamic_observer_cast<derived_t>(v);
 
                         REQUIRE(w == v);
                         REQUIRE(w == d);
                     }
                 }
 
-                GIVEN("a indirect to `base` initialized with a `derived_other`")
+                GIVEN("a observer to `base` initialized with a `derived_other`")
                 {
                     base_final_t v = e;
 
-                    WHEN("it is dynamic cast to a indirect to `derived`")
+                    WHEN("it is dynamic cast to a observer to `derived`")
                     {
-                        IF(is_indirect_v<base_indirect_t>)
+                        IF(is_observer_v<base_observer_t>)
                         {
-                            REQUIRE_THROWS(derived_final_t w = dynamic_indirect_cast<derived_t>(v));
+                            REQUIRE_THROWS(derived_final_t w = dynamic_observer_cast<derived_t>(v));
                         } END_IF
 
-                        IF(is_optional_indirect_v<base_indirect_t>)
+                        IF(is_observer_ptr_v<base_observer_t>)
                         {
-                            derived_final_t w = dynamic_indirect_cast<derived_t>(v);
+                            derived_final_t w = dynamic_observer_cast<derived_t>(v);
 
                             REQUIRE(!w);
                             REQUIRE(w != v);
@@ -684,29 +684,29 @@ SCENARIO("indirects can be dynamic cast")
     } NEXT_TYPE
 }
 
-SCENARIO("indirects can be const cast")
+SCENARIO("observers can be const cast")
 {
     FOR_EACH_TYPE(value_t, int, int const)
     {
         using const_value_t = std::add_const_t<value_t>;
 
-        FOR_EACH_TYPE(indirect_t, indirect<value_t>, optional_indirect<value_t>)
+        FOR_EACH_TYPE(observer_t, observer<value_t>, observer_ptr<value_t>)
         {
-            using const_indirect_t = replace_t<indirect_t, const_value_t>;
+            using const_observer_t = replace_t<observer_t, const_value_t>;
 
-            FOR_EACH_TYPE(final_t, indirect_t/*, propagate_const<indirect_t>*/)
+            FOR_EACH_TYPE(final_t, observer_t/*, propagate_const<observer_t>*/)
             {
                 using const_final_t = replace_t<final_t, const_value_t>;
 
                 value_t i = {};
 
-                GIVEN("a indirect to const")
+                GIVEN("a observer to const")
                 {
                     const_final_t v = i;
 
                     WHEN("it is const cast to non-const`")
                     {
-                        final_t w = const_indirect_cast<value_t>(v);
+                        final_t w = const_observer_cast<value_t>(v);
 
                         REQUIRE(w == v);
                     }
@@ -716,19 +716,19 @@ SCENARIO("indirects can be const cast")
     } NEXT_TYPE
 }
 
-SCENARIO("indirects can be created using `make_indirect`")
+SCENARIO("observers can be created using `make_observer`")
 {
     FOR_EACH_TYPE(value_t, int, int const)
     {
-        FOR_EACH_TYPE(indirect_t, indirect<value_t>, optional_indirect<value_t>)
+        FOR_EACH_TYPE(observer_t, observer<value_t>, observer_ptr<value_t>)
         {
-            FOR_EACH_TYPE(final_t, indirect_t, propagate_const<indirect_t>)
+            FOR_EACH_TYPE(final_t, observer_t, propagate_const<observer_t>)
             {
                 value_t i = {};
 
-                GIVEN("a indirect created with `make_indirect`")
+                GIVEN("a observer created with `make_observer`")
                 {
-                    final_t v = make_indirect(i);
+                    final_t v = make_observer(i);
 
                     REQUIRE(v == i);
                 }
@@ -737,31 +737,31 @@ SCENARIO("indirects can be created using `make_indirect`")
     } NEXT_TYPE
 }
 
-SCENARIO("indirects can be used in certain constant expressions")
+SCENARIO("observers can be used in certain constant expressions")
 {
     // !!! Not working on MSVC
     //constexpr static derived d = { 0 };
 
-    //constexpr indirect<foo const> v = d;
-    //constexpr indirect<foo const> w = v;
+    //constexpr observer<foo const> v = d;
+    //constexpr observer<foo const> w = v;
 
     //constexpr int const& b = v->foo;
     //constexpr derived const& r1 = *v;
     //constexpr derived const& r2 = v.value();
 }
 
-SCENARIO("indirects can be used with STL containers")
+SCENARIO("observers can be used with STL containers")
 {
     FOR_EACH_TYPE(value_t, int, int const)
     {
-        FOR_EACH_TYPE(indirect_t, indirect<value_t>, optional_indirect<value_t>)
+        FOR_EACH_TYPE(observer_t, observer<value_t>, observer_ptr<value_t>)
         {
-            FOR_EACH_TYPE(final_t, indirect_t, propagate_const<indirect_t>)
+            FOR_EACH_TYPE(final_t, observer_t, propagate_const<observer_t>)
             {
                 std::array<value_t, 3> i = { 0, 1, 2 };
 
                 // !!! Not working on MSVC
-                //GIVEN("a `vector` of indirects")
+                //GIVEN("a `vector` of observers")
                 //{
                     //std::vector<final_t> vector;
 
@@ -774,7 +774,7 @@ SCENARIO("indirects can be used with STL containers")
                     //REQUIRE(vector[2] == i[0]);
                 //}
 
-                GIVEN("a `map` of indirect-indirect pairs")
+                GIVEN("a `map` of observer-observer pairs")
                 {
                     std::map<final_t, final_t> map;
 
@@ -787,7 +787,7 @@ SCENARIO("indirects can be used with STL containers")
                     REQUIRE(map.at(i[2]) == i[0]);
                 }
 
-                GIVEN("an `unordered_map` of indirect-indirect pairs")
+                GIVEN("an `unordered_map` of observer-observer pairs")
                 {
                     std::unordered_map<final_t, final_t> map;
 
@@ -800,7 +800,7 @@ SCENARIO("indirects can be used with STL containers")
                     REQUIRE(map.at(i[2]) == i[0]);
                 }
 
-                GIVEN("a `set` of indirects")
+                GIVEN("a `set` of observers")
                 {
                     std::set<final_t> set;
 
@@ -813,7 +813,7 @@ SCENARIO("indirects can be used with STL containers")
                     REQUIRE(set.find(i[2]) != set.end());
                 }
 
-                GIVEN("an `unordered_set` of indirects")
+                GIVEN("an `unordered_set` of observers")
                 {
                     std::unordered_set<final_t> set;
 
@@ -833,8 +833,8 @@ SCENARIO("indirects can be used with STL containers")
 class node
 {
 private:
-    optional_indirect<node> parent;
-    std::vector<indirect<node>> children;
+    observer_ptr<node> parent;
+    std::vector<observer<node>> children;
 
 public:
     node() = default;
@@ -845,13 +845,13 @@ public:
     node(node&&) = delete;
     node& operator=(node&&) = delete;
 
-    void set_parent(optional_indirect<node> new_parent) {
+    void set_parent(observer_ptr<node> new_parent) {
         if (parent) parent->remove_child(*this);
         parent = new_parent;
         if (parent) parent->add_child(*this);
     }
 
-    optional_indirect<node> get_parent() const {
+    observer_ptr<node> get_parent() const {
         return parent;
     }
 
@@ -859,16 +859,16 @@ public:
         return children.size();
     }
 
-    indirect<node> get_child(std::size_t index) const {
+    observer<node> get_child(std::size_t index) const {
         return children[index];
     }
 
 private:
-    void add_child(indirect<node> child) {
+    void add_child(observer<node> child) {
         children.push_back(child);
     }
 
-    void remove_child(indirect<node> child) {
+    void remove_child(observer<node> child) {
         children.erase(std::find(children.begin(), children.end(), child));
     }
 };
