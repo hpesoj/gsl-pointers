@@ -282,6 +282,11 @@ public:
         return target;
     }
 
+    void reset() noexcept
+    {
+        target = nullptr;
+    }
+
     void swap(observer_ptr& other) noexcept
     {
         using std::swap;
