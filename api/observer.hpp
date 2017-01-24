@@ -289,12 +289,6 @@ public:
     }
 };
 
-template <typename T>
-constexpr observer_ptr<T> make_observer(T* r) noexcept
-{
-    return observer_ptr<T>(r);
-}
-
 template <typename T, typename U>
 constexpr observer_ptr<T> static_observer_cast(observer_ptr<U> const& i) noexcept
 {
