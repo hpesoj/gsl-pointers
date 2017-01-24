@@ -416,9 +416,81 @@ constexpr bool operator<(observer_ptr<T1> const& lhs, observer_ptr<T2> const& rh
 }
 
 template <typename T1, typename T2>
+constexpr bool operator<(observer_ptr<T1> const& lhs, observer<T2> const& rhs) noexcept
+{
+    return std::less<std::common_type_t<T1*, T2*>>()(get_pointer(lhs), get_pointer(rhs));
+}
+
+template <typename T1, typename T2>
+constexpr bool operator<(observer<T1> const& lhs, observer_ptr<T2> const& rhs) noexcept
+{
+    return std::less<std::common_type_t<T1*, T2*>>()(get_pointer(lhs), get_pointer(rhs));
+}
+
+template <typename T1, typename T2, std::enable_if_t<std::is_convertible<T1*, T2*>::value || std::is_convertible<T2*, T1*>::value, int> = 0>
+constexpr bool operator<(observer_ptr<T1> const& lhs, T2& rhs) noexcept
+{
+    return std::less<std::common_type_t<T1*, T2*>>()(get_pointer(lhs), &rhs);
+}
+
+template <typename T1, typename T2, std::enable_if_t<std::is_convertible<T1*, T2*>::value || std::is_convertible<T2*, T1*>::value, int> = 0>
+constexpr bool operator<(T1& lhs, observer_ptr<T2> const& rhs) noexcept
+{
+    return std::less<std::common_type_t<T1*, T2*>>()(&lhs, get_pointer(rhs));
+}
+
+template <typename T>
+constexpr bool operator<(observer_ptr<T> const& lhs, std::nullptr_t) noexcept
+{
+    return std::less<T*>()(get_pointer(lhs), nullptr);
+}
+
+template <typename T>
+constexpr bool operator<(std::nullptr_t, observer_ptr<T> const& rhs) noexcept
+{
+    return std::less<T*>()(nullptr, get_pointer(rhs));
+}
+
+template <typename T1, typename T2>
 constexpr bool operator>(observer_ptr<T1> const& lhs, observer_ptr<T2> const& rhs) noexcept
 {
     return rhs < lhs;
+}
+
+template <typename T1, typename T2>
+constexpr bool operator>(observer_ptr<T1> const& lhs, observer<T2> const& rhs) noexcept
+{
+    return rhs < lhs;
+}
+
+template <typename T1, typename T2>
+constexpr bool operator>(observer<T1> const& lhs, observer_ptr<T2> const& rhs) noexcept
+{
+    return rhs < lhs;
+}
+
+template <typename T1, typename T2, std::enable_if_t<std::is_convertible<T1*, T2*>::value || std::is_convertible<T2*, T1*>::value, int> = 0>
+constexpr bool operator>(observer_ptr<T1> const& lhs, T2& rhs) noexcept
+{
+    return rhs < lhs;
+}
+
+template <typename T1, typename T2, std::enable_if_t<std::is_convertible<T1*, T2*>::value || std::is_convertible<T2*, T1*>::value, int> = 0>
+constexpr bool operator>(T1& lhs, observer_ptr<T2> const& rhs) noexcept
+{
+    return rhs < lhs;
+}
+
+template <typename T>
+constexpr bool operator>(observer_ptr<T> const& lhs, std::nullptr_t) noexcept
+{
+    return rhs < nullptr;
+}
+
+template <typename T>
+constexpr bool operator>(std::nullptr_t, observer_ptr<T> const& rhs) noexcept
+{
+    return nullptr < lhs;
 }
 
 template <typename T1, typename T2>
@@ -428,9 +500,81 @@ constexpr bool operator<=(observer_ptr<T1> const& lhs, observer_ptr<T2> const& r
 }
 
 template <typename T1, typename T2>
+constexpr bool operator<=(observer_ptr<T1> const& lhs, observer<T2> const& rhs) noexcept
+{
+    return !(rhs < lhs);
+}
+
+template <typename T1, typename T2>
+constexpr bool operator<=(observer<T1> const& lhs, observer_ptr<T2> const& rhs) noexcept
+{
+    return !(rhs < lhs);
+}
+
+template <typename T1, typename T2, std::enable_if_t<std::is_convertible<T1*, T2*>::value || std::is_convertible<T2*, T1*>::value, int> = 0>
+constexpr bool operator<=(observer_ptr<T1> const& lhs, T2& rhs) noexcept
+{
+    return !(rhs < lhs);
+}
+
+template <typename T1, typename T2, std::enable_if_t<std::is_convertible<T1*, T2*>::value || std::is_convertible<T2*, T1*>::value, int> = 0>
+constexpr bool operator<=(T1& lhs, observer_ptr<T2> const& rhs) noexcept
+{
+    return !(rhs < lhs);
+}
+
+template <typename T>
+constexpr bool operator<=(observer_ptr<T> const& lhs, std::nullptr_t) noexcept
+{
+    return !(rhs < nullptr);
+}
+
+template <typename T>
+constexpr bool operator<=(std::nullptr_t, observer_ptr<T> const& rhs) noexcept
+{
+    return !(nullptr < lhs);
+}
+
+template <typename T1, typename T2>
 constexpr bool operator>=(observer_ptr<T1> const& lhs, observer_ptr<T2> const& rhs) noexcept
 {
     return !(lhs < rhs);
+}
+
+template <typename T1, typename T2>
+constexpr bool operator>=(observer_ptr<T1> const& lhs, observer<T2> const& rhs) noexcept
+{
+    return !(lhs < rhs);
+}
+
+template <typename T1, typename T2>
+constexpr bool operator>=(observer<T1> const& lhs, observer_ptr<T2> const& rhs) noexcept
+{
+    return !(lhs < rhs);
+}
+
+template <typename T1, typename T2, std::enable_if_t<std::is_convertible<T1*, T2*>::value || std::is_convertible<T2*, T1*>::value, int> = 0>
+constexpr bool operator>=(observer_ptr<T1> const& lhs, T2& rhs) noexcept
+{
+    return !(lhs < rhs);
+}
+
+template <typename T1, typename T2, std::enable_if_t<std::is_convertible<T1*, T2*>::value || std::is_convertible<T2*, T1*>::value, int> = 0>
+constexpr bool operator>=(T1& lhs, observer_ptr<T2> const& rhs) noexcept
+{
+    return !(lhs < rhs);
+}
+
+template <typename T>
+constexpr bool operator>=(observer_ptr<T> const& lhs, std::nullptr_t) noexcept
+{
+    return !(lhs < nullptr);
+}
+
+template <typename T>
+constexpr bool operator>=(std::nullptr_t, observer_ptr<T> const& rhs) noexcept
+{
+    return !(nullptr < rhs);
 }
 
 template <typename T>
