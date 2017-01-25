@@ -93,6 +93,9 @@ constexpr observer<T> make_observer(T& r) noexcept
 }
 
 template <typename T>
+observer<T> make_observer(T&&) = delete;
+
+template <typename T>
 constexpr T* get_pointer(observer<T> const& i) noexcept
 {
     return static_cast<T*>(i);
