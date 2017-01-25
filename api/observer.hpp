@@ -27,7 +27,6 @@
 
 #include <functional>
 #include <iosfwd>
-#include <stdexcept>
 #include <utility>
 
 //==========
