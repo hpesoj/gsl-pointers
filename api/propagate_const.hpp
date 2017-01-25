@@ -284,6 +284,23 @@ template <typename T1, typename T2>
 constexpr bool operator!=(T1 const& lhs, propagate_const<T2> const& rhs) noexcept(noexcept(lhs != get_underlying(rhs))) { return lhs != get_underlying(rhs); }
 
 template <typename T1, typename T2>
+constexpr bool operator<(propagate_const<T1> const& lhs, T2 const& rhs) noexcept(noexcept(get_underlying(lhs) < rhs)) { return get_underlying(lhs) < rhs; }
+template <typename T1, typename T2>
+constexpr bool operator<(T1 const& lhs, propagate_const<T2> const& rhs) noexcept(noexcept(lhs < get_underlying(rhs))) { return lhs < get_underlying(rhs); }
+template <typename T1, typename T2>
+constexpr bool operator>(propagate_const<T1> const& lhs, T2 const& rhs) noexcept(noexcept(get_underlying(lhs) > rhs)) { return get_underlying(lhs) > rhs; }
+template <typename T1, typename T2>
+constexpr bool operator>(T1 const& lhs, propagate_const<T2> const& rhs) noexcept(noexcept(lhs > get_underlying(rhs))) { return lhs > get_underlying(rhs); }
+template <typename T1, typename T2>
+constexpr bool operator<=(propagate_const<T1> const& lhs, T2 const& rhs) noexcept(noexcept(get_underlying(lhs) <= rhs)) { return get_underlying(lhs) <= rhs; }
+template <typename T1, typename T2>
+constexpr bool operator<=(T1 const& lhs, propagate_const<T2> const& rhs) noexcept(noexcept(lhs <= get_underlying(rhs))) { return lhs <= get_underlying(rhs); }
+template <typename T1, typename T2>
+constexpr bool operator>=(propagate_const<T1> const& lhs, T2 const& rhs) noexcept(noexcept(get_underlying(lhs) >= rhs)) { return get_underlying(lhs) >= rhs; }
+template <typename T1, typename T2>
+constexpr bool operator>=(T1 const& lhs, propagate_const<T2> const& rhs) noexcept(noexcept(lhs >= get_underlying(rhs))) { return lhs >= get_underlying(rhs); }
+
+template <typename T1, typename T2>
 constexpr bool operator==(propagate_const<T1> const& lhs, propagate_const<T2> const& rhs) noexcept(noexcept(get_underlying(lhs) == get_underlying(rhs))) { return get_underlying(lhs) == get_underlying(rhs); }
 template <typename T1, typename T2>
 constexpr bool operator!=(propagate_const<T1> const& lhs, propagate_const<T2> const& rhs) noexcept(noexcept(get_underlying(lhs) != get_underlying(rhs))) { return get_underlying(lhs) != get_underlying(rhs); }

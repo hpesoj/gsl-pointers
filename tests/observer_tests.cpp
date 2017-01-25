@@ -308,7 +308,7 @@ SCENARIO("observers can be constructed")
     } NEXT_TYPE
 }
 
-SCENARIO("observers convert to references and pointers")
+SCENARIO("observers convert to pointers")
 {
     FOR_EACH_TYPE(value_t, int, int const)
     {
@@ -523,72 +523,184 @@ SCENARIO("observers support arithmetic comparison")
         {
             FOR_EACH_TYPE(final_t, observer_t, propagate_const<observer_t>)
             {
+                value_t i = {};
                 std::array<value_t, 2> is = { 1, 2 };
 
-                GIVEN("observers constructed from entries in an array")
-                {
-                    final_t u = is[0];
-                    final_t v = is[0];
-                    final_t w = is[1];
+                final_t v = is[0];
 
+                GIVEN("an observer constructed from an entry in an array")
+                {
                     THEN("`operator==` is supported")
                     {
                         REQUIRE(v == is[0]);
+                        REQUIRE(is[0] == v);
                         REQUIRE(!(v == is[1]));
-                        REQUIRE(v == v);
-                        REQUIRE(u == v);
-                        REQUIRE(v == u);
-                        REQUIRE(!(v == w));
-                        REQUIRE(!(w == v));
+                        REQUIRE(!(is[1] == v));
                     }
 
                     THEN("`operator!=` is supported")
                     {
                         REQUIRE(!(v != is[0]));
+                        REQUIRE(!(is[0] != v));
                         REQUIRE(v != is[1]);
-                        REQUIRE(!(v != v));
-                        REQUIRE(!(u != v));
-                        REQUIRE(!(v != u));
-                        REQUIRE(v != w);
-                        REQUIRE(w != v);
+                        REQUIRE(is[1] != v);
                     }
 
                     THEN("`operator<` is supported")
                     {
-                        REQUIRE(!(v < v));
-                        REQUIRE(!(u < v));
-                        REQUIRE(!(v < u));
-                        REQUIRE(v < w);
-                        REQUIRE(!(w < v));
+                        REQUIRE(!(v < is[0]));
+                        REQUIRE(!(is[0] < v));
+                        REQUIRE(v < is[1]);
+                        REQUIRE(!(is[1] < v));
                     }
 
                     THEN("`operator<=` is supported")
                     {
-                        REQUIRE(v <= v);
-                        REQUIRE(u <= v);
-                        REQUIRE(v <= u);
-                        REQUIRE(v <= w);
-                        REQUIRE(!(w <= v));
+                        REQUIRE(v <= is[0]);
+                        REQUIRE(is[0] <= v);
+                        REQUIRE(v <= is[1]);
+                        REQUIRE(!(is[1] <= v));
                     }
 
                     THEN("`operator>` is supported")
                     {
-                        REQUIRE(!(v > v));
-                        REQUIRE(!(u > v));
-                        REQUIRE(!(v > u));
-                        REQUIRE(!(v > w));
-                        REQUIRE(w > v);
+                        REQUIRE(!(v > is[0]));
+                        REQUIRE(!(is[0] > v));
+                        REQUIRE(!(v > is[1]));
+                        REQUIRE(is[1] > v);
                     }
 
                     THEN("`operator>=` is supported")
                     {
-                        REQUIRE(v >= v);
-                        REQUIRE(u >= v);
-                        REQUIRE(v >= u);
-                        REQUIRE(!(v >= w));
-                        REQUIRE(w >= v);
+                        REQUIRE(v >= is[0]);
+                        REQUIRE(is[0] >= v);
+                        REQUIRE(!(v >= is[1]));
+                        REQUIRE(is[1] >= v);
                     }
                 }
+
+                IF(is_observer_ptr_v<observer_t>)
+                {
+                    GIVEN("a non-null observer and a null observer")
+                    {
+                        final_t v = i;
+                        final_t u;
+
+                        THEN("`operator==` with `nullptr` is supported")
+                        {
+                            REQUIRE(!(v == nullptr));
+                            REQUIRE(!(nullptr == v));
+                            REQUIRE(u == nullptr);
+                            REQUIRE(nullptr == u);
+                        }
+
+                        THEN("`operator!=` with `nullptr` is supported")
+                        {
+                            REQUIRE(v != nullptr);
+                            REQUIRE(nullptr != v);
+                            REQUIRE(!(u != nullptr));
+                            REQUIRE(!(nullptr != u));
+                        }
+
+                        THEN("`operator<` with `nullptr` is supported")
+                        {
+                            REQUIRE((v < nullptr) == std::less<value_t*>()(get_pointer(v), nullptr));
+                            REQUIRE((nullptr < v) == std::less<value_t*>()(nullptr, get_pointer(v)));
+                            REQUIRE(!(u < nullptr));
+                            REQUIRE(!(nullptr < u));
+                        }
+
+                        THEN("`operator>` with `nullptr` is supported")
+                        {
+                            REQUIRE((v > nullptr) == std::greater<value_t*>()(get_pointer(v), nullptr));
+                            REQUIRE((nullptr > v) == std::greater<value_t*>()(nullptr, get_pointer(v)));
+                            REQUIRE(!(u > nullptr));
+                            REQUIRE(!(nullptr > u));
+                        }
+
+                        THEN("`operator<=` with `nullptr` is supported")
+                        {
+                            REQUIRE((v <= nullptr) == std::less_equal<value_t*>()(get_pointer(v), nullptr));
+                            REQUIRE((nullptr <= v) == std::less_equal<value_t*>()(nullptr, get_pointer(v)));
+                            REQUIRE(u <= nullptr);
+                            REQUIRE(nullptr <= u);
+                        }
+
+                        THEN("`operator>=` with `nullptr` is supported")
+                        {
+                            REQUIRE((v >= nullptr) == std::greater_equal<value_t*>()(get_pointer(v), nullptr));
+                            REQUIRE((nullptr >= v) == std::greater_equal<value_t*>()(nullptr, get_pointer(v)));
+                            REQUIRE(u >= nullptr);
+                            REQUIRE(nullptr >= u);
+                        }
+                    }
+                } END_IF
+
+                FOR_EACH_TYPE(observer2_t, observer<value_t>, observer_ptr<value_t>)
+                {
+                    FOR_EACH_TYPE(final2_t, observer2_t, propagate_const<observer2_t>)
+                    {
+                        GIVEN("observers constructed from entries in an array")
+                        {
+                            final2_t u = is[0];
+                            final2_t w = is[1];
+
+                            THEN("`operator==` is supported")
+                            {
+                                REQUIRE(v == v);
+                                REQUIRE(u == v);
+                                REQUIRE(v == u);
+                                REQUIRE(!(v == w));
+                                REQUIRE(!(w == v));
+                            }
+
+                            THEN("`operator!=` is supported")
+                            {
+                                REQUIRE(!(v != v));
+                                REQUIRE(!(u != v));
+                                REQUIRE(!(v != u));
+                                REQUIRE(v != w);
+                                REQUIRE(w != v);
+                            }
+
+                            THEN("`operator<` is supported")
+                            {
+                                REQUIRE(!(v < v));
+                                REQUIRE(!(u < v));
+                                REQUIRE(!(v < u));
+                                REQUIRE(v < w);
+                                REQUIRE(!(w < v));
+                            }
+
+                            THEN("`operator<=` is supported")
+                            {
+                                REQUIRE(v <= v);
+                                REQUIRE(u <= v);
+                                REQUIRE(v <= u);
+                                REQUIRE(v <= w);
+                                REQUIRE(!(w <= v));
+                            }
+
+                            THEN("`operator>` is supported")
+                            {
+                                REQUIRE(!(v > v));
+                                REQUIRE(!(u > v));
+                                REQUIRE(!(v > u));
+                                REQUIRE(!(v > w));
+                                REQUIRE(w > v);
+                            }
+
+                            THEN("`operator>=` is supported")
+                            {
+                                REQUIRE(v >= v);
+                                REQUIRE(u >= v);
+                                REQUIRE(v >= u);
+                                REQUIRE(!(v >= w));
+                                REQUIRE(w >= v);
+                            }
+                        }
+                    } NEXT_TYPE
+                } NEXT_TYPE
             } NEXT_TYPE
         } NEXT_TYPE
     } NEXT_TYPE
