@@ -92,24 +92,6 @@ constexpr observer<T> make_observer(T& r) noexcept
     return r;
 }
 
-template <typename T, typename U>
-constexpr observer<T> static_observer_cast(observer<U> const& i) noexcept
-{
-    return static_cast<T&>(*i);
-}
-
-template <typename T, typename U>
-constexpr observer<T> dynamic_observer_cast(observer<U> const& i)
-{
-    return dynamic_cast<T&>(*i);
-}
-
-template <typename T, typename U>
-constexpr observer<T> const_observer_cast(observer<U> const& i) noexcept
-{
-    return const_cast<T&>(*i);
-}
-
 template <typename T>
 constexpr T* get_pointer(observer<T> const& i) noexcept
 {
@@ -288,24 +270,6 @@ public:
         swap(target, other.target);
     }
 };
-
-template <typename T, typename U>
-constexpr observer_ptr<T> static_observer_cast(observer_ptr<U> const& i) noexcept
-{
-    return observer_ptr<T>(static_cast<T*>(get_pointer(i)));
-}
-
-template <typename T, typename U>
-constexpr observer_ptr<T> dynamic_observer_cast(observer_ptr<U> const& i) noexcept
-{
-    return observer_ptr<T>(dynamic_cast<T*>(get_pointer(i)));
-}
-
-template <typename T, typename U>
-constexpr observer_ptr<T> const_observer_cast(observer_ptr<U> const& i) noexcept
-{
-    return observer_ptr<T>(const_cast<T*>(get_pointer(i)));
-}
 
 template <typename T>
 constexpr T* get_pointer(observer_ptr<T> const& i) noexcept
