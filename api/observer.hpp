@@ -44,7 +44,6 @@ class observer
 {
 public:
     using element_type = T;
-    using const_type = observer<std::add_const_t<T>>;
 
 private:
     T* target;
@@ -249,7 +248,6 @@ class observer_ptr
 {
 public:
     using element_type = T;
-    using const_type = observer_ptr<T const>;
 
 private:
     T* target;

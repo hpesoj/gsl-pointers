@@ -24,7 +24,6 @@
 #include "doctest.h"
 
 #include <observer.hpp>
-#include <propagate_const.hpp>
 
 #include <algorithm>
 #include <array>
@@ -159,14 +158,6 @@ struct is_observer_ptr<observer_ptr<T>> : std::true_type {};
 template <typename T>
 constexpr bool is_observer_ptr_v = is_observer_ptr<T>::value;
 
-template <typename T>
-struct is_propagate_const : std::false_type {};
-template <typename T>
-struct is_propagate_const<propagate_const<T>> : std::true_type {};
-
-template <typename T>
-constexpr bool is_propagate_const_v = is_propagate_const<T>::value;
-
 template <typename T, typename U>
 struct replace
 {
@@ -192,12 +183,6 @@ template <typename T, typename U>
 struct replace<observer_ptr<T>, U>
 {
     using type = observer_ptr<replace_t<T, U>>;
-};
-
-template <typename T, typename U>
-struct replace<propagate_const<T>, U>
-{
-    using type = propagate_const<replace_t<T, U>>;
 };
 
 struct base
@@ -246,64 +231,61 @@ SCENARIO("observers can be constructed")
     {
         FOR_EACH_TYPE(observer_t, observer<value_t>, observer_ptr<value_t>)
         {
-            FOR_EACH_TYPE(final_t, observer_t, propagate_const<observer_t>)
+            value_t i = {};
+            value_t j = {};
+
+            GIVEN("a observer implicitly constructed from a reference")
             {
-                value_t i = {};
-                value_t j = {};
+                observer_t v = i;
 
-                GIVEN("a observer implicitly constructed from a reference")
+                REQUIRE(v == i);
+                REQUIRE(v != j);
+
+                WHEN("is is assigned a reference")
                 {
-                    final_t v = i;
+                    v = j;
 
-                    REQUIRE(v == i);
-                    REQUIRE(v != j);
+                    REQUIRE(v == j);
+                    REQUIRE(v != i);
+                }
+            }
 
-                    WHEN("is is assigned a reference")
+            IF(is_observer_ptr_v<observer_t>)
+            {
+                GIVEN("a default constructed observer")
+                {
+                    observer_t v;
+
+                    REQUIRE(!v);
+                    REQUIRE(v == nullptr);
+
+                    WHEN("it is assigned a reference")
                     {
-                        v = j;
+                        v = i;
 
-                        REQUIRE(v == j);
-                        REQUIRE(v != i);
+                        REQUIRE(v);
+                        REQUIRE(v == i);
+                        REQUIRE(v != nullptr);
+
+                        THEN("it is assigned an empty observer")
+                        {
+                            v = {};
+
+                            REQUIRE(!v);
+                            REQUIRE(v == nullptr);
+                            REQUIRE(v != i);
+                        }
                     }
                 }
 
-                IF(is_observer_ptr_v<observer_t>)
+                GIVEN("a observer constructed using the `{}` syntax")
                 {
-                    GIVEN("a default constructed observer")
-                    {
-                        final_t v;
+                    observer_t v = {};
 
-                        REQUIRE(!v);
-                        REQUIRE(v == nullptr);
-
-                        WHEN("it is assigned a reference")
-                        {
-                            v = i;
-
-                            REQUIRE(v);
-                            REQUIRE(v == i);
-                            REQUIRE(v != nullptr);
-
-                            THEN("it is assigned an empty observer")
-                            {
-                                v = {};
-
-                                REQUIRE(!v);
-                                REQUIRE(v == nullptr);
-                                REQUIRE(v != i);
-                            }
-                        }
-                    }
-
-                    GIVEN("a observer constructed using the `{}` syntax")
-                    {
-                        final_t v = {};
-
-                        REQUIRE(!v);
-                        REQUIRE(v == nullptr);
-                    }
-                } END_IF
-            } NEXT_TYPE
+                    REQUIRE(!v);
+                    REQUIRE(v == nullptr);
+                }
+            } END_IF
         } NEXT_TYPE
     } NEXT_TYPE
 }
@@ -314,22 +296,19 @@ SCENARIO("observers convert to pointers")
     {
         FOR_EACH_TYPE(observer_t, observer<value_t>, observer_ptr<value_t>)
         {
-            FOR_EACH_TYPE(final_t, observer_t, propagate_const<observer_t>)
+            value_t i = {};
+
+            GIVEN("a observer constructed from an reference")
             {
-                value_t i = {};
+                observer_t v = i;
 
-                GIVEN("a observer constructed from an reference")
+                WHEN("the observer is converted to a pointer")
                 {
-                    final_t v = i;
+                    value_t* p = static_cast<value_t*>(v);
 
-                    WHEN("the observer is converted to a pointer")
-                    {
-                        value_t* p = static_cast<value_t*>(v);
-
-                        REQUIRE(p == &i);
-                    }
+                    REQUIRE(p == &i);
                 }
-            } NEXT_TYPE
+            }
         } NEXT_TYPE
     } NEXT_TYPE
 }
@@ -340,42 +319,39 @@ SCENARIO("observers can be copied")
     {
         FOR_EACH_TYPE(observer_t, observer<value_t>, observer_ptr<value_t>)
         {
-            FOR_EACH_TYPE(final_t, observer_t, propagate_const<observer_t>)
+            value_t i = {};
+            value_t j = {};
+
+            GIVEN("a copy constructed observer")
             {
-                value_t i = {};
-                value_t j = {};
+                observer_t v = i;
+                observer_t w = v;
 
-                GIVEN("a copy constructed observer")
+                REQUIRE(w == v);
+
+                REQUIRE(w == i);
+                REQUIRE(w != j);
+
+                REQUIRE(v == i);
+                REQUIRE(v != j);
+
+                WHEN("it is copy assigned")
                 {
-                    final_t v = i;
-                    final_t w = v;
+                    observer_t x = j;
+                    w = x;
 
-                    REQUIRE(w == v);
+                    REQUIRE(w == x);
 
-                    REQUIRE(w == i);
-                    REQUIRE(w != j);
+                    REQUIRE(w == j);
+                    REQUIRE(w != i);
+
+                    REQUIRE(x == j);
+                    REQUIRE(x != i);
 
                     REQUIRE(v == i);
                     REQUIRE(v != j);
-
-                    WHEN("it is copy assigned")
-                    {
-                        final_t x = j;
-                        w = x;
-
-                        REQUIRE(w == x);
-
-                        REQUIRE(w == j);
-                        REQUIRE(w != i);
-
-                        REQUIRE(x == j);
-                        REQUIRE(x != i);
-
-                        REQUIRE(v == i);
-                        REQUIRE(v != j);
-                    }
                 }
-            } NEXT_TYPE
+            }
         } NEXT_TYPE
     } NEXT_TYPE
 }
@@ -386,42 +362,39 @@ SCENARIO("observers can be moved")
     {
         FOR_EACH_TYPE(observer_t, observer<value_t>, observer_ptr<value_t>)
         {
-            FOR_EACH_TYPE(final_t, observer_t, propagate_const<observer_t>)
+            value_t i = {};
+            value_t j = {};
+
+            GIVEN("a move constructed observer")
             {
-                value_t i = {};
-                value_t j = {};
+                observer_t v = i;
+                observer_t w = std::move(v);
 
-                GIVEN("a move constructed observer")
+                REQUIRE(w == v);
+
+                REQUIRE(w == i);
+                REQUIRE(w != j);
+
+                REQUIRE(v == i);
+                REQUIRE(v != j);
+
+                WHEN("it is move assigned")
                 {
-                    final_t v = i;
-                    final_t w = std::move(v);
+                    observer_t x = j;
+                    w = std::move(x);
 
-                    REQUIRE(w == v);
+                    REQUIRE(w == x);
 
-                    REQUIRE(w == i);
-                    REQUIRE(w != j);
+                    REQUIRE(w == j);
+                    REQUIRE(w != i);
+
+                    REQUIRE(x == j);
+                    REQUIRE(x != i);
 
                     REQUIRE(v == i);
                     REQUIRE(v != j);
-
-                    WHEN("it is move assigned")
-                    {
-                        final_t x = j;
-                        w = std::move(x);
-
-                        REQUIRE(w == x);
-
-                        REQUIRE(w == j);
-                        REQUIRE(w != i);
-
-                        REQUIRE(x == j);
-                        REQUIRE(x != i);
-
-                        REQUIRE(v == i);
-                        REQUIRE(v != j);
-                    }
                 }
-            } NEXT_TYPE
+            }
         } NEXT_TYPE
     } NEXT_TYPE
 }
@@ -432,31 +405,28 @@ SCENARIO("observers can be swapped")
     {
         FOR_EACH_TYPE(observer_t, observer<value_t>, observer_ptr<value_t>)
         {
-            FOR_EACH_TYPE(final_t, observer_t, propagate_const<observer_t>)
+            value_t i = {};
+            value_t j = {};
+
+            GIVEN("a observer swapped with a observer")
             {
-                value_t i = {};
-                value_t j = {};
+                observer_t v = i;
+                observer_t w = j;
 
-                GIVEN("a observer swapped with a observer")
-                {
-                    final_t v = i;
-                    final_t w = j;
+                swap(v, w);
 
-                    swap(v, w);
+                REQUIRE(v == j);
+                REQUIRE(w == i);
+            }
 
-                    REQUIRE(v == j);
-                    REQUIRE(w == i);
-                }
+            GIVEN("a observer swapped with itself")
+            {
+                observer_t v = i;
 
-                GIVEN("a observer swapped with itself")
-                {
-                    final_t v = i;
+                swap(v, v);
 
-                    swap(v, v);
-
-                    REQUIRE(v == i);
-                }
-            } NEXT_TYPE
+                REQUIRE(v == i);
+            }
         } NEXT_TYPE
     } NEXT_TYPE
 }
@@ -467,50 +437,47 @@ SCENARIO("observers can be used to access the objects they reference")
     {
         FOR_EACH_TYPE(observer_t, observer<value_t>, observer_ptr<value_t>)
         {
-            FOR_EACH_TYPE(final_t, observer_t, propagate_const<observer_t>)
+            value_t i = 1;
+            value_t j = 2;
+
+            GIVEN("a observer constructed from an reference")
             {
-                value_t i = 1;
-                value_t j = 2;
+                observer_t v = i;
 
-                GIVEN("a observer constructed from an reference")
+                REQUIRE(v == i);
+                REQUIRE(v != j);
+                REQUIRE(*v == 1);
+                REQUIRE(*v == i);
+                REQUIRE(*v != j);
+
+                WHEN("it is assigned an reference")
                 {
-                    final_t v = i;
+                    v = j;
 
-                    REQUIRE(v == i);
-                    REQUIRE(v != j);
-                    REQUIRE(*v == 1);
-                    REQUIRE(*v == i);
-                    REQUIRE(*v != j);
+                    REQUIRE(v == j);
+                    REQUIRE(v != i);
+                    REQUIRE(*v == 2);
+                    REQUIRE(*v == j);
+                    REQUIRE(*v != i);
 
-                    WHEN("it is assigned an reference")
+                    IF(!is_const_v<value_t>)
                     {
-                        v = j;
-
-                        REQUIRE(v == j);
-                        REQUIRE(v != i);
-                        REQUIRE(*v == 2);
-                        REQUIRE(*v == j);
-                        REQUIRE(*v != i);
-
-                        IF(!is_const_v<value_t>)
+                        WHEN("the observered object is assigned a reference")
                         {
-                            WHEN("the observered object is assigned a reference")
-                            {
-                                *v = i;
+                            *v = i;
 
-                                REQUIRE(v == j);
-                                REQUIRE(v != i);
-                                REQUIRE(*v == 1);
-                                REQUIRE(*v == i);
-                                REQUIRE(*v == j);
-                                REQUIRE(i == 1);
-                                REQUIRE(j == 1);
-                                REQUIRE(i == j);
-                            }
-                        } END_IF
-                    }
+                            REQUIRE(v == j);
+                            REQUIRE(v != i);
+                            REQUIRE(*v == 1);
+                            REQUIRE(*v == i);
+                            REQUIRE(*v == j);
+                            REQUIRE(i == 1);
+                            REQUIRE(j == 1);
+                            REQUIRE(i == j);
+                        }
+                    } END_IF
                 }
-            } NEXT_TYPE
+            }
         } NEXT_TYPE
     } NEXT_TYPE
 }
@@ -521,186 +488,180 @@ SCENARIO("observers support arithmetic comparison")
     {
         FOR_EACH_TYPE(observer_t, observer<value_t>, observer_ptr<value_t>)
         {
-            FOR_EACH_TYPE(final_t, observer_t, propagate_const<observer_t>)
+            value_t i = {};
+            std::array<value_t, 2> is = { 1, 2 };
+
+            observer_t v = is[0];
+
+            GIVEN("an observer constructed from an entry in an array")
             {
-                value_t i = {};
-                std::array<value_t, 2> is = { 1, 2 };
-
-                final_t v = is[0];
-
-                GIVEN("an observer constructed from an entry in an array")
+                THEN("`operator==` is supported")
                 {
+                    REQUIRE(v == is[0]);
+                    REQUIRE(is[0] == v);
+                    REQUIRE(!(v == is[1]));
+                    REQUIRE(!(is[1] == v));
+                }
+
+                THEN("`operator!=` is supported")
+                {
+                    REQUIRE(!(v != is[0]));
+                    REQUIRE(!(is[0] != v));
+                    REQUIRE(v != is[1]);
+                    REQUIRE(is[1] != v);
+                }
+
+                THEN("`operator<` is supported")
+                {
+                    REQUIRE(!(v < is[0]));
+                    REQUIRE(!(is[0] < v));
+                    REQUIRE(v < is[1]);
+                    REQUIRE(!(is[1] < v));
+                }
+
+                THEN("`operator<=` is supported")
+                {
+                    REQUIRE(v <= is[0]);
+                    REQUIRE(is[0] <= v);
+                    REQUIRE(v <= is[1]);
+                    REQUIRE(!(is[1] <= v));
+                }
+
+                THEN("`operator>` is supported")
+                {
+                    REQUIRE(!(v > is[0]));
+                    REQUIRE(!(is[0] > v));
+                    REQUIRE(!(v > is[1]));
+                    REQUIRE(is[1] > v);
+                }
+
+                THEN("`operator>=` is supported")
+                {
+                    REQUIRE(v >= is[0]);
+                    REQUIRE(is[0] >= v);
+                    REQUIRE(!(v >= is[1]));
+                    REQUIRE(is[1] >= v);
+                }
+            }
+
+            IF(is_observer_ptr_v<observer_t>)
+            {
+                GIVEN("a non-null observer and a null observer")
+                {
+                    observer_t v = i;
+                    observer_t u;
+
+                    THEN("`operator==` with `nullptr` is supported")
+                    {
+                        REQUIRE(!(v == nullptr));
+                        REQUIRE(!(nullptr == v));
+                        REQUIRE(u == nullptr);
+                        REQUIRE(nullptr == u);
+                    }
+
+                    THEN("`operator!=` with `nullptr` is supported")
+                    {
+                        REQUIRE(v != nullptr);
+                        REQUIRE(nullptr != v);
+                        REQUIRE(!(u != nullptr));
+                        REQUIRE(!(nullptr != u));
+                    }
+
+                    THEN("`operator<` with `nullptr` is supported")
+                    {
+                        REQUIRE((v < nullptr) == std::less<value_t*>()(get_pointer(v), nullptr));
+                        REQUIRE((nullptr < v) == std::less<value_t*>()(nullptr, get_pointer(v)));
+                        REQUIRE(!(u < nullptr));
+                        REQUIRE(!(nullptr < u));
+                    }
+
+                    THEN("`operator>` with `nullptr` is supported")
+                    {
+                        REQUIRE((v > nullptr) == std::greater<value_t*>()(get_pointer(v), nullptr));
+                        REQUIRE((nullptr > v) == std::greater<value_t*>()(nullptr, get_pointer(v)));
+                        REQUIRE(!(u > nullptr));
+                        REQUIRE(!(nullptr > u));
+                    }
+
+                    THEN("`operator<=` with `nullptr` is supported")
+                    {
+                        REQUIRE((v <= nullptr) == std::less_equal<value_t*>()(get_pointer(v), nullptr));
+                        REQUIRE((nullptr <= v) == std::less_equal<value_t*>()(nullptr, get_pointer(v)));
+                        REQUIRE(u <= nullptr);
+                        REQUIRE(nullptr <= u);
+                    }
+
+                    THEN("`operator>=` with `nullptr` is supported")
+                    {
+                        REQUIRE((v >= nullptr) == std::greater_equal<value_t*>()(get_pointer(v), nullptr));
+                        REQUIRE((nullptr >= v) == std::greater_equal<value_t*>()(nullptr, get_pointer(v)));
+                        REQUIRE(u >= nullptr);
+                        REQUIRE(nullptr >= u);
+                    }
+                }
+            } END_IF
+
+            FOR_EACH_TYPE(observer2_t, observer<value_t>, observer_ptr<value_t>)
+            {
+                GIVEN("observers constructed from entries in an array")
+                {
+                    observer2_t u = is[0];
+                    observer2_t w = is[1];
+
                     THEN("`operator==` is supported")
                     {
-                        REQUIRE(v == is[0]);
-                        REQUIRE(is[0] == v);
-                        REQUIRE(!(v == is[1]));
-                        REQUIRE(!(is[1] == v));
+                        REQUIRE(v == v);
+                        REQUIRE(u == v);
+                        REQUIRE(v == u);
+                        REQUIRE(!(v == w));
+                        REQUIRE(!(w == v));
                     }
 
                     THEN("`operator!=` is supported")
                     {
-                        REQUIRE(!(v != is[0]));
-                        REQUIRE(!(is[0] != v));
-                        REQUIRE(v != is[1]);
-                        REQUIRE(is[1] != v);
+                        REQUIRE(!(v != v));
+                        REQUIRE(!(u != v));
+                        REQUIRE(!(v != u));
+                        REQUIRE(v != w);
+                        REQUIRE(w != v);
                     }
 
                     THEN("`operator<` is supported")
                     {
-                        REQUIRE(!(v < is[0]));
-                        REQUIRE(!(is[0] < v));
-                        REQUIRE(v < is[1]);
-                        REQUIRE(!(is[1] < v));
+                        REQUIRE(!(v < v));
+                        REQUIRE(!(u < v));
+                        REQUIRE(!(v < u));
+                        REQUIRE(v < w);
+                        REQUIRE(!(w < v));
                     }
 
                     THEN("`operator<=` is supported")
                     {
-                        REQUIRE(v <= is[0]);
-                        REQUIRE(is[0] <= v);
-                        REQUIRE(v <= is[1]);
-                        REQUIRE(!(is[1] <= v));
+                        REQUIRE(v <= v);
+                        REQUIRE(u <= v);
+                        REQUIRE(v <= u);
+                        REQUIRE(v <= w);
+                        REQUIRE(!(w <= v));
                     }
 
                     THEN("`operator>` is supported")
                     {
-                        REQUIRE(!(v > is[0]));
-                        REQUIRE(!(is[0] > v));
-                        REQUIRE(!(v > is[1]));
-                        REQUIRE(is[1] > v);
+                        REQUIRE(!(v > v));
+                        REQUIRE(!(u > v));
+                        REQUIRE(!(v > u));
+                        REQUIRE(!(v > w));
+                        REQUIRE(w > v);
                     }
 
                     THEN("`operator>=` is supported")
                     {
-                        REQUIRE(v >= is[0]);
-                        REQUIRE(is[0] >= v);
-                        REQUIRE(!(v >= is[1]));
-                        REQUIRE(is[1] >= v);
+                        REQUIRE(v >= v);
+                        REQUIRE(u >= v);
+                        REQUIRE(v >= u);
+                        REQUIRE(!(v >= w));
+                        REQUIRE(w >= v);
                     }
                 }
-
-                IF(is_observer_ptr_v<observer_t>)
-                {
-                    GIVEN("a non-null observer and a null observer")
-                    {
-                        final_t v = i;
-                        final_t u;
-
-                        THEN("`operator==` with `nullptr` is supported")
-                        {
-                            REQUIRE(!(v == nullptr));
-                            REQUIRE(!(nullptr == v));
-                            REQUIRE(u == nullptr);
-                            REQUIRE(nullptr == u);
-                        }
-
-                        THEN("`operator!=` with `nullptr` is supported")
-                        {
-                            REQUIRE(v != nullptr);
-                            REQUIRE(nullptr != v);
-                            REQUIRE(!(u != nullptr));
-                            REQUIRE(!(nullptr != u));
-                        }
-
-                        THEN("`operator<` with `nullptr` is supported")
-                        {
-                            REQUIRE((v < nullptr) == std::less<value_t*>()(get_pointer(v), nullptr));
-                            REQUIRE((nullptr < v) == std::less<value_t*>()(nullptr, get_pointer(v)));
-                            REQUIRE(!(u < nullptr));
-                            REQUIRE(!(nullptr < u));
-                        }
-
-                        THEN("`operator>` with `nullptr` is supported")
-                        {
-                            REQUIRE((v > nullptr) == std::greater<value_t*>()(get_pointer(v), nullptr));
-                            REQUIRE((nullptr > v) == std::greater<value_t*>()(nullptr, get_pointer(v)));
-                            REQUIRE(!(u > nullptr));
-                            REQUIRE(!(nullptr > u));
-                        }
-
-                        THEN("`operator<=` with `nullptr` is supported")
-                        {
-                            REQUIRE((v <= nullptr) == std::less_equal<value_t*>()(get_pointer(v), nullptr));
-                            REQUIRE((nullptr <= v) == std::less_equal<value_t*>()(nullptr, get_pointer(v)));
-                            REQUIRE(u <= nullptr);
-                            REQUIRE(nullptr <= u);
-                        }
-
-                        THEN("`operator>=` with `nullptr` is supported")
-                        {
-                            REQUIRE((v >= nullptr) == std::greater_equal<value_t*>()(get_pointer(v), nullptr));
-                            REQUIRE((nullptr >= v) == std::greater_equal<value_t*>()(nullptr, get_pointer(v)));
-                            REQUIRE(u >= nullptr);
-                            REQUIRE(nullptr >= u);
-                        }
-                    }
-                } END_IF
-
-                FOR_EACH_TYPE(observer2_t, observer<value_t>, observer_ptr<value_t>)
-                {
-                    FOR_EACH_TYPE(final2_t, observer2_t, propagate_const<observer2_t>)
-                    {
-                        GIVEN("observers constructed from entries in an array")
-                        {
-                            final2_t u = is[0];
-                            final2_t w = is[1];
-
-                            THEN("`operator==` is supported")
-                            {
-                                REQUIRE(v == v);
-                                REQUIRE(u == v);
-                                REQUIRE(v == u);
-                                REQUIRE(!(v == w));
-                                REQUIRE(!(w == v));
-                            }
-
-                            THEN("`operator!=` is supported")
-                            {
-                                REQUIRE(!(v != v));
-                                REQUIRE(!(u != v));
-                                REQUIRE(!(v != u));
-                                REQUIRE(v != w);
-                                REQUIRE(w != v);
-                            }
-
-                            THEN("`operator<` is supported")
-                            {
-                                REQUIRE(!(v < v));
-                                REQUIRE(!(u < v));
-                                REQUIRE(!(v < u));
-                                REQUIRE(v < w);
-                                REQUIRE(!(w < v));
-                            }
-
-                            THEN("`operator<=` is supported")
-                            {
-                                REQUIRE(v <= v);
-                                REQUIRE(u <= v);
-                                REQUIRE(v <= u);
-                                REQUIRE(v <= w);
-                                REQUIRE(!(w <= v));
-                            }
-
-                            THEN("`operator>` is supported")
-                            {
-                                REQUIRE(!(v > v));
-                                REQUIRE(!(u > v));
-                                REQUIRE(!(v > u));
-                                REQUIRE(!(v > w));
-                                REQUIRE(w > v);
-                            }
-
-                            THEN("`operator>=` is supported")
-                            {
-                                REQUIRE(v >= v);
-                                REQUIRE(u >= v);
-                                REQUIRE(v >= u);
-                                REQUIRE(!(v >= w));
-                                REQUIRE(w >= v);
-                            }
-                        }
-                    } NEXT_TYPE
-                } NEXT_TYPE
             } NEXT_TYPE
         } NEXT_TYPE
     } NEXT_TYPE
@@ -712,17 +673,14 @@ SCENARIO("observers can be created using `make_observer`")
     {
         FOR_EACH_TYPE(observer_t, observer<value_t>, observer_ptr<value_t>)
         {
-            FOR_EACH_TYPE(final_t, observer_t, propagate_const<observer_t>)
+            value_t i = {};
+
+            GIVEN("a observer created with `make_observer`")
             {
-                value_t i = {};
+                observer_t v = make_observer(i);
 
-                GIVEN("a observer created with `make_observer`")
-                {
-                    final_t v = make_observer(i);
-
-                    REQUIRE(v == i);
-                }
-            } NEXT_TYPE
+                REQUIRE(v == i);
+            }
         } NEXT_TYPE
     } NEXT_TYPE
 }
@@ -746,76 +704,73 @@ SCENARIO("observers can be used with STL containers")
     {
         FOR_EACH_TYPE(observer_t, observer<value_t>, observer_ptr<value_t>)
         {
-            FOR_EACH_TYPE(final_t, observer_t, propagate_const<observer_t>)
+            std::array<value_t, 3> i = { 0, 1, 2 };
+
+            // !!! Not working on MSVC
+            //GIVEN("a `vector` of observers")
+            //{
+                //std::vector<observer_t> vector;
+
+                //vector.emplace_back(i[2]);
+                //vector.emplace_back(i[1]);
+                //vector.emplace_back(i[0]);
+
+                //REQUIRE(vector[0] == i[2]);
+                //REQUIRE(vector[1] == i[1]);
+                //REQUIRE(vector[2] == i[0]);
+            //}
+
+            GIVEN("a `map` of observer-observer pairs")
             {
-                std::array<value_t, 3> i = { 0, 1, 2 };
+                std::map<observer_t, observer_t> map;
 
-                // !!! Not working on MSVC
-                //GIVEN("a `vector` of observers")
-                //{
-                    //std::vector<final_t> vector;
+                map.emplace(i[0], i[2]);
+                map.emplace(i[1], i[1]);
+                map.emplace(i[2], i[0]);
 
-                    //vector.emplace_back(i[2]);
-                    //vector.emplace_back(i[1]);
-                    //vector.emplace_back(i[0]);
+                REQUIRE(map.at(i[0]) == i[2]);
+                REQUIRE(map.at(i[1]) == i[1]);
+                REQUIRE(map.at(i[2]) == i[0]);
+            }
 
-                    //REQUIRE(vector[0] == i[2]);
-                    //REQUIRE(vector[1] == i[1]);
-                    //REQUIRE(vector[2] == i[0]);
-                //}
+            GIVEN("an `unordered_map` of observer-observer pairs")
+            {
+                std::unordered_map<observer_t, observer_t> map;
 
-                GIVEN("a `map` of observer-observer pairs")
-                {
-                    std::map<final_t, final_t> map;
+                map.emplace(i[0], i[2]);
+                map.emplace(i[1], i[1]);
+                map.emplace(i[2], i[0]);
 
-                    map.emplace(i[0], i[2]);
-                    map.emplace(i[1], i[1]);
-                    map.emplace(i[2], i[0]);
+                REQUIRE(map.at(i[0]) == i[2]);
+                REQUIRE(map.at(i[1]) == i[1]);
+                REQUIRE(map.at(i[2]) == i[0]);
+            }
 
-                    REQUIRE(map.at(i[0]) == i[2]);
-                    REQUIRE(map.at(i[1]) == i[1]);
-                    REQUIRE(map.at(i[2]) == i[0]);
-                }
+            GIVEN("a `set` of observers")
+            {
+                std::set<observer_t> set;
 
-                GIVEN("an `unordered_map` of observer-observer pairs")
-                {
-                    std::unordered_map<final_t, final_t> map;
+                set.emplace(i[0]);
+                set.emplace(i[1]);
+                set.emplace(i[2]);
 
-                    map.emplace(i[0], i[2]);
-                    map.emplace(i[1], i[1]);
-                    map.emplace(i[2], i[0]);
+                REQUIRE(set.find(i[0]) != set.end());
+                REQUIRE(set.find(i[1]) != set.end());
+                REQUIRE(set.find(i[2]) != set.end());
+            }
 
-                    REQUIRE(map.at(i[0]) == i[2]);
-                    REQUIRE(map.at(i[1]) == i[1]);
-                    REQUIRE(map.at(i[2]) == i[0]);
-                }
+            GIVEN("an `unordered_set` of observers")
+            {
+                std::unordered_set<observer_t> set;
 
-                GIVEN("a `set` of observers")
-                {
-                    std::set<final_t> set;
+                set.emplace(i[0]);
+                set.emplace(i[1]);
+                set.emplace(i[2]);
 
-                    set.emplace(i[0]);
-                    set.emplace(i[1]);
-                    set.emplace(i[2]);
-
-                    REQUIRE(set.find(i[0]) != set.end());
-                    REQUIRE(set.find(i[1]) != set.end());
-                    REQUIRE(set.find(i[2]) != set.end());
-                }
-
-                GIVEN("an `unordered_set` of observers")
-                {
-                    std::unordered_set<final_t> set;
-
-                    set.emplace(i[0]);
-                    set.emplace(i[1]);
-                    set.emplace(i[2]);
-
-                    REQUIRE(set.find(i[0]) != set.end());
-                    REQUIRE(set.find(i[1]) != set.end());
-                    REQUIRE(set.find(i[2]) != set.end());
-                }
-            } NEXT_TYPE
+                REQUIRE(set.find(i[0]) != set.end());
+                REQUIRE(set.find(i[1]) != set.end());
+                REQUIRE(set.find(i[2]) != set.end());
+            }
         } NEXT_TYPE
     } NEXT_TYPE
 }
