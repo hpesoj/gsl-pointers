@@ -165,4 +165,4 @@ In modern C++, a bare `T*` is an array iterator:
     int arr[] = { 1, 2, 3 };
     auto it = end(arr); // `decltype(it)` is `int*`
 
-The interface of `T*` is pretty much the definition of a [random access iterator](http://en.cppreference.com/w/cpp/concept/RandomAccessIterator), so unlike its various other uses, `T*` fits this role pretty well (conversion to `void*` aside). Of course, there are various superior alternatives to C-style arrays ([ES.27](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#Res-stack)), and `span` is recommended instead of direct use of iterators, so `T*` probably won't be seen in this capacity much in modern C++ code.
+The interface of `T*` is pretty much the definition of a [random access iterator](http://en.cppreference.com/w/cpp/concept/RandomAccessIterator), so unlike its various other uses, `T*` fits this role pretty well (conversion to `void*` aside).
