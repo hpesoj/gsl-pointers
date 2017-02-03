@@ -110,7 +110,9 @@ Now we _know_ that a copy of `w` is stored for later, and that we cannot pass a 
 
 No ambiguity; no need to read documentation.
 
-So what role is left for `T*`? If `w` is not copied and stored, then it is inappropriate to use `observer<T>` or `observer_ptr<T>`. Therefore, the only case where we might consider using `T*` is passing a non-owning reference to an object that is not copied and stored. However, `T*` still doesn't indicate whether or not it can be null. We _could_ use `not_null<T*>`, but there is a much more natural way to pass non-owning  _mandatory_ references to objects: references.
+#### A slight digression
+
+With `observer<T>` and `observer_ptr<T>` in the picture, the only role left for `T*` is as a non-owning reference to an object that is _not_ copied and stored. However, `T*` still doesn't indicate whether or not it can be null. We _could_ use `not_null<T*>` to indicate a _mandatory_ reference, but C++ already has a natural way to represent this: references.
 
     void frobnicate(widget& w);
 
@@ -118,11 +120,11 @@ This pattern is commonly used in C++ to write _non-member_ functions associated 
 
     int rating(widget const& w);
 
-They also have the added benefit of being able to receive _temporary_ arguments:
+Const reference parameters have the added benefit of being able to receive _temporary_ arguments:
 
-    auto len = rating(widget(42, 7, 3));
+    int len = rating(widget(42, 7, 3));
 
-The only use case unaccounted for so far is an "optional" reference to an object that is not copied and stored, as described in rule [F.60](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#Rf-ptr-ref):
+The only use of `T*` without an alternative so far is an "optional" reference to an object that is not copied and stored, as described in rule [F.60](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#Rf-ptr-ref):
 
     int rating(widget const* w);
 
