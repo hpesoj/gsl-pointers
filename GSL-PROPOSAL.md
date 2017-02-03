@@ -132,8 +132,6 @@ However, for const references, we lose the ability to pass in temporaries.  We m
 
 Unfortunately, `optional<T&>` is not currently part of the standard, as even though it was included as an auxiliary proposal to the main `optional` proposal, it was not adopted into C++17. Therefore, it seems that we currently lack an expressive way to represent "optional" reference parameters. Perhaps the GSL needs an [`optional_ref<T>`](api/optional_ref.hpp) class template?
 
-    int rating(optional_ref<widget const> w);
-
 But I digress.
 
 ### `T*` has an unsafe interface
