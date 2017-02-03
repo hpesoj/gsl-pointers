@@ -16,7 +16,7 @@ The `observer_ptr<T>` class template is the counterpart to `observer<T>` with a 
 
 `observer<T>` and `observer_ptr<T>` are more than just non-owning references to objects of type `T`: they convey the intent to store the reference to be "observed" later on. That is, in contrast to `unique_ptr<T>` and `shared_ptr<T>`, which convey _ownership_, `observer<T>` and `observer_ptr<T>` convey _observership_.
 
-Of course, `observer<T>` and `observer_ptr<T>` do not manage or track the lifetime of what they observer. They are designed to have no more overhead than a simple pointer, and require that the lifetimes of observers and observees are tracked further up the call stack. If lifetime tracking is required, a signals and slots implementation (e.g. [Boost.Signals2](www.boost.org/doc/libs/release/doc/html/signals2.html)) or `weak_ptr` may be used.
+Of course, `observer<T>` and `observer_ptr<T>` do not manage or track the lifetime of what they observe. They are designed to have no more overhead than a simple pointer, and require that the lifetimes of observers and observees are managed further up the call stack. If automatic lifetime tracking is required, a signals and slots implementation (e.g. [Boost.Signals2](www.boost.org/doc/libs/release/doc/html/signals2.html)) or `weak_ptr` may be used.
 
 ## Examples
 
@@ -39,8 +39,8 @@ Currently, the C++ Core Guidelines state that it is appropriate to use raw point
 
 Both `observer<T>` and `observer_ptr<T>` are superior to `T*` in the capacity of an observer for three main reasons:
 
-1. __Type safety__ – Neither `observer_ptr<T>` nor `observer<T>` are implicitly convertible from or to `T*`, because implicit operations should be type-safe, and `T*` can represent things other than an observer (e.g. array, string, iterator), and do not even _have_ to point to a valid object (e.g. a past-the-end iterator). Instead, observers are created from `T&` using the type-safe `make_observer` factory function, since (in a well-formed program) `T&` is _always_ a non-owning observer of a valid object.
-2. __Documentation of intent__ – It is 100% clear that `observer<T>` and `observer_ptr<T>` represent mandatory and optional "observers" respectively, that will be stored and accessed later on. Conversely, it is not clear whether `T*` can or cannot be null, or whether it will be copied and stored.
+1. __Type safety__ – Neither `observer_ptr<T>` nor `observer<T>` are implicitly convertible from or to `T*`, because implicit operations should be type-safe, and `T*` can represent things other than an observer (e.g. array, iterator), and do not even _have_ to point to a valid object (e.g. a past-the-end iterator). Instead, observers are created from `T&` using the type-safe `make_observer` factory function, since (in a well-formed program) `T&` is _always_ a non-owning reference to a valid object.
+2. __Documentation of intent__ – It is 100% clear that `observer<T>` and `observer_ptr<T>` represent mandatory and optional "observers" respectively, and will be stored for access later on. Conversely, it is not clear whether `T*` can or cannot be null, or whether it will be copied and stored.
 3. __Interface safety__ – Both `observer<T>` and `observer_ptr<T>` have minimal interfaces that implement only operations that make sense for an observer. Conversely, `T*` support operations that do not make sense for an observer (e.g. pointer arithmetic operators, array subscript operator, conversion to `void*`). In addition, `observer<T>` enforces the "not null" precondition at _compile-time_.
 
 ### `T*` is not strongly typed
@@ -61,14 +61,14 @@ And there are further variations of these things:
 * If `T*` points to an array, it carries no information about the _size_ of the array. The array may also be zero-terminated, but `T*` carries no information to indicate this either. Out of bounds array access results in _undefined behaviour_. 
 * In all cases, `T*` also carries no information about whether or not it can validly be _null_. C++ emphasises performance, so it is often desirable to assume that a pointer is not null to avoid the run-time cost incurred by a conditional check. Dereferencing a null pointer results in _undefined behaviour_.
 
-All of these things are conceptually distinct, but they all implicitly convert to each other without the compiler complaining because they are all represented by the same type, not to mention the shortcomings of the interface defined by `T*` in each case.
+All of these things are conceptually distinct, but they all implicitly convert to each other without the compiler complaining because they are all represented by the same type.
 
-Of course, the C++ Core Guidelines provide alternatives to `T*` so that the safety and clarity of your code can be improved. But the guidelines state that `T*` always represents a non-owning ([R.3](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#r3-a-raw-pointer-a-t-is-non-owning)) reference to a single object ([F.22](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#f22-use-t-or-ownert-to-designate-a-single-object)). The argument is that, once all other uses of `T*` have been replaced with alternatives, all instances of `T*` will be non-owning references to single objects. This argument assumes that:
+Of course, the C++ Core Guidelines provide alternatives to `T*` so that the safety and clarity of code can be improved. But the guidelines state that `T*` always represents a non-owning ([R.3](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#r3-a-raw-pointer-a-t-is-non-owning)) reference to a single object ([F.22](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#f22-use-t-or-ownert-to-designate-a-single-object)). The argument is that, once all other uses of `T*` have been replaced with alternatives, all instances of `T*` will be non-owning references to single objects. This argument assumes that:
 
 1. Everyone is following the guidelines perfectly.
 2. Every part of a code-base adheres to the guidelines.
 
-The first assumption is unlikely to be true for a number of reasons:
+The first assumption may not be true for a number of reasons:
 
 * The guidelines are not mandatory
 * Static analysis is not perfect
@@ -76,19 +76,22 @@ The first assumption is unlikely to be true for a number of reasons:
 
 The larger and more distributed a project is (especially in the case of open-source software), the less likely it will be that every inch of the code-base adheres to the guidelines. The agreement that `T*` is a non-owning reference to a single object is by consensus only. It is much more reliable to use the type system to enforce correctness.
 
-The second assumption is very unlikely
+The second assumption may not be true for other reasons:
 
-It is better to be explicit than to leave people to make assumptions about your code ([I.1](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#Ri-explicit)).
+* Updating a code base to conform to the guidelines takes a lot of time
+* Some code may never follow the guidelines (e.g. 3rd party libraries)
+
+And these are just some of the reasons why it is better to be explicit than to leave people to make assumptions about your code ([I.1](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#Ri-explicit)).
 
 ### `T*` does not convey intent
 
 Rule [P.3](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#Rp-what) tells us to "express intent", explaining that unless the intent of some code is stated, it is impossible to tell whether the code does what it is supposed to do.
 
-Take this function signature:
+Take this function:
 
     void frobnicate(widget* w);
 
-And this client code:
+And this calling code:
 
     frobnicate(&wgt);
 
@@ -151,9 +154,9 @@ Using an "observer" `T*` inappropriately can result in _undefined behaviour_:
 
 Conversely, `observer<T>` and `observer_ptr<T>` have none of these problems because their interface has been designed for their purpose. In addition, `observer<T>` has no null state, and enforces the "not null" precondition at _compile-time_:
 
-    observer<T> obs;          // error: no `observer<T>()`
-    observer<T> obs{nullptr}; // error: no `observer<T>(nullptr_t)`
-    observer<T> obs{&t};      // error: no `observer<T>(T*)`
+    observer<T> obs1;          // error: no `observer<T>()`
+    observer<T> obs2{nullptr}; // error: no `observer<T>(nullptr_t)`
+    observer<T> obs3{&t};      // error: no `observer<T>(T*)`
 
 ### So what is `T*`?
 
