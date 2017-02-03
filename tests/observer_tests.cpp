@@ -236,17 +236,17 @@ SCENARIO("observers can be constructed")
 
             GIVEN("a observer implicitly constructed from a reference")
             {
-                observer_t v = i;
+                observer_t v = make_observer(i);
 
-                REQUIRE(v == i);
-                REQUIRE(v != j);
+                REQUIRE(v == make_observer(i));
+                REQUIRE(v != make_observer(j));
 
                 WHEN("is is assigned a reference")
                 {
-                    v = j;
+                    v = make_observer(j);
 
-                    REQUIRE(v == j);
-                    REQUIRE(v != i);
+                    REQUIRE(v == make_observer(j));
+                    REQUIRE(v != make_observer(i));
                 }
             }
 
@@ -261,10 +261,10 @@ SCENARIO("observers can be constructed")
 
                     WHEN("it is assigned a reference")
                     {
-                        v = i;
+                        v = make_observer(i);
 
                         REQUIRE(v);
-                        REQUIRE(v == i);
+                        REQUIRE(v == make_observer(i));
                         REQUIRE(v != nullptr);
 
                         THEN("it is assigned an empty observer")
@@ -273,7 +273,7 @@ SCENARIO("observers can be constructed")
 
                             REQUIRE(!v);
                             REQUIRE(v == nullptr);
-                            REQUIRE(v != i);
+                            REQUIRE(v != make_observer(i));
                         }
                     }
                 }
@@ -300,7 +300,7 @@ SCENARIO("observers convert to pointers")
 
             GIVEN("a observer constructed from an reference")
             {
-                observer_t v = i;
+                observer_t v = make_observer(i);
 
                 WHEN("the observer is converted to a pointer")
                 {
@@ -324,32 +324,32 @@ SCENARIO("observers can be copied")
 
             GIVEN("a copy constructed observer")
             {
-                observer_t v = i;
+                observer_t v = make_observer(i);
                 observer_t w = v;
 
                 REQUIRE(w == v);
 
-                REQUIRE(w == i);
-                REQUIRE(w != j);
+                REQUIRE(w == make_observer(i));
+                REQUIRE(w != make_observer(j));
 
-                REQUIRE(v == i);
-                REQUIRE(v != j);
+                REQUIRE(v == make_observer(i));
+                REQUIRE(v != make_observer(j));
 
                 WHEN("it is copy assigned")
                 {
-                    observer_t x = j;
+                    observer_t x = make_observer(j);
                     w = x;
 
                     REQUIRE(w == x);
 
-                    REQUIRE(w == j);
-                    REQUIRE(w != i);
+                    REQUIRE(w == make_observer(j));
+                    REQUIRE(w != make_observer(i));
 
-                    REQUIRE(x == j);
-                    REQUIRE(x != i);
+                    REQUIRE(x == make_observer(j));
+                    REQUIRE(x != make_observer(i));
 
-                    REQUIRE(v == i);
-                    REQUIRE(v != j);
+                    REQUIRE(v == make_observer(i));
+                    REQUIRE(v != make_observer(j));
                 }
             }
         } NEXT_TYPE
@@ -367,32 +367,32 @@ SCENARIO("observers can be moved")
 
             GIVEN("a move constructed observer")
             {
-                observer_t v = i;
+                observer_t v = make_observer(i);
                 observer_t w = std::move(v);
 
                 REQUIRE(w == v);
 
-                REQUIRE(w == i);
-                REQUIRE(w != j);
+                REQUIRE(w == make_observer(i));
+                REQUIRE(w != make_observer(j));
 
-                REQUIRE(v == i);
-                REQUIRE(v != j);
+                REQUIRE(v == make_observer(i));
+                REQUIRE(v != make_observer(j));
 
                 WHEN("it is move assigned")
                 {
-                    observer_t x = j;
+                    observer_t x = make_observer(j);
                     w = std::move(x);
 
                     REQUIRE(w == x);
 
-                    REQUIRE(w == j);
-                    REQUIRE(w != i);
+                    REQUIRE(w == make_observer(j));
+                    REQUIRE(w != make_observer(i));
 
-                    REQUIRE(x == j);
-                    REQUIRE(x != i);
+                    REQUIRE(x == make_observer(j));
+                    REQUIRE(x != make_observer(i));
 
-                    REQUIRE(v == i);
-                    REQUIRE(v != j);
+                    REQUIRE(v == make_observer(i));
+                    REQUIRE(v != make_observer(j));
                 }
             }
         } NEXT_TYPE
@@ -410,22 +410,22 @@ SCENARIO("observers can be swapped")
 
             GIVEN("a observer swapped with a observer")
             {
-                observer_t v = i;
-                observer_t w = j;
+                observer_t v = make_observer(i);
+                observer_t w = make_observer(j);
 
                 swap(v, w);
 
-                REQUIRE(v == j);
-                REQUIRE(w == i);
+                REQUIRE(v == make_observer(j));
+                REQUIRE(w == make_observer(i));
             }
 
             GIVEN("a observer swapped with itself")
             {
-                observer_t v = i;
+                observer_t v = make_observer(i);
 
                 swap(v, v);
 
-                REQUIRE(v == i);
+                REQUIRE(v == make_observer(i));
             }
         } NEXT_TYPE
     } NEXT_TYPE
@@ -442,20 +442,20 @@ SCENARIO("observers can be used to access the objects they reference")
 
             GIVEN("a observer constructed from an reference")
             {
-                observer_t v = i;
+                observer_t v = make_observer(i);
 
-                REQUIRE(v == i);
-                REQUIRE(v != j);
+                REQUIRE(v == make_observer(i));
+                REQUIRE(v != make_observer(j));
                 REQUIRE(*v == 1);
                 REQUIRE(*v == i);
                 REQUIRE(*v != j);
 
                 WHEN("it is assigned an reference")
                 {
-                    v = j;
+                    v = make_observer(j);
 
-                    REQUIRE(v == j);
-                    REQUIRE(v != i);
+                    REQUIRE(v == make_observer(j));
+                    REQUIRE(v != make_observer(i));
                     REQUIRE(*v == 2);
                     REQUIRE(*v == j);
                     REQUIRE(*v != i);
@@ -466,8 +466,8 @@ SCENARIO("observers can be used to access the objects they reference")
                         {
                             *v = i;
 
-                            REQUIRE(v == j);
-                            REQUIRE(v != i);
+                            REQUIRE(v == make_observer(j));
+                            REQUIRE(v != make_observer(i));
                             REQUIRE(*v == 1);
                             REQUIRE(*v == i);
                             REQUIRE(*v == j);
@@ -491,56 +491,56 @@ SCENARIO("observers support arithmetic comparison")
             value_t i = {};
             std::array<value_t, 2> is = { 1, 2 };
 
-            observer_t v = is[0];
+            observer_t v = make_observer(is[0]);
 
             GIVEN("an observer constructed from an entry in an array")
             {
                 THEN("`operator==` is supported")
                 {
-                    REQUIRE(v == is[0]);
-                    REQUIRE(is[0] == v);
-                    REQUIRE(!(v == is[1]));
-                    REQUIRE(!(is[1] == v));
+                    REQUIRE(v == make_observer(is[0]));
+                    REQUIRE(make_observer(is[0]) == v);
+                    REQUIRE(!(v == make_observer(is[1])));
+                    REQUIRE(!(make_observer(is[1]) == v));
                 }
 
                 THEN("`operator!=` is supported")
                 {
-                    REQUIRE(!(v != is[0]));
-                    REQUIRE(!(is[0] != v));
-                    REQUIRE(v != is[1]);
-                    REQUIRE(is[1] != v);
+                    REQUIRE(!(v != make_observer(is[0])));
+                    REQUIRE(!(make_observer(is[0]) != v));
+                    REQUIRE(v != make_observer(is[1]));
+                    REQUIRE(make_observer(is[1]) != v);
                 }
 
                 THEN("`operator<` is supported")
                 {
-                    REQUIRE(!(v < is[0]));
-                    REQUIRE(!(is[0] < v));
-                    REQUIRE(v < is[1]);
-                    REQUIRE(!(is[1] < v));
+                    REQUIRE(!(v < make_observer(is[0])));
+                    REQUIRE(!(make_observer(is[0]) < v));
+                    REQUIRE(v < make_observer(is[1]));
+                    REQUIRE(!(make_observer(is[1]) < v));
                 }
 
                 THEN("`operator<=` is supported")
                 {
-                    REQUIRE(v <= is[0]);
-                    REQUIRE(is[0] <= v);
-                    REQUIRE(v <= is[1]);
-                    REQUIRE(!(is[1] <= v));
+                    REQUIRE(v <= make_observer(is[0]));
+                    REQUIRE(make_observer(is[0]) <= v);
+                    REQUIRE(v <= make_observer(is[1]));
+                    REQUIRE(!(make_observer(is[1]) <= v));
                 }
 
                 THEN("`operator>` is supported")
                 {
-                    REQUIRE(!(v > is[0]));
-                    REQUIRE(!(is[0] > v));
-                    REQUIRE(!(v > is[1]));
-                    REQUIRE(is[1] > v);
+                    REQUIRE(!(v > make_observer(is[0])));
+                    REQUIRE(!(make_observer(is[0]) > v));
+                    REQUIRE(!(v > make_observer(is[1])));
+                    REQUIRE(make_observer(is[1]) > v);
                 }
 
                 THEN("`operator>=` is supported")
                 {
-                    REQUIRE(v >= is[0]);
-                    REQUIRE(is[0] >= v);
-                    REQUIRE(!(v >= is[1]));
-                    REQUIRE(is[1] >= v);
+                    REQUIRE(v >= make_observer(is[0]));
+                    REQUIRE(make_observer(is[0]) >= v);
+                    REQUIRE(!(v >= make_observer(is[1])));
+                    REQUIRE(make_observer(is[1]) >= v);
                 }
             }
 
@@ -548,7 +548,7 @@ SCENARIO("observers support arithmetic comparison")
             {
                 GIVEN("a non-null observer and a null observer")
                 {
-                    observer_t v = i;
+                    observer_t v = make_observer(i);
                     observer_t u;
 
                     THEN("`operator==` with `nullptr` is supported")
@@ -605,8 +605,8 @@ SCENARIO("observers support arithmetic comparison")
             {
                 GIVEN("observers constructed from entries in an array")
                 {
-                    observer2_t u = is[0];
-                    observer2_t w = is[1];
+                    observer2_t u = make_observer(is[0]);
+                    observer2_t w = make_observer(is[1]);
 
                     THEN("`operator==` is supported")
                     {
@@ -679,7 +679,7 @@ SCENARIO("observers can be created using `make_observer`")
             {
                 observer_t v = make_observer(i);
 
-                REQUIRE(v == i);
+                REQUIRE(v == make_observer(i));
             }
         } NEXT_TYPE
     } NEXT_TYPE
@@ -728,9 +728,9 @@ SCENARIO("observers can be used with STL containers")
                 map.emplace(i[1], i[1]);
                 map.emplace(i[2], i[0]);
 
-                REQUIRE(map.at(i[0]) == i[2]);
-                REQUIRE(map.at(i[1]) == i[1]);
-                REQUIRE(map.at(i[2]) == i[0]);
+                REQUIRE(map.at(make_observer(i[0])) == make_observer(i[2]));
+                REQUIRE(map.at(make_observer(i[1])) == make_observer(i[1]));
+                REQUIRE(map.at(make_observer(i[2])) == make_observer(i[0]));
             }
 
             GIVEN("an `unordered_map` of observer-observer pairs")
@@ -741,9 +741,9 @@ SCENARIO("observers can be used with STL containers")
                 map.emplace(i[1], i[1]);
                 map.emplace(i[2], i[0]);
 
-                REQUIRE(map.at(i[0]) == i[2]);
-                REQUIRE(map.at(i[1]) == i[1]);
-                REQUIRE(map.at(i[2]) == i[0]);
+                REQUIRE(map.at(make_observer(i[0])) == make_observer(i[2]));
+                REQUIRE(map.at(make_observer(i[1])) == make_observer(i[1]));
+                REQUIRE(map.at(make_observer(i[2])) == make_observer(i[0]));
             }
 
             GIVEN("a `set` of observers")
@@ -754,9 +754,9 @@ SCENARIO("observers can be used with STL containers")
                 set.emplace(i[1]);
                 set.emplace(i[2]);
 
-                REQUIRE(set.find(i[0]) != set.end());
-                REQUIRE(set.find(i[1]) != set.end());
-                REQUIRE(set.find(i[2]) != set.end());
+                REQUIRE(set.find(make_observer(i[0])) != set.end());
+                REQUIRE(set.find(make_observer(i[1])) != set.end());
+                REQUIRE(set.find(make_observer(i[2])) != set.end());
             }
 
             GIVEN("an `unordered_set` of observers")
@@ -767,9 +767,9 @@ SCENARIO("observers can be used with STL containers")
                 set.emplace(i[1]);
                 set.emplace(i[2]);
 
-                REQUIRE(set.find(i[0]) != set.end());
-                REQUIRE(set.find(i[1]) != set.end());
-                REQUIRE(set.find(i[2]) != set.end());
+                REQUIRE(set.find(make_observer(i[0])) != set.end());
+                REQUIRE(set.find(make_observer(i[1])) != set.end());
+                REQUIRE(set.find(make_observer(i[2])) != set.end());
             }
         } NEXT_TYPE
     } NEXT_TYPE
@@ -791,9 +791,9 @@ public:
     node& operator=(node&&) = delete;
 
     void set_parent(observer_ptr<node> new_parent) {
-        if (parent) parent->remove_child(*this);
+        if (parent) parent->remove_child(make_observer(*this));
         parent = new_parent;
-        if (parent) parent->add_child(*this);
+        if (parent) parent->add_child(make_observer(*this));
     }
 
     observer_ptr<node> get_parent() const {
