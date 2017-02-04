@@ -28,9 +28,9 @@ In this example, `register_callback` takes an `observer` parameter to indicate i
 
 Despite their names, use cases for `observer<T>` and `observer_ptr<T>` are not limited to observer pattern implementations. For example, you could construct a tree of nodes using both types:
 
-    struct node {
-        observer_ptr<node> parent;
-        set<observer<node>> children;
+    struct tree_node {
+        observer_ptr<tree_node> parent;
+        set<observer<tree_node>> children;
     }; 
 
 ## Why not `T*`?
@@ -140,14 +140,14 @@ But I digress.
 
 Rule [I.4](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#Ri-typed) tells us to "make interfaces precisely and strongly typed". This applies to the interface of `T*` itself, not just fact that it can represent a range of conceptually different things. The interface of `T*` is inappropriate for an "observer":
 
-* `T*` is not zero initialized
+* `T*` is not default initialized
 * `T*` supports pointer arithmetic
 * `T*` has an array subscript operator
 * `T*` converts to `void*`
 
 Using an "observer" `T*` inappropriately can result in _undefined behaviour_:
 
-    T* obs;              // undefined behaviour (later)
+    T* obs;              // undefined behaviour (on access)
     auto x = *(obs + 1); // undefined behaviour
     auto y = obs[1];     // undefined behaviour
     delete obs;          // undefined behaviour (probably)
@@ -166,3 +166,27 @@ In modern C++, a bare `T*` is an array iterator:
     auto it = end(arr); // `decltype(it)` is `int*`
 
 The interface of `T*` is pretty much the definition of a [random access iterator](http://en.cppreference.com/w/cpp/concept/RandomAccessIterator), so unlike its various other uses, `T*` fits this role pretty well (conversion to `void*` aside).
+
+## Why not `optional<observer<T>>`?
+
+It is possible to combine `observer<T>` with `optional<T>` to create `optional<observer<T>>`: an "observer" that may or may not be observing something. Thus, there is seemingly no need for `observer_ptr<T>` to exist. In principle, this approach is great, because it adheres to the "[separation of concerns](https://en.wikipedia.org/wiki/Separation_of_concerns)" and "[single responsibility](https://en.wikipedia.org/wiki/Single_responsibility_principle)" design principles, by dividing the roles of "observer" and "optional value" into separate, composable modules.
+
+In practice, however, there is a problem with `optional<observer<T>>`: it occupies more memory than `T*` (usually twice as much) and many of its operations have overhead compared to the equivalent operations on a `T*`. This is because an implementation of `optional<T>` is typically going to look something like this:
+
+    template <typename T>
+    class optional {
+        char buffer[sizeof(T)];
+        bool contains_value;
+    };
+
+The overhead is associated with storing, reading and writing the `contains_value` flag. Seeing as `observer<T>` is such a simple type, and that other "single object" pointer-like abstractions (e.g. `unique_ptr<T>`) have a built-in null state, this overhead could severely hurt adoption of `observer<T>`. Given that there is no reasonable way to create a zero-overhead specialization of `optional<observer<T>>`, the only option is to create a zero-overhead counterpart to `observer<T>`: `observer_ptr<T>`.
+
+### The history of `observer_ptr<T>`
+
+Originally, the zero-overhead counterpart to `observer<T>` was called `optional_observer<T>`, and tried to mimic the interface of `optional<T>` by using `nullopt` to represent a _disengaged_ `optional_observer<T>`. However, since `nullopt` (or a disengaged `optional<T>`) is specified to always compare _less_ than any `T` (or engaged `optional<T>`), and the ordering of `nullptr` (or a null `T*`) compared to any non-null `T*` (using `less<T>`) is _implementation-specified_, it is _impossible_ to have a zero-overhead implementation of the `optional_observer<T>` comparison operators that are consistent with the behaviour of those of `optional<T>`.
+
+    bool cond1 = (nullopt < optional<T>(t));
+    bool cond2 = (nullopt < optional_observer<T>(t));
+    assert(cond1 == cond2); // may fire (implementation-specific)
+
+Thus, `nullopt` was replaced with `nullobs`, so that equivalent behaviour would not be assumed. However, since `optional_observer<T>` had to be constructible from `T*` to achieve zero-overhead, and was thus convertible from `nullptr_t`, `nullobs` was essentially duplicating the function of `nullptr`. Thus, `nullobs` was removed entirely, and suddenly the interface of `optional_observer<T>` looked remarkably like that of the `observer_ptr<T>` proposed for standardization, and the rest is history.
