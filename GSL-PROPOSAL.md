@@ -1,8 +1,8 @@
-# Proposal to add `observer` and `observer_ptr` to the GSL
+# Proposal to add `observer` to the GSL
 
 ## Abstract
 
-This document makes the case for the inclusion of non-owning pointer-like types `observer<T>` and `observer_ptr<T>` in the [Guideline Support Library](https://github.com/Microsoft/GSL), and their subsequent incorporation into the [C++ Core Guidelines](https://github.com/isocpp/CppCoreGuidelines).
+This document makes the case for the inclusion of non-owning pointer-like type `observer<T>` in the [Guideline Support Library](https://github.com/Microsoft/GSL), and its subsequent incorporation into the [C++ Core Guidelines](https://github.com/isocpp/CppCoreGuidelines). It also makes a case against encouraging the use of `T*` in high-level modern C++ code.
 
 ## Introduction
 
@@ -10,13 +10,9 @@ The `observer<T>` class template is a pointer-like type designed to replace `T*`
 
     observer<T> o = make_observer(t);
 
-The `observer_ptr<T>` class template is the counterpart to `observer<T>` with a _null_ state. That is, `observer_ptr<T>` is default constructible, can be constructed from `nullptr_t` and `T*`, and contextually converts to `bool`. In addition, `observer<T>` implicitly converts to `observer_ptr<T>`.
+`observer<T>` is more than just a non-owning reference: it conveys the _intent_ to store the reference to be "observed" later on. That is, in contrast to `unique_ptr<T>` and `shared_ptr<T>`, which convey _ownership_, `observer<T>` conveys _observership_.
 
-    observer_ptr<T> o = make_observer(t);
-
-`observer<T>` and `observer_ptr<T>` are more than just non-owning references to objects of type `T`: they convey the intent to store the reference to be "observed" later on. That is, in contrast to `unique_ptr<T>` and `shared_ptr<T>`, which convey _ownership_, `observer<T>` and `observer_ptr<T>` convey _observership_.
-
-Of course, `observer<T>` and `observer_ptr<T>` do not manage or track the lifetime of what they observe. They are designed to have no more overhead than a simple pointer, and require that the lifetimes of observers and observees are managed further up the call stack. If automatic lifetime tracking is required, a signals and slots implementation (e.g. [Boost.Signals2](www.boost.org/doc/libs/release/doc/html/signals2.html)) or `weak_ptr` may be used.
+`observer<T>` does not manage or track the lifetime of what it observes. It is designed to have no more overhead than a simple pointer, and requires that the lifetimes of observers and observees are managed further up the call stack. If automatic lifetime tracking is required, a signals and slots implementation (e.g. [Boost.Signals2](www.boost.org/doc/libs/release/doc/html/signals2.html)) or `weak_ptr` may be used.
 
 ## Examples
 
@@ -26,14 +22,69 @@ Of course, `observer<T>` and `observer_ptr<T>` do not manage or track the lifeti
 
 In this example, `register_callback` takes an `observer` parameter to indicate its intent to store a reference to the callback for later use. The caller is required to use `make_observer` and in doing so is explicitly made aware of the fact that `register_callback` is going to store a reference to `my_callback` for later use. This is a solution to the [proto-rule](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#S-unclassified), "Never pass a pointer down the call stack" because you never know who is going to store it. Well now you do!
 
-Despite their names, use cases for `observer<T>` and `observer_ptr<T>` are not limited to observer pattern implementations. For example, you could construct a tree of nodes using both types:
+Despite its name, use cases for `observer<T>` are not limited to observer pattern implementations. For example, you could construct a tree of nodes:
 
     struct tree_node {
-        observer_ptr<tree_node> parent;
-        set<observer<tree_node>> children;
+        optional<observer<tree_node>> parent;
+        vector<observer<tree_node>> children;
     }; 
 
 ## Why not `T*`?
+
+Rule [R.3]([R.3](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#r3-a-raw-pointer-a-t-is-non-owning)) states that, _"A raw pointer (a `T*`) is non-owning"_, explaining that:
+
+> There is nothing (in the C++ standard or in most code) to say otherwise and most raw pointers are non-owning.
+
+This is a reasonable assertion to make, given that rule [P.1](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#Rp-direct) advises us to, _"Express ideas directly in code"_, noting that:
+
+> Compilers don't read comments (or design documents) and neither do many programmers (consistently). What is expressed in code has defined semantics and can (in principle) be checked by compilers and other tools.
+
+The type of an object, `T*`, by itself conveys no information about how the programmer should manage the lifetime of the resource to which the object points. Thus, it is sensible to assume that, unless indicated otherwise, an object of type `T*` is non-owning.
+
+Given the advice to, "Express ideas in code", along with rule [I.4](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#Ri-typed), which tells us to, _"Make interfaces precisely and strongly typed"_, explaining that:
+
+> Types are the simplest and best documentation, have well-defined meaning, and are guaranteed to be checked at compile-time.
+
+We can consider rule [F.22](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#f22-use-t-or-ownert-to-designate-a-single-object), which advises us to, _"Use `T*` or `owner<T*>` to designate a single object"_, giving the reasoning:
+
+> Readability: it makes the meaning of a plain pointer clear. Enables significant tool support.
+
+The `owner<T>` type alias uses the type system—_the best documentation there is_—to mark _directly in code_ that an object of type `T` should be explicitly `delete`'d before it goes out of scope. This is a great approach that will enable tools to detect memory leaks and other bugs, _and_ it is helpful to the programmer.
+
+However, this rule also suggests that `T*` designates a reference to a "single object". This is simply not true. In fact, `T*` designates a [_random access iterator_](http://en.cppreference.com/w/cpp/concept/RandomAccessIterator) pointing to a sequence of objects of type `T*` in contiguous memory:
+
+    int values[] = { 1, 2, 3 };
+    int* b = begin(values);
+    int* e = end(values);
+
+A `T*` that points to a "single object" is simply an iterator to the beginning of a sequence of objects of length _one_. Similarly, a `T*` that points to an "array of objects" is simply an iterator that points to the _beginning_ of a sequence of objects of length _greater than or equal to_ one.
+
+    T* p1 = &obj; 
+    T* p2 = arr;
+    T* p3 = begin(arr);
+
+Here, `p1`, `p2` and `p3` are _all_ iterators, and could all legitimately be used as inputs to various STL algorithms:
+
+    for_each(p, p + 1, f);
+
+In modern C++, the type system _tells_ us what an object is, and `T*` tells us it is a random access iterator.
+
+So if every `T*` is an iterator, what do references to single objects and arrays look like in modern C++?
+
+A reference to (or "view" of) an object looks like this:
+
+    T&
+
+A reference to (or "view" of) a contiguous sequence of objects looks like this:
+
+    span<T>
+
+Sequences of objects have traditionally been represented by a pairs of iterators `T*` iterators (many STL algorithms take pairs of iterators), but rule .
+
+## What about null pointers?
+
+
+
 
 Currently, the C++ Core Guidelines state that it is appropriate to use raw pointers as observers (see rules [F.7](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#Rf-smart), [F.22](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#f22-use-t-or-ownert-to-designate-a-single-object), [F.60](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#f60-prefer-t-over-t-when-no-argument-is-a-valid-option) and [R.3](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#r3-a-raw-pointer-a-t-is-non-owning)). This section outlines why this is bad advice that violates some of the guidelines' own rules.
 
@@ -45,11 +96,11 @@ Both `observer<T>` and `observer_ptr<T>` are superior to `T*` in the capacity of
 
 ### `T*` is not strongly typed
 
-Rule [I.4](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#Ri-typed) tells us to "make interfaces precisely and strongly typed", explaining that types are the simplest and best documentation, have well-defined meaning, and are guaranteed to be checked at compile-time.
+Rule [I.4](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#Ri-typed) tells us to, "Make interfaces precisely and strongly typed", explaining that:
 
-Rule [P.4](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#Rp-typesafe) says that, "ideally, a program should be statically type safe". 
+> Types are the simplest and best documentation, have well-defined meaning, and are guaranteed to be checked at compile-time.
 
-An interface taking a `T*` violates these rules because `T*` is weakly typed. This is because `T*` can represent several different things:
+An interface taking a `T*` violates this rules because `T*` is weakly typed, because it can represent several different things:
 
 * `T*` can be an object
 * `T*` can be an array
@@ -63,7 +114,17 @@ And there are further variations of these things:
 
 All of these things are conceptually distinct, but they all implicitly convert to each other without the compiler complaining because they are all represented by the same type.
 
-Of course, the C++ Core Guidelines provide alternatives to `T*` so that the safety and clarity of code can be improved. But the guidelines state that `T*` always represents a non-owning ([R.3](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#r3-a-raw-pointer-a-t-is-non-owning)) reference to a single object ([F.22](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#f22-use-t-or-ownert-to-designate-a-single-object)). The argument is that, once all other uses of `T*` have been replaced with alternatives, all instances of `T*` will be non-owning references to single objects. This argument assumes that:
+Of course, the C++ Core Guidelines provide alternatives to `T*` so that the safety and clarity of code can be improved.
+
+Rule [R.3]([R.3](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#r3-a-raw-pointer-a-t-is-non-owning)) states that, _"A raw pointer (a `T*`) is non-owning"_, explaining that:
+
+> There is nothing (in the C++ standard or in most code) to say otherwise and most raw pointers are non-owning.
+
+Rule [F.22](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#f22-use-t-or-ownert-to-designate-a-single-object) advises us to, _"Use `T*` or `owner<T*>` to designate a single object"_, giving the reasoning:
+
+> Readability: it makes the meaning of a plain pointer clear. Enables significant tool support.
+
+ The argument is that, once all other uses of `T*` have been replaced with alternatives, all instances of `T*` will be non-owning references to single objects. This argument assumes that:
 
 1. Everyone is following the guidelines perfectly.
 2. Every part of a code-base adheres to the guidelines.
@@ -85,9 +146,16 @@ And these are just some of the reasons why it is better to be explicit than to l
 
 ### `T*` does not convey intent
 
-Rule [P.3](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#Rp-what) tells us to "express intent", explaining that unless the intent of some code is stated, it is impossible to tell whether the code does what it is supposed to do.
+Rule [P.1](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#Rp-direct) advises us to, _"Express ideas directly in code"_, noting that:
 
-Take this function:
+> Compilers don't read comments (or design documents) and neither do many programmers (consistently). What is expressed in code has defined semantics and can (in principle) be checked by compilers and other tools.
+
+Rule [P.3](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#Rp-what) tells us to, _"Express intent"_, explaining that:
+
+> Unless the intent of some code is stated (e.g., in names or comments), it is impossible to tell whether the code does what it is supposed to do.
+
+Using `T*` leaves the reader of your code at a loss as to what your intent is, or what the semantics of your code are. For example,
+take this function:
 
     void frobnicate(widget* w);
 
@@ -95,7 +163,7 @@ And this calling code:
 
     frobnicate(&wgt);
 
-Assuming for a second that we somehow _know_ that every instance of `T*` in our code-base represents a non-owning reference to a single object, we must still ask:
+Assuming for a second that we somehow _know_ that every instance of `T*` in our code-base represents a non-owning reference to a single object (a dubious assumption to begin with), we must still ask:
 
 * Is a copy of `w` stored for later use by `frobnicate`?
 * Can we pass `frobnicate` a null pointer?
@@ -152,7 +220,7 @@ Using an "observer" `T*` inappropriately can result in _undefined behaviour_:
     auto y = obs[1];     // undefined behaviour
     delete obs;          // undefined behaviour (probably)
 
-Conversely, `observer<T>` and `observer_ptr<T>` have none of these problems because their interface has been designed for their purpose. In addition, `observer<T>` has no null state, and enforces the "not null" precondition at _compile-time_:
+Conversely, `observer<T>` and `observer_ptr<T>` have none of these problems because their interface has been designed for purpose. In addition, `observer<T>` has no null state, and enforces the "not null" precondition at _compile-time_, something that neither `T*` nor `not_null<observer<T>>` can do:
 
     observer<T> obs1;          // error: no `observer<T>()`
     observer<T> obs2{nullptr}; // error: no `observer<T>(nullptr_t)`
