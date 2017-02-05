@@ -20,24 +20,14 @@
  * SOFTWARE.
  */
 
-#pragma once
-
-#ifndef OBSERVER_HPP
-#define OBSERVER_HPP
+#ifndef GSL_OBSERVER_HPP
+#define GSL_OBSERVER_HPP
 
 #include <functional>
-#include <iosfwd>
-#include <utility>
+#include <type_traits>
 
-//==========
-// observer
-//==========
-
-template <typename T>
-class observer;
-
-template <typename T>
-constexpr T* get_pointer(observer<T> const&) noexcept;
+namespace gsl
+{
 
 template <typename T>
 class observer
@@ -45,59 +35,52 @@ class observer
 public:
     using element_type = T;
 
-private:
-    T* target;
-
-public:
-    constexpr explicit observer(T& r) noexcept :
-        target(&r)
+    constexpr explicit observer(T& t) noexcept :
+        ptr(&t)
     {
     }
 
     constexpr explicit observer(T&&) noexcept = delete;
 
     template <typename U, typename = std::enable_if_t<std::is_convertible<U*, T*>::value>>
-    constexpr observer(observer<U> const& i) noexcept :
-        target(get_pointer(i))
+    constexpr observer(observer<U> const& o) noexcept :
+        ptr(static_cast<U*>(o))
     {
     }
 
     constexpr T& operator*() const noexcept
     {
-        return *target;
+        return *ptr;
     }
 
     constexpr T* operator->() const noexcept
     {
-        return target;
+        return ptr;
     }
 
     constexpr explicit operator T*() const noexcept
     {
-        return target;
+        return ptr;
     }
 
     void swap(observer& other) noexcept
     {
         using std::swap;
-        swap(target, other.target);
+        swap(ptr, other.ptr);
     }
+
+private:
+    T* ptr;
 };
 
 template <typename T>
-constexpr observer<T> make_observer(T& r) noexcept
+constexpr observer<T> make_observer(T& t) noexcept
 {
-    return observer<T>(r);
+    return observer<T>(t);
 }
 
 template <typename T>
 observer<T> make_observer(T&&) = delete;
-
-template <typename T>
-constexpr T* get_pointer(observer<T> const& i) noexcept
-{
-    return static_cast<T*>(i);
-}
 
 template <typename T>
 void swap(observer<T>& lhs, observer<T>& rhs)
@@ -108,7 +91,7 @@ void swap(observer<T>& lhs, observer<T>& rhs)
 template <typename T1, typename T2>
 constexpr bool operator==(observer<T1> const& lhs, observer<T2> const& rhs) noexcept
 {
-    return get_pointer(lhs) == get_pointer(rhs);
+    return static_cast<T1*>(lhs) == static_cast<T2*>(rhs);
 }
 
 template <typename T1, typename T2>
@@ -117,346 +100,29 @@ constexpr bool operator!=(observer<T1> const& lhs, observer<T2> const& rhs) noex
     return !(lhs == rhs);
 }
 
-template <typename T1, typename T2>
-constexpr bool operator<(observer<T1> const& lhs, observer<T2> const& rhs) noexcept
-{
-    return std::less<std::common_type_t<T1*, T2*>>()(get_pointer(lhs), get_pointer(rhs));
-}
-
-template <typename T1, typename T2>
-constexpr bool operator>(observer<T1> const& lhs, observer<T2> const& rhs) noexcept
-{
-    return rhs < lhs;
-}
-
-template <typename T1, typename T2>
-constexpr bool operator<=(observer<T1> const& lhs, observer<T2> const& rhs) noexcept
-{
-    return !(rhs < lhs);
-}
-
-template <typename T1, typename T2>
-constexpr bool operator>=(observer<T1> const& lhs, observer<T2> const& rhs) noexcept
-{
-    return !(lhs < rhs);
-}
-
-template <typename T>
-std::ostream& operator<<(std::ostream& s, observer<T> const& i)
-{
-    return s << get_pointer(i);
-}
+} // namespace gsl
 
 namespace std
 {
+
+template <typename T>
+struct less<observer<T>>
+{
+    constexpr bool operator()(observer<T> const& lhs, observer<T> const& rhs) const noexcept
+    {
+        return less<T*>(static_cast<T*>(lhs), static_cast<T*>(rhs));
+    }
+};
 
 template <typename T>
 struct hash<observer<T>>
 {
-    constexpr std::size_t operator()(observer<T> const& i) const noexcept
+    constexpr std::size_t operator()(observer<T> const& o) const noexcept
     {
-        return hash<T*>()(get_pointer(i));
+        return hash<T*>()(static_cast<T*>(o));
     }
 };
 
 } // namespace std
 
-//==============
-// observer_ptr
-//==============
-
-template <typename T>
-class observer_ptr;
-
-template <typename T>
-constexpr T* get_pointer(observer_ptr<T> const&) noexcept;
-
-template <typename T>
-class observer_ptr
-{
-public:
-    using element_type = T;
-
-private:
-    T* target;
-
-public:
-    constexpr observer_ptr() noexcept :
-        target()
-    {
-    }
-
-    constexpr explicit observer_ptr(T& r) noexcept :
-        target(&r)
-    {
-    }
-
-    constexpr explicit observer_ptr(T&&) noexcept = delete;
-
-    constexpr observer_ptr(observer<T> const& i) noexcept :
-        target(get_pointer(i))
-    {
-    }
-
-    template <typename U, typename = std::enable_if_t<std::is_convertible<U*, T*>::value>>
-    constexpr observer_ptr(observer<U> const& i) noexcept :
-        target(get_pointer(i))
-    {
-    }
-
-    template <typename U, typename = std::enable_if_t<std::is_convertible<U*, T*>::value>>
-    constexpr observer_ptr(observer_ptr<U> const& i) noexcept :
-        target(get_pointer(i))
-    {
-    }
-
-    constexpr observer_ptr(std::nullptr_t) noexcept :
-        target(nullptr)
-    {
-    }
-
-    constexpr explicit observer_ptr(T* p) noexcept :
-        target(p)
-    {
-    }
-
-    constexpr explicit operator bool() const noexcept
-    {
-        return target != nullptr;
-    }
-
-    constexpr T& operator*() const
-    {
-        return *target;
-    }
-
-    constexpr T* operator->() const
-    {
-        return target;
-    }
-
-    constexpr explicit operator T*() const noexcept
-    {
-        return target;
-    }
-
-    void swap(observer_ptr& other) noexcept
-    {
-        using std::swap;
-        swap(target, other.target);
-    }
-};
-
-template <typename T>
-constexpr T* get_pointer(observer_ptr<T> const& i) noexcept
-{
-    return static_cast<T*>(i);
-}
-
-template <typename T>
-void swap(observer_ptr<T>& lhs, observer_ptr<T>& rhs) noexcept
-{
-    lhs.swap(rhs);
-}
-
-template <typename T1, typename T2>
-constexpr bool operator==(observer_ptr<T1> const& lhs, observer_ptr<T2> const& rhs) noexcept
-{
-    return get_pointer(lhs) == get_pointer(rhs);
-}
-
-template <typename T1, typename T2>
-constexpr bool operator==(observer_ptr<T1> const& lhs, observer<T2> const& rhs) noexcept
-{
-    return get_pointer(lhs) == get_pointer(rhs);
-}
-
-template <typename T1, typename T2>
-constexpr bool operator==(observer<T1> const& lhs, observer_ptr<T2> const& rhs) noexcept
-{
-    return get_pointer(lhs) == get_pointer(rhs);
-}
-
-template <typename T>
-constexpr bool operator==(observer_ptr<T> const& lhs, std::nullptr_t) noexcept
-{
-    return !lhs;
-}
-
-template <typename T>
-constexpr bool operator==(std::nullptr_t, observer_ptr<T> const& rhs) noexcept
-{
-    return !rhs;
-}
-
-template <typename T1, typename T2>
-constexpr bool operator!=(observer_ptr<T1> const& lhs, observer_ptr<T2> const& rhs) noexcept
-{
-    return !(lhs == rhs);
-}
-
-template <typename T1, typename T2>
-constexpr bool operator!=(observer_ptr<T1> const& lhs, observer<T2> const& rhs) noexcept
-{
-    return !(lhs == rhs);
-}
-
-template <typename T1, typename T2>
-constexpr bool operator!=(observer<T1> const& lhs, observer_ptr<T2> const& rhs) noexcept
-{
-    return !(lhs == rhs);
-}
-
-template <typename T>
-constexpr bool operator!=(observer_ptr<T> const& lhs, std::nullptr_t) noexcept
-{
-    return !(lhs == nullptr);
-}
-
-template <typename T>
-constexpr bool operator!=(std::nullptr_t, observer_ptr<T> const& rhs) noexcept
-{
-    return !(nullptr == rhs);
-}
-
-template <typename T1, typename T2>
-constexpr bool operator<(observer_ptr<T1> const& lhs, observer_ptr<T2> const& rhs) noexcept
-{
-    return std::less<std::common_type_t<T1*, T2*>>()(get_pointer(lhs), get_pointer(rhs));
-}
-
-template <typename T1, typename T2>
-constexpr bool operator<(observer_ptr<T1> const& lhs, observer<T2> const& rhs) noexcept
-{
-    return std::less<std::common_type_t<T1*, T2*>>()(get_pointer(lhs), get_pointer(rhs));
-}
-
-template <typename T1, typename T2>
-constexpr bool operator<(observer<T1> const& lhs, observer_ptr<T2> const& rhs) noexcept
-{
-    return std::less<std::common_type_t<T1*, T2*>>()(get_pointer(lhs), get_pointer(rhs));
-}
-
-template <typename T>
-constexpr bool operator<(observer_ptr<T> const& lhs, std::nullptr_t) noexcept
-{
-    return std::less<T*>()(get_pointer(lhs), nullptr);
-}
-
-template <typename T>
-constexpr bool operator<(std::nullptr_t, observer_ptr<T> const& rhs) noexcept
-{
-    return std::less<T*>()(nullptr, get_pointer(rhs));
-}
-
-template <typename T1, typename T2>
-constexpr bool operator>(observer_ptr<T1> const& lhs, observer_ptr<T2> const& rhs) noexcept
-{
-    return rhs < lhs;
-}
-
-template <typename T1, typename T2>
-constexpr bool operator>(observer_ptr<T1> const& lhs, observer<T2> const& rhs) noexcept
-{
-    return rhs < lhs;
-}
-
-template <typename T1, typename T2>
-constexpr bool operator>(observer<T1> const& lhs, observer_ptr<T2> const& rhs) noexcept
-{
-    return rhs < lhs;
-}
-
-template <typename T>
-constexpr bool operator>(observer_ptr<T> const& lhs, std::nullptr_t) noexcept
-{
-    return nullptr < lhs;
-}
-
-template <typename T>
-constexpr bool operator>(std::nullptr_t, observer_ptr<T> const& rhs) noexcept
-{
-    return rhs < nullptr;
-}
-
-template <typename T1, typename T2>
-constexpr bool operator<=(observer_ptr<T1> const& lhs, observer_ptr<T2> const& rhs) noexcept
-{
-    return !(rhs < lhs);
-}
-
-template <typename T1, typename T2>
-constexpr bool operator<=(observer_ptr<T1> const& lhs, observer<T2> const& rhs) noexcept
-{
-    return !(rhs < lhs);
-}
-
-template <typename T1, typename T2>
-constexpr bool operator<=(observer<T1> const& lhs, observer_ptr<T2> const& rhs) noexcept
-{
-    return !(rhs < lhs);
-}
-
-template <typename T>
-constexpr bool operator<=(observer_ptr<T> const& lhs, std::nullptr_t) noexcept
-{
-    return !(nullptr < lhs);
-}
-
-template <typename T>
-constexpr bool operator<=(std::nullptr_t, observer_ptr<T> const& rhs) noexcept
-{
-    return !(rhs < nullptr);
-}
-
-template <typename T1, typename T2>
-constexpr bool operator>=(observer_ptr<T1> const& lhs, observer_ptr<T2> const& rhs) noexcept
-{
-    return !(lhs < rhs);
-}
-
-template <typename T1, typename T2>
-constexpr bool operator>=(observer_ptr<T1> const& lhs, observer<T2> const& rhs) noexcept
-{
-    return !(lhs < rhs);
-}
-
-template <typename T1, typename T2>
-constexpr bool operator>=(observer<T1> const& lhs, observer_ptr<T2> const& rhs) noexcept
-{
-    return !(lhs < rhs);
-}
-
-template <typename T>
-constexpr bool operator>=(observer_ptr<T> const& lhs, std::nullptr_t) noexcept
-{
-    return !(lhs < nullptr);
-}
-
-template <typename T>
-constexpr bool operator>=(std::nullptr_t, observer_ptr<T> const& rhs) noexcept
-{
-    return !(nullptr < rhs);
-}
-
-template <typename T>
-std::ostream& operator<<(std::ostream& s, observer_ptr<T> const& i)
-{
-    return s << get_pointer(i);
-}
-
-namespace std
-{
-
-template <typename T>
-struct hash<observer_ptr<T>>
-{
-    constexpr std::size_t operator()(observer_ptr<T> const& i) const noexcept
-    {
-        return hash<T*>()(get_pointer(i));
-    }
-};
-
-} // namespace std
-
-#endif // OBSERVER_HPP
+#endif // GSL_OBSERVER_HPP
