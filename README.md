@@ -201,21 +201,23 @@ Pointer types, as explained in this document, are multi-purpose, and thus suppor
 
 We suggest that a _bare_ `T*` (i.e. one without any annotations) _should_ only represent a non-owning pointer to a single object when pointers must be used. However, `T*` should also be implicitly "not null". This allows individual "features" of pointers to be _enabled_ using annotations, in the vein of `owner<T>`, rather than the approach taken by `not_null<T>`, which is to _disable_ a potentially unsafe "feature" that `T*` is assumed to have by default. Therefore, we suggest supporting the following annotations, one to enable each of the "features" listed above:
 
+* `array<T>` enables array subscription
 * `iterator<T>` enables pointer arithmetic operations
 * `nullable<T>` enables the null pointer state
-* `owner<T>` enables use of `delete`
-* `array_owner<T>` enables use of `delete[]`
+* `owner<T>` enables use of either `delete` or `delete[]` (when combined with `array<T>`) 
 
 Note the distinction between owners of objects and owners of arrays, something the guidelines currently do not account for. An example of correct use of these annotations is:
 
                    T*   p1 = &t;
-    nullable<owner<T*>> p2 = new (nothrow) T;
-             owner<T*>  p3 = new T;
-       array_owner<T*>  p4 = new T[n];
-          iterator<T*>  p5 = p3;
+             array<T*>  p2 = &arr;
+    nullable<owner<T*>> p3 = new (nothrow) T;
+             owner<T*>  p4 = new T;
+       owner<array<T*>> p5 = new T[n];
+          iterator<T*>  p6 = p3;
 
 This approach will allow static analysis tools to enable a small subset of operations for `T*` by default, allowing certain "dangerous" features to be enabled one-by-one via annotations. Static analysis tools can warn wherever a "feature" is used without its corresponding annotation. For example:
 
+    T t1 = p1[1]; // warning: array subscription without `array` or `iterator`
     p1++;         // warning: pointer arithmetic without `iterator`
     T t2 = *p2;   // warning: dereferencing `nullable` without null check
     if (p3) { … } // warning: checking for null without `nullable`
