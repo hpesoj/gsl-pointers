@@ -58,6 +58,11 @@ public:
     {
     }
 
+    constexpr optional_ref(nullopt_t) noexcept :
+        ptr()
+    {
+    }
+
     constexpr optional_ref(T& t) noexcept :
         ptr(std::addressof(t))
     {
@@ -123,26 +128,49 @@ constexpr optional_ref<T> make_optional_ref(T& t) noexcept
 template <typename T>
 constexpr bool operator==(optional_ref<T> const& lhs, optional_ref<T> const& rhs)
 {
-    if (lhs && rhs)
-    {
-        return *lhs == *rhs;
-    }
-    else
-    {
-        return !(lhs || rhs);
-    }
+    return (bool(lhs) != bool(rhs)) ? false :
+           (bool(lhs) == false) ? true :
+           *lhs == *rhs;
 }
 
 template <typename T>
-constexpr bool operator==(optional_ref<T> const& opt, T const& t)
+constexpr bool operator!=(optional_ref<T> const& lhs, optional_ref<T> const& rhs)
 {
-    return opt && (*opt == t);
+    return (bool(lhs) != bool(rhs)) ? true :
+           (bool(lhs) == false) ? false :
+           *lhs != *rhs;
 }
 
 template <typename T>
-constexpr bool operator==(T const& t, optional_ref<T> const& opt)
+constexpr bool operator<(optional_ref<T> const& lhs, optional_ref<T> const& rhs)
 {
-    return opt && (t == *opt);
+    return (bool(rhs) == false) ? false :
+           (bool(lhs) == false) ? true :
+           *lhs < *rhs;
+}
+
+template <typename T>
+constexpr bool operator<=(optional_ref<T> const& lhs, optional_ref<T> const& rhs)
+{
+    return (bool(lhs) == false) ? true :
+           (bool(rhs) == false) ? false :
+           *lhs <= *rhs;
+}
+
+template <typename T>
+constexpr bool operator>(optional_ref<T> const& lhs, optional_ref<T> const& rhs)
+{
+    return (bool(lhs) == false) ? false :
+           (bool(rhs) == false) ? true :
+           *lhs > *rhs;
+}
+
+template <typename T>
+constexpr bool operator>=(optional_ref<T> const& lhs, optional_ref<T> const& rhs)
+{
+    return (bool(rhs) == false) ? true :
+           (bool(lhs) == false) ? false :
+           *lhs >= *rhs;
 }
 
 template <typename T>
@@ -158,42 +186,151 @@ constexpr bool operator==(nullopt_t, optional_ref<T> const& opt) noexcept
 }
 
 template <typename T>
-constexpr bool operator!=(optional_ref<T> const& lhs, optional_ref<T> const& rhs)
-{
-    if (lhs && rhs)
-    {
-        return *lhs != *rhs;
-    }
-    else
-    {
-        return lhs || rhs;
-    }
-}
-
-template <typename T>
-constexpr bool operator!=(optional_ref<T> const& opt, T const& t)
-{
-    return !opt || (*opt != t);
-}
-
-template <typename T>
-constexpr bool operator!=(T const& t, optional_ref<T> const& opt)
-{
-    return opt != t;
-}
-
-template <typename T>
 constexpr bool operator!=(optional_ref<T> const& opt, nullopt_t) noexcept
 {
-    return !!opt;
+    return bool(opt);
 }
 
 template <typename T>
 constexpr bool operator!=(nullopt_t, optional_ref<T> const& opt) noexcept
 {
-    return !!opt;
+    return bool(opt);
+}
+
+template <typename T>
+constexpr bool operator<(optional_ref<T> const& opt, nullopt_t) noexcept
+{
+    return false;
+}
+
+template <typename T>
+constexpr bool operator<(nullopt_t, optional_ref<T> const& opt) noexcept
+{
+    return bool(opt);
+}
+
+template <typename T>
+constexpr bool operator<=(optional_ref<T> const& opt, nullopt_t) noexcept
+{
+    return !opt;
+}
+
+template <typename T>
+constexpr bool operator<=(nullopt_t, optional_ref<T> const& opt) noexcept
+{
+    return true;
+}
+
+template <typename T>
+constexpr bool operator>(optional_ref<T> const& opt, nullopt_t) noexcept
+{
+    return bool(opt);
+}
+
+template <typename T>
+constexpr bool operator>(nullopt_t, optional_ref<T> const& opt) noexcept
+{
+    return false;
+}
+
+template <typename T>
+constexpr bool operator>=(optional_ref<T> const& opt, nullopt_t) noexcept
+{
+    return true;
+}
+
+template <typename T>
+constexpr bool operator>=(nullopt_t, optional_ref<T> const& opt) noexcept
+{
+    return !opt;
+}
+
+template <typename T>
+constexpr bool operator==(optional_ref<T> const& opt, T const& value)
+{
+    return bool(opt) ? *opt == value : false;
+}
+
+template <typename T>
+constexpr bool operator==(T const& value, optional_ref<T> const& opt)
+{
+    return bool(opt) ? value == *opt : false;
+}
+
+template <typename T>
+constexpr bool operator!=(optional_ref<T> const& opt, T const& value)
+{
+    return bool(opt) ? *opt != value : true;
+}
+
+template <typename T>
+constexpr bool operator!=(T const& value, optional_ref<T> const& opt)
+{
+    return bool(opt) ? value != *opt : true;
+}
+
+template <typename T>
+constexpr bool operator<(optional_ref<T> const& opt, T const& value)
+{
+    return bool(opt) ? *opt < value : true;
+}
+
+template <typename T>
+constexpr bool operator<(T const& value, optional_ref<T> const& opt)
+{
+    return bool(opt) ? value < *opt : false;
+}
+
+template <typename T>
+constexpr bool operator<=(optional_ref<T> const& opt, T const& value)
+{
+    return bool(opt) ? *opt <= value : true;
+}
+
+template <typename T>
+constexpr bool operator<=(T const& value, optional_ref<T> const& opt)
+{
+    return bool(opt) ? value <= *opt : false;
+}
+
+template <typename T>
+constexpr bool operator>(optional_ref<T> const& opt, T const& value)
+{
+    return bool(opt) ? *opt > value : false;
+}
+
+template <typename T>
+constexpr bool operator>(T const& value, optional_ref<T> const& opt)
+{
+    return bool(opt) ? value > *opt : true;
+}
+
+template <typename T>
+constexpr bool operator>=(optional_ref<T> const& opt, T const& value)
+{
+    return bool(opt) ? *opt >= value : false;
+}
+
+template <typename T>
+constexpr bool operator>=(T const& value, optional_ref<T> const& opt)
+{
+    return bool(opt) ? value >= *opt : true;
 }
 
 } // namespace gsl
+
+namespace std
+{
+
+template <typename T>
+struct hash<gsl::optional_ref<T>>
+{
+    constexpr std::size_t operator()(gsl::optional_ref<T> const& opt) const noexcept
+    {
+        return bool(opt) ? hash<T>()(*opt) : hash<void*>()(nullptr);
+    }
+};
+
+} // namespace std
 
 #endif // GSL_OPTIONAL_REF_HPP
