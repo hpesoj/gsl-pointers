@@ -24,6 +24,7 @@
 #include "doctest.h"
 
 #include <observer.hpp>
+#include <optional_ref.hpp>
 
 #include <algorithm>
 #include <array>
@@ -53,6 +54,13 @@ struct derived : base
         foo(foo)
     {
     }
+
+    derived(derived const&) = default;
+    derived(derived&& other) :
+        foo(other.foo)
+    {
+        other.foo = 0;
+    }
 };
 
 struct derived_other : base
@@ -69,10 +77,61 @@ struct derived_other : base
 
 } // namespace
 
+using gsl::nullopt;
+using gsl::optional_ref;
+using gsl::make_optional_ref;
+
+SCENARIO("`optional_ref` can be constructed")
+{
+    int i = {};
+    int j = {};
+
+    GIVEN("an default constructed `optional_ref`")
+    {
+        optional_ref<int> o;
+
+        CHECK(!o);
+
+        CHECK(o == nullopt);
+        CHECK(nullopt == o);
+        CHECK(!(o == i));
+        CHECK(!(o == j));
+
+        CHECK(!(o != nullopt));
+        CHECK(!(nullopt != o));
+        CHECK(o != i);
+        CHECK(o != j);
+    }
+
+    GIVEN("an `optional_ref` constructed from a reference")
+    {
+        optional_ref<int> o = i;
+
+        CHECK(o);
+
+        CHECK(!(o == nullopt));
+        CHECK(!(nullopt == o));
+        CHECK(o == i);
+        CHECK(o == j);
+        CHECK(*o == i);
+        CHECK(*o == j);
+
+        CHECK(o != nullopt);
+        CHECK(nullopt != o);
+        CHECK(!(o != i));
+        CHECK(!(o != j));
+        CHECK(!(*o != i));
+        CHECK(!(*o != j));
+
+        CHECK(&*o == &i);
+        CHECK(&*o != &j);
+    }
+}
+
 using gsl::observer;
 using gsl::make_observer;
 
-SCENARIO("`observer` and `observer_ptr` are trivially copyable")
+SCENARIO("`observer` are trivially copyable")
 {
     CHECK(std::is_trivially_copyable<observer<int>>::value);
 }

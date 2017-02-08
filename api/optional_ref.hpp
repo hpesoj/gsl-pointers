@@ -21,63 +21,59 @@
 
 #pragma once
 
-#ifndef OPTIONAL_REF_HPP
-#define OPTIONAL_REF_HPP
+#ifndef GSL_OPTIONAL_REF_HPP
+#define GSL_OPTIONAL_REF_HPP
 
+#include <memory>
+#include <stdexcept>
 #include <type_traits>
+#include <utility>
 
-struct nullref_t
+namespace gsl
 {
-    constexpr explicit nullref_t(int) noexcept {}
+
+struct nullopt_t
+{
+  constexpr explicit nullopt_t(int) noexcept {}
 };
 
-constexpr nullref_t const nullref{ 0 };
+constexpr nullopt_t const nullopt{0};
+
+struct bad_optional_access : std::runtime_error
+{
+    bad_optional_access() :
+        runtime_error("attempt to access value of disengaged optional")
+    {
+    }
+};
 
 template <typename T>
 class optional_ref
 {
 public:
-    using value_type = T;
+    using value_type = T&;
 
-private:
-    T* target;
-
-public:
     constexpr optional_ref() noexcept :
-        target()
+        ptr()
     {
     }
 
-    constexpr optional_ref(nullref_t) noexcept :
-        target()
+    constexpr optional_ref(T& t) noexcept :
+        ptr(std::addressof(t))
     {
     }
 
-    constexpr optional_ref(T& r) noexcept :
-        target(&r)
-    {
-    }
     optional_ref& operator=(optional_ref const&) = delete;
 
     template <typename U, typename = std::enable_if_t<std::is_convertible<U*, T*>::value>>
-    constexpr optional_ref(optional_ref<U> const& o) noexcept :
-        target(static_cast<U*>(o))
+    optional_ref(optional_ref<U> const& other) noexcept :
+        ptr(other.ptr)
     {
-    }
-
-    constexpr T& operator*() const noexcept
-    {
-        return *target;
-    }
-
-    constexpr T* operator->() const noexcept
-    {
-        return target;
     }
 
     constexpr bool has_value() const noexcept
     {
-        return target != nullptr;
+        return ptr != nullptr;
     }
 
     constexpr explicit operator bool() const noexcept
@@ -85,16 +81,119 @@ public:
         return has_value();
     }
 
-    constexpr explicit operator T*() const noexcept
+    constexpr T& operator*() const
     {
-        return target;
+        return *ptr;
     }
+
+    constexpr T* operator->() const
+    {
+        return ptr;
+    }
+
+    constexpr T& value() const
+    {
+        if (!has_value())
+        {
+            throw bad_optional_access();
+        }
+
+        return *ptr;
+    }
+
+    template <typename U>
+    constexpr T value_or(U&& default_value) const
+    {
+        return has_value() ? **this : static_cast<T>(std::forward<U>(default_value));
+    }
+
+private:
+    T* ptr;
+
+    template <typename>
+    friend class optional_ref;
 };
 
 template <typename T>
-optional_ref<T> make_optional_ref(T& r)
+constexpr optional_ref<T> make_optional_ref(T& t) noexcept
 {
-    return r;
+  return t;
 }
 
-#endif // OPTIONAL_REF_HPP
+template <typename T>
+constexpr bool operator==(optional_ref<T> const& lhs, optional_ref<T> const& rhs)
+{
+    if (lhs && rhs)
+    {
+        return *lhs == *rhs;
+    }
+    else
+    {
+        return !(lhs || rhs);
+    }
+}
+
+template <typename T>
+constexpr bool operator==(optional_ref<T> const& opt, T const& t)
+{
+    return opt && (*opt == t);
+}
+
+template <typename T>
+constexpr bool operator==(T const& t, optional_ref<T> const& opt)
+{
+    return opt && (t == *opt);
+}
+
+template <typename T>
+constexpr bool operator==(optional_ref<T> const& opt, nullopt_t) noexcept
+{
+    return !opt;
+}
+
+template <typename T>
+constexpr bool operator==(nullopt_t, optional_ref<T> const& opt) noexcept
+{
+    return !opt;
+}
+
+template <typename T>
+constexpr bool operator!=(optional_ref<T> const& lhs, optional_ref<T> const& rhs)
+{
+    if (lhs && rhs)
+    {
+        return *lhs != *rhs;
+    }
+    else
+    {
+        return lhs || rhs;
+    }
+}
+
+template <typename T>
+constexpr bool operator!=(optional_ref<T> const& opt, T const& t)
+{
+    return !opt || (*opt != t);
+}
+
+template <typename T>
+constexpr bool operator!=(T const& t, optional_ref<T> const& opt)
+{
+    return opt != t;
+}
+
+template <typename T>
+constexpr bool operator!=(optional_ref<T> const& opt, nullopt_t) noexcept
+{
+    return !!opt;
+}
+
+template <typename T>
+constexpr bool operator!=(nullopt_t, optional_ref<T> const& opt) noexcept
+{
+    return !!opt;
+}
+
+} // namespace gsl
+
+#endif // GSL_OPTIONAL_REF_HPP
