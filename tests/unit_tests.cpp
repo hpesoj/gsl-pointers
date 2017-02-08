@@ -23,8 +23,8 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.h"
 
-#include <observer.hpp>
-#include <optional_ref.hpp>
+#include <gsl/observer.hpp>
+#include <gsl/optional_ref.hpp>
 
 #include <algorithm>
 #include <array>
