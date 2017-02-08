@@ -30,11 +30,11 @@ By using `T*`, we fail to document our intent to the detriment of both the progr
 
 > Readability: it makes the meaning of a plain pointer clear. Enables significant tool support.
 
-Designating `T*` to represent _only_ single objects does indeed make the meaning of a `T*` clear and enable tool support, but only by a consensus of programmers and static analysis tools. Agreement by the compiler in the form of _strong typing_ would enforce such meaning. The rule provides no reason why a `T*` in this one situation would not benefit from a strongly typed replacement. Rule [Bounds.1](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#Pro-bounds-arithmetic) instructs, _"Don't use pointer arithmetic. Use `span` instead"_, explaining:
+Designating `T*` to represent _only_ single objects does indeed make the meaning of a `T*` clear and enable tool support, but only by a consensus of programmers and static analysis tools. Agreement by the compiler in the form of _strong typing_ would greatly strengthen such meaning. This rule provides no reason why a `T*` in this one situation would not benefit from a strongly typed replacement. Rule [Bounds.1](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#Pro-bounds-arithmetic) instructs, _"Don't use pointer arithmetic. Use `span` instead"_, explaining:
 
 > Pointers should only refer to single objects, and pointer arithmetic is fragile and easy to get wrong. `span` is a bounds-checked, safe type for accessing arrays of data.
 
-It appears that the guidelines are reasoning that, since `span` is provided to replace pointers when used as iterators, the only use left for `T*` is as a reference to single objects, so by process of elimination this must be _the_ single appropriate use for `T*` in modern C++ code. Again, this ignores the fact that the defined semantics of `T*` are too general for something that represents a "single object". Pointer arithmetic operations are _always_ wrong if `T*` points to a single object. Of course, static analysis tools _could_ flag uses of `T*` that make no sense for a "single object", but this relies on the ubiquity and reliable operation of static analysis tools, the development of which has only recently begun. There is no good reason to ignore what the compiler can offer us, and forego the good design practices that the guidelines themselves recommend.
+It appears that the guidelines are reasoning that, since `span` is provided to replace pointers when used as iterators, the only use left for `T*` is as a reference to single objects, so by process of elimination this must be _the_ single appropriate use for `T*` in modern C++ code. Again, this ignores the fact that the defined semantics of `T*` are too general for something that represents a "single object". For example, pointer arithmetic operations are _always_ wrong if `T*` points to a single object. Of course, static analysis tools _could_ flag uses of `T*` that make no sense for a "single object", but this relies on the ubiquity and reliable operation of static analysis tools, the development of which has only recently begun. There is no good reason to reject what the compiler can offer us, and forego the good design practices that the guidelines themselves recommend.
 
 ### Documentation of intent
 
@@ -92,16 +92,16 @@ Storing a pointer to a `T const&` parameter could be considered "unusual" and is
 
     foo f{bar()}; // `f.b` is left dangling
 
-We could instead take a `not_null<T*>` parameter, but then we would lose the compile-time enforcement of the "not null" condition (this is also a disadvantage of using `not_null<T*>` as a data member, though in this case the member is private, so opportunities for bugs to arise are encapsulated within the class). In addition, the calling code is indistinguishable from that of a `T*` "optional reference" parameter, and it is _still_ likely to be surprising that a copy of the pointer is retained. If a function is going to store a copy of a reference or pointer parameter, the intent to do so should be made _explicitly clear_ in both the function signature _and_ at the call site. Currently, there is no conventional way to do this in C++.
+We could instead take a `not_null<T*>` parameter, but then we would lose the compile-time enforcement of the "not null" condition (this is also a disadvantage of using `not_null<T*>` as a data member, though in this case the member is private, so opportunities for bugs to arise are encapsulated within the class). In addition, the calling code is indistinguishable from that of a `T*` "optional reference" parameter, and it is _still_ likely to be surprising that a copy of the pointer is retained. If a function is going to store a copy of a reference or pointer parameter, the intent to do so should be made _explicitly clear_ in both the function signature _and_ at the call site, so that the caller is made aware that they must personally manage the lifetimes of both objects. Currently, there is no conventional way to do this in C++.
 
 ## The solution
 
-There are two uses of `T*` for which the guidelines do not give strongly typed alternatives:
+We have identified the two uses of `T*` for which the guidelines do not give strongly typed alternatives:
 
-1. A retained, non-owning reference to an object
-2. An "optional reference" parameter
+1. Retained, non-owning references
+2. "Optional reference" parameters
 
-Proposed here are two class templates, `observer<T>` and `optional_ref<T>`, that can be used in place of `T*` in these two situations.
+Proposed here are two class templates, `observer<T>` and `optional_ref<T>`, that can be used in place of `T*` in these two situations respectively.
 
 ### `observer<T>`
 
