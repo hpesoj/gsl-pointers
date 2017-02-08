@@ -106,18 +106,18 @@ namespace std
 {
 
 template <typename T>
-struct less<observer<T>>
+struct less<gsl::observer<T>>
 {
-    constexpr bool operator()(observer<T> const& lhs, observer<T> const& rhs) const noexcept
+    constexpr bool operator()(gsl::observer<T> const& lhs, gsl::observer<T> const& rhs) const noexcept
     {
-        return less<T*>(static_cast<T*>(lhs), static_cast<T*>(rhs));
+        return less<T*>()(static_cast<T*>(lhs), static_cast<T*>(rhs));
     }
 };
 
 template <typename T>
-struct hash<observer<T>>
+struct hash<gsl::observer<T>>
 {
-    constexpr std::size_t operator()(observer<T> const& o) const noexcept
+    constexpr std::size_t operator()(gsl::observer<T> const& o) const noexcept
     {
         return hash<T*>()(static_cast<T*>(o));
     }
