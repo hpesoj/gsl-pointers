@@ -87,8 +87,8 @@
 
 #define DOCTEST_VERSION_MAJOR 1
 #define DOCTEST_VERSION_MINOR 1
-#define DOCTEST_VERSION_PATCH 2
-#define DOCTEST_VERSION_STR "1.1.2"
+#define DOCTEST_VERSION_PATCH 3
+#define DOCTEST_VERSION_STR "1.1.3"
 
 #define DOCTEST_VERSION                                                                            \
     (DOCTEST_VERSION_MAJOR * 10000 + DOCTEST_VERSION_MINOR * 100 + DOCTEST_VERSION_PATCH)
@@ -174,6 +174,18 @@
 #pragma clang diagnostic ignored "-Wc++98-compat"
 #pragma clang diagnostic ignored "-Wc++98-compat-pedantic"
 #endif // __clang__ && DOCTEST_NO_CPP11_COMPAT
+
+#ifndef DOCTEST_CONFIG_NO_EXCEPTIONS
+#if defined(__GNUC__) && !defined(__EXCEPTIONS)
+#define DOCTEST_CONFIG_NO_EXCEPTIONS
+#endif // clang and gcc
+// in MSVC _HAS_EXCEPTIONS is defined in a header instead of as a project define
+// so we can't do the automatic detection for MSVC without including some header
+#endif // DOCTEST_CONFIG_NO_EXCEPTIONS
+
+#if defined(DOCTEST_CONFIG_NO_EXCEPTIONS) && !defined(DOCTEST_CONFIG_NO_TRY_CATCH_IN_ASSERTS)
+#define DOCTEST_CONFIG_NO_TRY_CATCH_IN_ASSERTS
+#endif // DOCTEST_CONFIG_NO_EXCEPTIONS && !DOCTEST_CONFIG_NO_TRY_CATCH_IN_ASSERTS
 
 // =================================================================================================
 // == MODERN C++ FEATURE DETECTION END =============================================================
@@ -293,8 +305,6 @@ namespace std
 { typedef decltype(nullptr) nullptr_t; }
 #endif // _LIBCPP_VERSION
 #endif // DOCTEST_CONFIG_WITH_NULLPTR
-
-#include <vector>
 
 namespace doctest
 {
@@ -698,14 +708,12 @@ namespace detail
 
     struct SubcaseSignature
     {
-        std::string m_name;
-        std::vector<int> m_iteration;
+        const char* m_name;
         const char* m_file;
         int         m_line;
 
-        SubcaseSignature(std::string name, std::vector<int> iteration, const char* file, int line)
-                : m_name(std::move(name))
-                , m_iteration(std::move(iteration))
+        SubcaseSignature(const char* name, const char* file, int line)
+                : m_name(name)
                 , m_file(file)
                 , m_line(line) {}
 
@@ -717,7 +725,7 @@ namespace detail
         SubcaseSignature m_signature;
         bool             m_entered;
 
-        Subcase(const char* name, std::vector<int> iteration, const char* file, int line);
+        Subcase(const char* name, const char* file, int line);
         Subcase(const Subcase& other);
         ~Subcase();
 
@@ -1193,11 +1201,11 @@ public:
 #define DOCTEST_SUBCASE(name)                                                                      \
     if(const doctest::detail::Subcase & DOCTEST_ANONYMOUS(_DOCTEST_ANON_SUBCASE_)                  \
                                                 __attribute__((unused)) =                          \
-               doctest::detail::Subcase(name, doctest::detail::getContextState()->currentIteration, __FILE__, __LINE__))
+               doctest::detail::Subcase(name, __FILE__, __LINE__))
 #else // __GNUC__
 #define DOCTEST_SUBCASE(name)                                                                      \
     if(const doctest::detail::Subcase & DOCTEST_ANONYMOUS(_DOCTEST_ANON_SUBCASE_) =                \
-               doctest::detail::Subcase(name, doctest::detail::getContextState()->currentIteration, __FILE__, __LINE__))
+               doctest::detail::Subcase(name, __FILE__, __LINE__))
 #endif // __GNUC__
 
 // for starting a testsuite block
@@ -1242,12 +1250,19 @@ public:
         DOCTEST_BREAK_INTO_DEBUGGER();                                                             \
     rb.react()
 
+#ifdef DOCTEST_CONFIG_NO_TRY_CATCH_IN_ASSERTS
+#define DOCTEST_WRAP_IN_TRY(x) x;
+#else // DOCTEST_CONFIG_NO_TRY_CATCH_IN_ASSERTS
+#define DOCTEST_WRAP_IN_TRY(x)                                                                     \
+    try {                                                                                          \
+        x;                                                                                         \
+    } catch(...) { _DOCTEST_RB.m_threw = true; }
+#endif // DOCTEST_CONFIG_NO_TRY_CATCH_IN_ASSERTS
+
 #define DOCTEST_ASSERT_IMPLEMENT(expr, assert_type)                                                \
     doctest::detail::ResultBuilder _DOCTEST_RB(doctest::detail::assertType::assert_type, __FILE__, \
                                                __LINE__, #expr);                                   \
-    try {                                                                                          \
-        _DOCTEST_RB.setResult(doctest::detail::ExpressionDecomposer() << expr);                    \
-    } catch(...) { _DOCTEST_RB.m_threw = true; }                                                   \
+    DOCTEST_WRAP_IN_TRY(_DOCTEST_RB.setResult(doctest::detail::ExpressionDecomposer() << expr))    \
     DOCTEST_ASSERT_LOG_AND_REACT(_DOCTEST_RB);
 
 #if defined(__clang__)
@@ -1328,9 +1343,9 @@ public:
     do {                                                                                           \
         doctest::detail::ResultBuilder _DOCTEST_RB(doctest::detail::assertType::assert_type,       \
                                                    __FILE__, __LINE__, #lhs ", " #rhs);            \
-        try {                                                                                      \
-            _DOCTEST_RB.binary_assert<doctest::detail::binaryAssertComparison::comp>(lhs, rhs);    \
-        } catch(...) { _DOCTEST_RB.m_threw = true; }                                               \
+        DOCTEST_WRAP_IN_TRY(                                                                       \
+                _DOCTEST_RB.binary_assert<doctest::detail::binaryAssertComparison::comp>(lhs,      \
+                                                                                         rhs))     \
         DOCTEST_ASSERT_LOG_AND_REACT(_DOCTEST_RB);                                                 \
     } while(doctest::detail::always_false())
 
@@ -1338,9 +1353,7 @@ public:
     do {                                                                                           \
         doctest::detail::ResultBuilder _DOCTEST_RB(doctest::detail::assertType::assert_type,       \
                                                    __FILE__, __LINE__, #val);                      \
-        try {                                                                                      \
-            _DOCTEST_RB.unary_assert(val);                                                         \
-        } catch(...) { _DOCTEST_RB.m_threw = true; }                                               \
+        DOCTEST_WRAP_IN_TRY(_DOCTEST_RB.unary_assert(val))                                         \
         DOCTEST_ASSERT_LOG_AND_REACT(_DOCTEST_RB);                                                 \
     } while(doctest::detail::always_false())
 
@@ -1430,6 +1443,61 @@ public:
 #define DOCTEST_FAST_CHECK_UNARY_FALSE(v) DOCTEST_FAST_UNARY_ASSERT(DT_FAST_CHECK_UNARY_FALSE, v)
 #define DOCTEST_FAST_REQUIRE_UNARY_FALSE(v)                                                        \
     DOCTEST_FAST_UNARY_ASSERT(DT_FAST_REQUIRE_UNARY_FALSE, v)
+
+
+
+// OMGOMGOMG trqbva da napravq teq da sa no-op - a ne prosto da ne gi undef-vam
+
+
+
+#ifdef DOCTEST_CONFIG_NO_EXCEPTIONS
+
+#undef DOCTEST_WARN_THROWS
+#undef DOCTEST_CHECK_THROWS
+#undef DOCTEST_REQUIRE_THROWS
+#undef DOCTEST_WARN_THROWS_AS
+#undef DOCTEST_CHECK_THROWS_AS
+#undef DOCTEST_REQUIRE_THROWS_AS
+#undef DOCTEST_WARN_NOTHROW
+#undef DOCTEST_CHECK_NOTHROW
+#undef DOCTEST_REQUIRE_NOTHROW
+
+#ifdef DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS
+
+#define DOCTEST_WARN_THROWS(expr) ((void)0)
+#define DOCTEST_WARN_THROWS_AS(expr, ex) ((void)0)
+#define DOCTEST_WARN_NOTHROW(expr) ((void)0)
+#define DOCTEST_CHECK_THROWS(expr) ((void)0)
+#define DOCTEST_CHECK_THROWS_AS(expr, ex) ((void)0)
+#define DOCTEST_CHECK_NOTHROW(expr) ((void)0)
+#define DOCTEST_REQUIRE_THROWS(expr) ((void)0)
+#define DOCTEST_REQUIRE_THROWS_AS(expr, ex) ((void)0)
+#define DOCTEST_REQUIRE_NOTHROW(expr) ((void)0)
+
+#else // DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS
+
+#undef DOCTEST_REQUIRE
+#undef DOCTEST_REQUIRE_FALSE
+#undef DOCTEST_REQUIRE_EQ
+#undef DOCTEST_REQUIRE_NE
+#undef DOCTEST_REQUIRE_GT
+#undef DOCTEST_REQUIRE_LT
+#undef DOCTEST_REQUIRE_GE
+#undef DOCTEST_REQUIRE_LE
+#undef DOCTEST_REQUIRE_UNARY
+#undef DOCTEST_REQUIRE_UNARY_FALSE
+#undef DOCTEST_FAST_REQUIRE_EQ
+#undef DOCTEST_FAST_REQUIRE_NE
+#undef DOCTEST_FAST_REQUIRE_GT
+#undef DOCTEST_FAST_REQUIRE_LT
+#undef DOCTEST_FAST_REQUIRE_GE
+#undef DOCTEST_FAST_REQUIRE_LE
+#undef DOCTEST_FAST_REQUIRE_UNARY
+#undef DOCTEST_FAST_REQUIRE_UNARY_FALSE
+
+#endif // DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS
+
+#endif // DOCTEST_CONFIG_NO_EXCEPTIONS
 
 // =================================================================================================
 // == WHAT FOLLOWS IS VERSIONS OF THE MACROS THAT DO NOT DO ANY REGISTERING!                      ==
@@ -1705,6 +1773,8 @@ DOCTEST_TEST_SUITE_END();
 #pragma warning(disable : 4706) // assignment within conditional expression
 #pragma warning(disable : 4512) // 'class' : assignment operator could not be generated
 #pragma warning(disable : 4127) // conditional expression is constant
+#pragma warning(disable : 4530) // C++ exception handler used, but unwind semantics are not enabled
+#pragma warning(disable : 4577) // 'noexcept' used with no exception handling mode specified
 #endif                          // _MSC_VER
 
 #if defined(DOCTEST_CONFIG_IMPLEMENT) || defined(DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN) ||            \
@@ -1753,6 +1823,7 @@ DOCTEST_TEST_SUITE_END();
 #include <utility>
 #include <sstream>
 #include <iomanip>
+#include <vector>
 #include <set>
 
 namespace doctest
@@ -1859,6 +1930,7 @@ namespace detail
         bool exit;           // if the program should be exited after the tests are ran/whatever
         bool no_exitcode;    // if the framework should return 0 as the exitcode
         bool no_run;         // to not run the tests at all (can be done with an "*" exclude)
+        bool no_version;     // to not print the version of the framework
         bool no_colors;      // if output to the console should be colorized
         bool no_path_in_filenames; // if the path to files should be removed from the output
 
@@ -1873,7 +1945,6 @@ namespace detail
         int numAssertions;
         int numFailedAssertions;
         int numFailedAssertionsForCurrentTestcase;
-        std::vector<int> currentIteration;
 
         // stuff for subcases
         std::set<SubcaseSignature> subcasesPassed;
@@ -2228,7 +2299,11 @@ namespace detail
         if(flags & assertAction::shouldthrow)
             throwException();
     }
-    void throwException() { throw TestFailureException(); }
+    void throwException() {
+#ifndef DOCTEST_CONFIG_NO_EXCEPTIONS
+        throw TestFailureException();
+#endif // DOCTEST_CONFIG_NO_EXCEPTIONS
+    }
     bool always_false() { return false; }
 
     // lowers ascii letters
@@ -2306,13 +2381,11 @@ namespace detail
             return m_line < other.m_line;
         if(strcmp(m_file, other.m_file) != 0)
             return strcmp(m_file, other.m_file) < 0;
-        if(m_iteration != other.m_iteration)
-            return m_iteration < other.m_iteration;
-        return m_name < other.m_name;
+        return strcmp(m_name, other.m_name) < 0;
     }
 
-    Subcase::Subcase(const char* name, std::vector<int> iter, const char* file, int line)
-            : m_signature(name, std::move(iter), file, line)
+    Subcase::Subcase(const char* name, const char* file, int line)
+            : m_signature(name, file, line)
             , m_entered(false) {
         ContextState* s = getContextState();
 
@@ -2336,8 +2409,8 @@ namespace detail
     }
 
     Subcase::Subcase(const Subcase& other)
-            : m_signature(other.m_signature.m_name, other.m_signature.m_iteration,
-                          other.m_signature.m_file, other.m_signature.m_line)
+            : m_signature(other.m_signature.m_name, other.m_signature.m_file,
+                          other.m_signature.m_line)
             , m_entered(other.m_entered) {}
 
     Subcase::~Subcase() {
@@ -2525,15 +2598,19 @@ namespace detail
     // this is needed because MSVC does not permit mixing 2 exception handling schemes in a function
     int callTestFunc(funcType f) {
         int res = EXIT_SUCCESS;
+#ifndef DOCTEST_CONFIG_NO_EXCEPTIONS
         try {
+#endif // DOCTEST_CONFIG_NO_EXCEPTIONS
             f();
             if(getContextState()->numFailedAssertionsForCurrentTestcase)
                 res = EXIT_FAILURE;
+#ifndef DOCTEST_CONFIG_NO_EXCEPTIONS
         } catch(const TestFailureException&) { res = EXIT_FAILURE; } catch(...) {
             DOCTEST_LOG_START();
             logTestCrashed();
             res = EXIT_FAILURE;
         }
+#endif // DOCTEST_CONFIG_NO_EXCEPTIONS
         return res;
     }
 
@@ -2629,7 +2706,7 @@ namespace detail
         for(unsigned i = 0; i < subcasesStack.size(); ++i) {
             char subcase[DOCTEST_SNPRINTF_BUFFER_LENGTH];
             DOCTEST_SNPRINTF(subcase, DOCTEST_COUNTOF(loc), "  %s\n",
-                             subcasesStack[i].m_signature.m_name.c_str());
+                             subcasesStack[i].m_signature.m_name);
             DOCTEST_PRINTF_COLORED(subcase, Color::None);
             subcaseStuff += subcase;
         }
@@ -2939,8 +3016,10 @@ namespace detail
     }
 
     void printVersion() {
-        DOCTEST_PRINTF_COLORED("[doctest] ", Color::Cyan);
-        printf("doctest version is \"%s\"\n", DOCTEST_VERSION_STR);
+        if(getContextState()->no_version == false) {
+            DOCTEST_PRINTF_COLORED("[doctest] ", Color::Cyan);
+            printf("doctest version is \"%s\"\n", DOCTEST_VERSION_STR);
+        }
     }
 
     void printHelp() {
@@ -2991,6 +3070,7 @@ namespace detail
         printf(" -nt,  --no-throw=<bool>               skips exceptions-related assert checks\n");
         printf(" -ne,  --no-exitcode=<bool>            returns (or exits) always with success\n");
         printf(" -nr,  --no-run=<bool>                 skips all runtime doctest operations\n");
+        printf(" -nv,  --no-version=<bool>             omit the framework version in the output\n");
         printf(" -nc,  --no-colors=<bool>              disables colors in output\n");
         printf(" -nb,  --no-breaks=<bool>              disables breakpoints in debuggers\n");
         printf(" -npf, --no-path-filenames=<bool>      only filenames and no paths in output\n\n");
@@ -3069,6 +3149,7 @@ void Context::parseArgs(int argc, const char* const* argv, bool withDefaults) {
     DOCTEST_PARSE_AS_BOOL_OR_FLAG(dt-no-throw, dt-nt, no_throw, 0);
     DOCTEST_PARSE_AS_BOOL_OR_FLAG(dt-no-exitcode, dt-ne, no_exitcode, 0);
     DOCTEST_PARSE_AS_BOOL_OR_FLAG(dt-no-run, dt-nr, no_run, 0);
+    DOCTEST_PARSE_AS_BOOL_OR_FLAG(dt-no-version, dt-nv, no_version, 0);
     DOCTEST_PARSE_AS_BOOL_OR_FLAG(dt-no-colors, dt-nc, no_colors, 0);
     DOCTEST_PARSE_AS_BOOL_OR_FLAG(dt-no-breaks, dt-nb, no_breaks, 0);
     DOCTEST_PARSE_AS_BOOL_OR_FLAG(dt-no-path-filenames, dt-npf, no_path_in_filenames, 0);
