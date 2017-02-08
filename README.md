@@ -213,16 +213,16 @@ Note the distinction between owners of objects and owners of arrays, something t
     nullable<owner<T*>> p3 = new (nothrow) T;
              owner<T*>  p4 = new T;
        owner<array<T*>> p5 = new T[n];
-          iterator<T*>  p6 = p3;
+          iterator<T*>  p6 = p5;
 
 This approach will allow static analysis tools to enable a small subset of operations for `T*` by default, allowing certain "dangerous" features to be enabled one-by-one via annotations. Static analysis tools can warn wherever a "feature" is used without its corresponding annotation. For example:
 
     T t1 = p1[1]; // warning: array subscription without `array` or `iterator`
-    p1++;         // warning: pointer arithmetic without `iterator`
-    T t2 = *p2;   // warning: dereferencing `nullable` without null check
-    if (p3) { … } // warning: checking for null without `nullable`
-    delete p4;    // warning: calling `delete` without `owner`
-    p5 = nullptr; // warning: setting to null without `nullable`
+    p2++;         // warning: pointer arithmetic without `iterator`
+    T t2 = *p3;   // warning: dereferencing `nullable` without null check
+    if (p4) { … } // warning: checking for null without `nullable`
+    delete p5;    // warning: calling `delete` with `array`
+    p6 = nullptr; // warning: setting to null without `nullable`
 
 Of course, such warnings are likely to be ubiquitous in old C++ code, but there is really no way around this if your goal to make your code safer, more explicit and free of bugs. Static analysis tools can always provide the ability to disable particular categories of warning, or only show warnings for particular files or sections of code, to make updating old code more manageable.
 
