@@ -13,7 +13,7 @@ Working implementations of the proposed classes can be found [here](https://gith
 
 ### Disclaimer
 
-This proposal does _not_ suggest that the replacement of _all_ uses of pointers in modern C++ should be recommended. Low-level implementations and legacy code bases will inevitably still use pointers. We are instead proposing that _strongly typed_ alternatives to `T*` should be provided and recommended by the guidelines. However, we do not recommend that static analysis tools flag all instances of `T*` for replacement. In fact, in the discussion of [pointer annotation](#annotation), we suggest that a bare `T*` _should_ be understood by static analysis tools to represent a single object.
+This proposal does _not_ suggest that the replacement of _all_ uses of pointers in modern C++ should be recommended. Low-level implementations and legacy code bases will inevitably still use pointers. We are instead proposing that _strongly typed_ alternatives to `T*` should be provided and recommended by the guidelines, especially for new high-level code. We do not recommend that static analysis tools flag all instances of `T*` for replacement. In fact, in the discussion of [pointer annotation](#annotation), we suggest that a bare `T*` _should_ be understood by static analysis tools to represent a single object.
 
 ## Contents
 
@@ -56,7 +56,7 @@ By using `T*`, we fail to document our intent to the detriment of both the progr
 
 > Readability: it makes the meaning of a plain pointer clear. Enables significant tool support.
 
-Designating `T*` to represent _only_ single objects does indeed make the meaning of a `T*` clear and enable tool support, but only by a consensus of programmers and static analysis tools. Agreement by the compiler in the form of _strong typing_ would greatly strengthen such meaning. This rule provides no reason why a `T*` in this one situation would not benefit from a strongly typed replacement. Rule [Bounds.1](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#Pro-bounds-arithmetic) instructs, _"Don't use pointer arithmetic. Use `span` instead"_, explaining:
+Designating `T*` to represent _only_ single objects does indeed make the meaning of a `T*` clear and enable tool support, but only by a consensus of programmers and static analysis tools. Agreement by the compiler in the form of _strong typing_ would greatly strengthen such meaning. This rule provides no reason why a `T*` in this one situation would not benefit from a strongly typed alternative. Rule [Bounds.1](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#Pro-bounds-arithmetic) instructs, _"Don't use pointer arithmetic. Use `span` instead"_, explaining:
 
 > Pointers should only refer to single objects, and pointer arithmetic is fragile and easy to get wrong. `span` is a bounds-checked, safe type for accessing arrays of data.
 
@@ -64,7 +64,7 @@ It appears that the guidelines are reasoning that, since `span` is provided to r
 
 ### <a name="intent"></a> Documentation of intent
 
-If type-safety is not a compelling enough reason to provide strongly typed replacements for `T*` in all situations, consider that the guidelines still recommend the use of `T*` as a "single object" for two _conceptually distinct_ purposes. Moreover, the semantics of `T*` are not a good fit for either purpose; in fact, the ideal semantics for the two purposes are diametrically opposed. Thus, there is no way to provide a single high-level type to perform both functions.
+If type-safety is not a compelling enough reason to provide strongly typed alternatives for `T*` in all situations, consider that the guidelines still recommend the use of `T*` as a "single object" for two _conceptually distinct_ purposes. Moreover, the semantics of `T*` are not a good fit for either purpose; in fact, the ideal semantics for the two purposes are diametrically opposed. Thus, there is no way to provide a single high-level type to perform both functions.
 
 #### <a name="optrefparam"></a> "Optional reference" parameters
 
@@ -149,7 +149,7 @@ In addition, `observer<T>` disables construction from `T&&`, so it cannot be con
 
     foo f{make_observer(bar())}; // error: `make_observer(T&&)` is deleted
 
-As a zero-overhead replacement for `T*`, `observer<T>` does not manage or track the lifetime of what it observes. If automatic lifetime tracking is required, alternative approaches such as a signals and slots implementation (e.g. [Boost.Signals2](http://www.boost.org/doc/libs/release/doc/html/signals2.html)) or [`std::weak_ptr`](http://en.cppreference.com/w/cpp/memory/weak_ptr) may be used.
+As a zero-overhead alternative for `T*`, `observer<T>` does not manage or track the lifetime of what it observes. If automatic lifetime tracking is required, alternative approaches such as a signals and slots implementation (e.g. [Boost.Signals2](http://www.boost.org/doc/libs/release/doc/html/signals2.html)) or [`std::weak_ptr`](http://en.cppreference.com/w/cpp/memory/weak_ptr) may be used.
 
 An `observer<T>` has no "null" state and must therefore always point to an object. Thus, it enforces the "not null" condition at compile-time, just like `T&`. If the ability to represent "no object" is required, `observer<T>` can be combined with `optional<T>`:
 
