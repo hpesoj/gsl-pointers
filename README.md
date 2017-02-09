@@ -11,23 +11,23 @@ Working implementations of the proposed classes can be found [here](https://gith
 
 ## Contents
 
-* [The problem](#problem)
+* [The problem with pointers](#problem)
   * [Type-safety](#safety)
   * [Documentation of intent](#intent)
      * ["Optional reference" parameters](#optrefparam)
      * [Retained, non-owning references](#retained)
-* [The solution](#solution)
+* [The proposed solution](#solution)
   * [The `observer<T>` class template](#observer)
      * [Zero-overhead optimizations](#overhead)
   * [The `optional_ref<T>` class template](#optional_ref)
      * [Construction from `T&&`](#rvalue)
      * [Copy assignment](#copy)
   * [An `optional<T>` implementation](#optional)
-* [Pointer annotations](#annotation)
+* [Thoughts on pointer annotation](#annotation)
   * [The purpose of `not_null<T>`](#not_null)
 * [Conclusion](#conclusion)
 
-## <a name="problem"></a> The problem
+## <a name="problem"></a> The problem with pointers
 
 ### <a name="safety"></a> Type-safety
 
@@ -114,7 +114,7 @@ Storing a pointer to a `T const&` parameter could be considered "unusual" and is
 
 We could instead take a `not_null<T*>` parameter, but then we would lose the compile-time enforcement of the "not null" condition (this is also a disadvantage of using `not_null<T*>` as a data member, though in this case the member is private, so opportunities for bugs to arise are encapsulated within the class). In addition, the calling code is indistinguishable from that of a `T*` "optional reference" parameter, and it is _still_ likely to be surprising that a copy of the pointer is retained. If a function is going to store a copy of a reference or pointer parameter, the intent to do so should be made _explicitly clear_ in both the function signature _and_ at the call site, so that the caller is made aware that they must personally manage the lifetimes of both objects. Currently, there is no conventional way to do this in C++.
 
-## <a name="solution"></a> The solution
+## <a name="solution"></a> The proposed solution
 
 We have identified the two uses of `T*` for which the guidelines do not give strongly typed alternatives:
 
@@ -208,7 +208,7 @@ In contrast, we believe it is more helpful to think of `optional<T>` as a _conta
 
 Currently, nowhere in the guidelines is `optional<T>` mentioned. This is understandable, given that C++17 is still a work in progress. However, even when this new version of the standard is released, it will be some time before everyone following the guidelines has access to a production-ready implementation. Given the fundamental role that `optional<T>` plays in accurately representing the concept of an "optional" value—an extremely common requirement—we suggest adding an implementation `optional<T>` to the GSL. Note that we still suggest adding `optional_ref<T>` as opposed to implementing `optional<T&>`, since any implementation of `optional<T>` should ideally be standard-conforming. If and when `optional<T&>` is standardized, the guidelines can be updated and instances of `optional_ref<T>` can easily be find-and-replaced (providing `optional<T&>` has roughly the same semantics as `optional_ref<T>`).
 
-## <a name="annotation"></a> Pointer annotations
+## <a name="annotation"></a> Thoughts on pointer annotation
 
 Introducing `observer<T>` and `optional_ref<T>` to the GSL and guidelines would not remove the need for pointer annotations such as `owner<T>` and `not_null<T>`. Annotations are necessary to help static analysis tools verify the integrity of code that must use pointers for whatever reason. However, there are a number of things to be said about the current approach.
 
