@@ -186,7 +186,7 @@ In contrast, we believe it is more helpful to think of `optional<T>` as a _conta
 
 ### `optional<T>`
 
-Currently, nowhere in the guidelines is `optional<T>` mentioned. This is understandable, given that C++17 is still a work in progress. However, even when this new version of the standard is released, it will be some time before everyone following the guidelines has access to a production-ready implementation. Given the fundamental role that `optional<T>` plays in accurately representing the concept of an "optional" value—an extremely common requirement—we suggest adding an implementation `optional<T>` to the GSL. Note that we still recommend adding `optional_ref<T>` as opposed to implementing `optional<T&>`, since any implementation of `optional<T>` should ideally be standard-conforming. If and when `optional<T&>` is standardized, the guidelines can be updated and instances of `optional_ref<T>` can easily be find-and-replaced (providing `optional<T&>` has roughly the same semantics as `optional_ref<T>`).
+Currently, nowhere in the guidelines is `optional<T>` mentioned. This is understandable, given that C++17 is still a work in progress. However, even when this new version of the standard is released, it will be some time before everyone following the guidelines has access to a production-ready implementation. Given the fundamental role that `optional<T>` plays in accurately representing the concept of an "optional" value—an extremely common requirement—we suggest adding an implementation `optional<T>` to the GSL. Note that we still suggest adding `optional_ref<T>` as opposed to implementing `optional<T&>`, since any implementation of `optional<T>` should ideally be standard-conforming. If and when `optional<T&>` is standardized, the guidelines can be updated and instances of `optional_ref<T>` can easily be find-and-replaced (providing `optional<T&>` has roughly the same semantics as `optional_ref<T>`).
 
 ## Pointer annotations
 
@@ -206,7 +206,7 @@ We suggest that a _bare_ `T*` (i.e. one without any annotations) _should_ only r
 * `nullable<T>` enables the null pointer state
 * `owner<T>` enables use of either `delete` or `delete[]` (when combined with `array<T>`) 
 
-Note the distinction between owners of objects and owners of arrays, something the guidelines currently do not account for. An example of correct use of these annotations is:
+Note the distinction between owners of objects and owners of arrays, something the guidelines currently do not account for. We designated `array<T>` for this purpose as it would be error-prone to do something like `p++` on an `owner<iterator<T>>`. An example of correct use of these annotations is:
 
                    T*   p1 = &t;
              array<T*>  p2 = &arr;
@@ -224,7 +224,18 @@ This approach will allow static analysis tools to enable a small subset of opera
     delete p5;    // warning: calling `delete` with `array`
     p6 = nullptr; // warning: setting to null without `nullable`
 
-Of course, such warnings are likely to be ubiquitous in old C++ code, but there is really no way around this if your goal to make your code safer, more explicit and free of bugs. Static analysis tools can always provide the ability to disable particular categories of warning, or only show warnings for particular files or sections of code, to make updating old code more manageable.
+Of course, such warnings are likely to be ubiquitous in old C++ code, but there is really no way around this if your goal to make your code safer, more explicit and free of bugs. Static analysis tools could potentially implicitly annotate certain variables, especially in function scope. For example:
+
+    template <typename T, typename N>
+    T* find(T (&a)[N], T const& t) {
+        T* it = begin(a);            // `it` is implicitly `iterator<T*>`
+        for (; it != end(a); ++it) { // `++it` is okay
+            if (*it == t) break;
+        }
+        return it;                   // warning: discarding `iterator`
+    }
+
+This could automatically reduce the number of warnings by only flagging violations on API boundaries. In addition, static analysis tools could provide ways to disable particular categories of warning, or show warnings only for particular files or sections of code. Updating old code is messy business, but there are a variety of ways to make it more manageable.
 
 ### `nullable<T>` vs `not_null<T>`
 
