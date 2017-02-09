@@ -42,12 +42,11 @@ namespace
 struct base
 {
     virtual ~base() {}
+    virtual int get_foo() const = 0;
 };
 
 struct derived : base
 {
-    int foo = {};
-
     derived() = default;
 
     explicit derived(int foo) :
@@ -61,18 +60,32 @@ struct derived : base
     {
         other.foo = 0;
     }
+
+    int get_foo() const override
+    {
+        return foo;
+    }
+
+private:
+    int foo = {};
 };
 
 struct derived_other : base
 {
-    int foo = {};
-
     derived_other() = default;
 
     explicit derived_other(int foo) :
         foo(foo)
     {
     }
+
+    int get_foo() const override
+    {
+        return foo;
+    }
+
+private:
+    int foo = {};
 };
 
 } // namespace
@@ -132,12 +145,13 @@ SCENARIO("`optional_ref` can be constructed from other references")
 
     GIVEN("an `optional_ref` constructed from a `derived")
     {
-        derived d = {};
+        derived d{42};
 
         optional_ref<derived> o = d;
 
         CHECK(o);
         CHECK(o.has_value());
+        CHECK(o->get_foo() == 42);
         CHECK(&*o == &d);
 
         THEN("an `optional_ref` to `base` constructed from that `optional_ref`")
@@ -146,6 +160,7 @@ SCENARIO("`optional_ref` can be constructed from other references")
 
             CHECK(p);
             CHECK(p.has_value());
+            CHECK(o->get_foo() == 42);
             CHECK(&*p == &d);
         }
     }
@@ -330,6 +345,76 @@ SCENARIO("`optional_ref` can be arithmetically compared")
         CHECK((b >= y));
         CHECK(!(o >= a));
         CHECK((a >= o));
+    }
+}
+
+SCENARIO("`optional_ref`s can be used with STL containers")
+{
+    std::array<int, 3> i = { 0, 1, 2 };
+
+    GIVEN("a `vector` of `optional_ref`s")
+    {
+        std::vector<optional_ref<int>> vector;
+
+        vector.emplace_back(i[2]);
+        vector.emplace_back(i[1]);
+        vector.emplace_back(i[0]);
+
+        REQUIRE(vector[0] == make_optional_ref(i[2]));
+        REQUIRE(vector[1] == make_optional_ref(i[1]));
+        REQUIRE(vector[2] == make_optional_ref(i[0]));
+    }
+
+    GIVEN("a `map` of `optional_ref`-`optional_ref` pairs")
+    {
+        std::map<optional_ref<int>, optional_ref<int>> map;
+
+        map.emplace(i[0], i[2]);
+        map.emplace(i[1], i[1]);
+        map.emplace(i[2], i[0]);
+
+        REQUIRE(map.at(make_optional_ref(i[0])) == make_optional_ref(i[2]));
+        REQUIRE(map.at(make_optional_ref(i[1])) == make_optional_ref(i[1]));
+        REQUIRE(map.at(make_optional_ref(i[2])) == make_optional_ref(i[0]));
+    }
+
+    GIVEN("an `unordered_map` of `optional_ref`-`optional_ref` pairs")
+    {
+        std::unordered_map<optional_ref<int>, optional_ref<int>> map;
+
+        map.emplace(i[0], i[2]);
+        map.emplace(i[1], i[1]);
+        map.emplace(i[2], i[0]);
+
+        REQUIRE(map.at(make_optional_ref(i[0])) == make_optional_ref(i[2]));
+        REQUIRE(map.at(make_optional_ref(i[1])) == make_optional_ref(i[1]));
+        REQUIRE(map.at(make_optional_ref(i[2])) == make_optional_ref(i[0]));
+    }
+
+    GIVEN("a `set` of `optional_ref`s")
+    {
+        std::set<optional_ref<int>> set;
+
+        set.emplace(i[0]);
+        set.emplace(i[1]);
+        set.emplace(i[2]);
+
+        REQUIRE(set.find(make_optional_ref(i[0])) != set.end());
+        REQUIRE(set.find(make_optional_ref(i[1])) != set.end());
+        REQUIRE(set.find(make_optional_ref(i[2])) != set.end());
+    }
+
+    GIVEN("an `unordered_set` of `optional_ref`s")
+    {
+        std::unordered_set<optional_ref<int>> set;
+
+        set.emplace(i[0]);
+        set.emplace(i[1]);
+        set.emplace(i[2]);
+
+        REQUIRE(set.find(make_optional_ref(i[0])) != set.end());
+        REQUIRE(set.find(make_optional_ref(i[1])) != set.end());
+        REQUIRE(set.find(make_optional_ref(i[2])) != set.end());
     }
 }
 

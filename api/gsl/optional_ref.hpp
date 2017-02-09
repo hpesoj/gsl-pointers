@@ -19,8 +19,6 @@
  * SOFTWARE.
  */
 
-#pragma once
-
 #ifndef GSL_OPTIONAL_REF_HPP
 #define GSL_OPTIONAL_REF_HPP
 
@@ -106,8 +104,8 @@ public:
         return *ptr;
     }
 
-    template <typename U>
-    constexpr T value_or(U&& default_value) const
+    template <typename U, typename T_ = T, typename = std::enable_if_t<std::is_copy_constructible<T_>::value>>
+    constexpr T_ value_or(U&& default_value) const
     {
         return has_value() ? **this : static_cast<T>(std::forward<U>(default_value));
     }
