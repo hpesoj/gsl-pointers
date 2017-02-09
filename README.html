@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>README</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<style type="text/css">
+/* GitHub stylesheet for MarkdownPad (http://markdownpad.com) */
+/* Author: Nicolas Hery - http://nicolashery.com */
+/* Version: b13fe65ca28d2e568c6ed5d7f06581183df8f2ff */
+/* Source: https://github.com/nicolahery/markdownpad-github */
+
+/* RESET
+=============================================================================*/
+
+html, body, div, span, applet, object, iframe, h1, h2, h3, h4, h5, h6, p, blockquote, pre, a, abbr, acronym, address, big, cite, code, del, dfn, em, img, ins, kbd, q, s, samp, small, strike, strong, sub, sup, tt, var, b, u, i, center, dl, dt, dd, ol, ul, li, fieldset, form, label, legend, table, caption, tbody, tfoot, thead, tr, th, td, article, aside, canvas, details, embed, figure, figcaption, footer, header, hgroup, menu, nav, output, ruby, section, summary, time, mark, audio, video {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+/* BODY
+=============================================================================*/
+
+body {
+  font-family: Helvetica, arial, freesans, clean, sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #333;
+  background-color: #fff;
+  padding: 20px;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+body>*:first-child {
+  margin-top: 0 !important;
+}
+
+body>*:last-child {
+  margin-bottom: 0 !important;
+}
+
+/* BLOCKS
+=============================================================================*/
+
+p, blockquote, ul, ol, dl, table, pre {
+  margin: 15px 0;
+}
+
+/* HEADERS
+=============================================================================*/
+
+h1, h2, h3, h4, h5, h6 {
+  margin: 20px 0 10px;
+  padding: 0;
+  font-weight: bold;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1 tt, h1 code, h2 tt, h2 code, h3 tt, h3 code, h4 tt, h4 code, h5 tt, h5 code, h6 tt, h6 code {
+  font-size: inherit;
+}
+
+h1 {
+  font-size: 28px;
+  color: #000;
+}
+
+h2 {
+  font-size: 24px;
+  border-bottom: 1px solid #ccc;
+  color: #000;
+}
+
+h3 {
+  font-size: 18px;
+}
+
+h4 {
+  font-size: 16px;
+}
+
+h5 {
+  font-size: 14px;
+}
+
+h6 {
+  color: #777;
+  font-size: 14px;
+}
+
+body>h2:first-child, body>h1:first-child, body>h1:first-child+h2, body>h3:first-child, body>h4:first-child, body>h5:first-child, body>h6:first-child {
+  margin-top: 0;
+  padding-top: 0;
+}
+
+a:first-child h1, a:first-child h2, a:first-child h3, a:first-child h4, a:first-child h5, a:first-child h6 {
+  margin-top: 0;
+  padding-top: 0;
+}
+
+h1+p, h2+p, h3+p, h4+p, h5+p, h6+p {
+  margin-top: 10px;
+}
+
+/* LINKS
+=============================================================================*/
+
+a {
+  color: #4183C4;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* LISTS
+=============================================================================*/
+
+ul, ol {
+  padding-left: 30px;
+}
+
+ul li > :first-child, 
+ol li > :first-child, 
+ul li ul:first-of-type, 
+ol li ol:first-of-type, 
+ul li ol:first-of-type, 
+ol li ul:first-of-type {
+  margin-top: 0px;
+}
+
+ul ul, ul ol, ol ol, ol ul {
+  margin-bottom: 0;
+}
+
+dl {
+  padding: 0;
+}
+
+dl dt {
+  font-size: 14px;
+  font-weight: bold;
+  font-style: italic;
+  padding: 0;
+  margin: 15px 0 5px;
+}
+
+dl dt:first-child {
+  padding: 0;
+}
+
+dl dt>:first-child {
+  margin-top: 0px;
+}
+
+dl dt>:last-child {
+  margin-bottom: 0px;
+}
+
+dl dd {
+  margin: 0 0 15px;
+  padding: 0 15px;
+}
+
+dl dd>:first-child {
+  margin-top: 0px;
+}
+
+dl dd>:last-child {
+  margin-bottom: 0px;
+}
+
+/* CODE
+=============================================================================*/
+
+pre, code, tt {
+  font-size: 12px;
+  font-family: Consolas, "Liberation Mono", Courier, monospace;
+}
+
+code, tt {
+  margin: 0 0px;
+  padding: 0px 0px;
+  white-space: nowrap;
+  border: 1px solid #eaeaea;
+  background-color: #f8f8f8;
+  border-radius: 3px;
+}
+
+pre>code {
+  margin: 0;
+  padding: 0;
+  white-space: pre;
+  border: none;
+  background: transparent;
+}
+
+pre {
+  background-color: #f8f8f8;
+  border: 1px solid #ccc;
+  font-size: 13px;
+  line-height: 19px;
+  overflow: auto;
+  padding: 6px 10px;
+  border-radius: 3px;
+}
+
+pre code, pre tt {
+  background-color: transparent;
+  border: none;
+}
+
+kbd {
+    -moz-border-bottom-colors: none;
+    -moz-border-left-colors: none;
+    -moz-border-right-colors: none;
+    -moz-border-top-colors: none;
+    background-color: #DDDDDD;
+    background-image: linear-gradient(#F1F1F1, #DDDDDD);
+    background-repeat: repeat-x;
+    border-color: #DDDDDD #CCCCCC #CCCCCC #DDDDDD;
+    border-image: none;
+    border-radius: 2px 2px 2px 2px;
+    border-style: solid;
+    border-width: 1px;
+    font-family: "Helvetica Neue",Helvetica,Arial,sans-serif;
+    line-height: 10px;
+    padding: 1px 4px;
+}
+
+/* QUOTES
+=============================================================================*/
+
+blockquote {
+  border-left: 4px solid #DDD;
+  padding: 0 15px;
+  color: #777;
+}
+
+blockquote>:first-child {
+  margin-top: 0px;
+}
+
+blockquote>:last-child {
+  margin-bottom: 0px;
+}
+
+/* HORIZONTAL RULES
+=============================================================================*/
+
+hr {
+  clear: both;
+  margin: 15px 0;
+  height: 0px;
+  overflow: hidden;
+  border: none;
+  background: transparent;
+  border-bottom: 4px solid #ddd;
+  padding: 0;
+}
+
+/* TABLES
+=============================================================================*/
+
+table th {
+  font-weight: bold;
+}
+
+table th, table td {
+  border: 1px solid #ccc;
+  padding: 6px 13px;
+}
+
+table tr {
+  border-top: 1px solid #ccc;
+  background-color: #fff;
+}
+
+table tr:nth-child(2n) {
+  background-color: #f8f8f8;
+}
+
+/* IMAGES
+=============================================================================*/
+
+img {
+  max-width: 100%
+}
+</style>
+</head>
+<body>
+<h1>Pointers and the C++ Core Guidelines</h1>
+<p><em>Joseph Thomson (<a href="&#109;&#97;&#x69;&#108;&#x74;&#x6f;&#58;&#106;&#111;&#115;&#x65;&#x70;h&#x2e;&#116;&#104;o&#109;&#115;&#x6f;&#x6e;&#64;&#x67;m&#97;i&#108;&#46;&#x63;&#x6f;&#109;">&#106;&#111;&#x73;e&#x70;&#x68;&#46;&#116;&#x68;&#x6f;&#109;&#115;&#x6f;&#110;&#x40;&#x67;m&#x61;&#x69;&#x6c;&#x2e;&#99;&#x6f;&#x6d;</a>)</em><br>
+8 February 2017</p>
+<h2>Introduction</h2>
+<p>This document outlines why the the <a href="https://github.com/isocpp/CppCoreGuidelines">C++ Core Guidelines</a>' current recommendations regarding the use of pointers in modern C++ code are not ideal. It goes on to argue for the addition of two types, <a href="api/gsl/observer.hpp"><code>observer&lt;T&gt;</code></a>, and <a href="api/gsl/optional_ref.hpp"><code>optional_ref&lt;T&gt;</code></a>, to the <a href="https://github.com/Microsoft/GSL">Guideline Support Library</a>. Finally, it discusses the role of <code>owner&lt;T&gt;</code> and <code>not_null&lt;T&gt;</code> in the validation of code by static analysis tools, and suggests an alternative approach to pointer annotation.</p>
+<p>Working implementations of the proposed classes can be found <a href="https://github.com/hpesoj/gsl-pointers/tree/master/api/gsl">here</a>, and a full test suite can be found <a href="https://github.com/hpesoj/gsl-pointers/tree/master/tests">here</a>.</p>
+<h2>Contents</h2>
+<ul>
+<li>
+<a href="#problem">The problem</a>
+<ul>
+<li><a href="#safety">Type-safety</a></li>
+<li>
+<a href="#intent">Documentation of intent</a>
+<ul>
+<li><a href="#optrefparam">&quot;Optional reference&quot; parameters</a></li>
+<li><a href="#retained">Retained, non-owning references</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li>
+<a href="#solution">The solution</a>
+<ul>
+<li>
+<a href="#observer">The <code>observer&lt;T&gt;</code> class template</a>
+<ul>
+<li><a href="#overhead">Zero-overhead optimizations</a></li>
+</ul>
+</li>
+<li>
+<a href="#optional_ref">The <code>optional_ref&lt;T&gt;</code> class template</a>
+<ul>
+<li><a href="#rvalue">Construction from <code>T&amp;&amp;</code></a></li>
+<li><a href="#copy">Copy assignment</a></li>
+</ul>
+</li>
+<li><a href="#optional">An <code>optional&lt;T&gt;</code> implementation</a></li>
+</ul>
+</li>
+<li>
+<a href="#annotation">Pointer annotations</a>
+<ul>
+<li><a href="#not_null">The purpose of <code>not_null&lt;T&gt;</code></a></li>
+</ul>
+</li>
+<li><a href="#conclusion">Conclusion</a></li>
+</ul>
+<h2><a name="problem"></a> The problem</h2>
+<h3><a name="safety"></a> Type-safety</h3>
+<p>Pointer types define a large range of operations. However, many of these operations have well-defined behaviour only in specific circumstances. For example (given a pointer, <code>p</code>, and an integral, <code>n</code>):</p>
+<ul>
+<li>The expression <code>p + n</code> has undefined behaviour (for <code>n != 0</code>) if <code>p</code> points to a single object.</li>
+<li>The expression <code>*p</code> has undefined behaviour if <code>p</code> is a null pointer.</li>
+<li>The expression <code>delete p</code> has undefined behaviour if <code>p</code> points to an object not allocated with <code>new</code>.</li>
+<li>The expression <code>delete[] p</code> has undefined behaviour if <code>p</code> points to an object not allocated with <code>new[]</code>.</li>
+</ul>
+<p>The problem is that <code>T*</code> is <em>weakly typed</em>, in that it can be used for many, unrelated purposes. Thus, use of <code>T*</code> violates rule <a href="https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#Ri-typed">I.4</a>, which tells us to, <em>&quot;Make interfaces precisely and strongly typed&quot;</em>, explaining that:</p>
+<blockquote>
+<p>Types are the simplest and best documentation, have well-defined meaning, and are guaranteed to be checked at compile-time.</p>
+</blockquote>
+<p>It also violates rule <a href="https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#Rp-direct">P.1</a>, which advises us to, <em>&quot;Express ideas directly in code&quot;</em>, noting that:</p>
+<blockquote>
+<p>Compilers don't read comments (or design documents) and neither do many programmers (consistently). What is expressed in code has defined semantics and can (in principle) be checked by compilers and other tools.</p>
+</blockquote>
+<p>By using <code>T*</code>, we fail to document our intent to the detriment of both the programmer and the compiler. <code>T*</code> has overly broad semantics, and our code would become both safer and clearer if instances of <code>T*</code> in high-level code were replaced with <em>strongly typed</em> alternatives. The guidelines currently recommend various such types—<code>std::unique_ptr</code>, <code>std::shared_ptr</code>, <code>std::array</code>, <code>stack_array</code>—but there are still places where the guidelines recommend the use of <code>T*</code>. Rule <a href="https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#f22-use-t-or-ownert-to-designate-a-single-object">F.22</a> advises us to, <em>&quot;Use <code>T*</code> or <code>owner&lt;T*&gt;</code> to designate a single object&quot;</em>, giving the reasoning:</p>
+<blockquote>
+<p>Readability: it makes the meaning of a plain pointer clear. Enables significant tool support.</p>
+</blockquote>
+<p>Designating <code>T*</code> to represent <em>only</em> single objects does indeed make the meaning of a <code>T*</code> clear and enable tool support, but only by a consensus of programmers and static analysis tools. Agreement by the compiler in the form of <em>strong typing</em> would greatly strengthen such meaning. This rule provides no reason why a <code>T*</code> in this one situation would not benefit from a strongly typed replacement. Rule <a href="https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#Pro-bounds-arithmetic">Bounds.1</a> instructs, <em>&quot;Don't use pointer arithmetic. Use <code>span</code> instead&quot;</em>, explaining:</p>
+<blockquote>
+<p>Pointers should only refer to single objects, and pointer arithmetic is fragile and easy to get wrong. <code>span</code> is a bounds-checked, safe type for accessing arrays of data.</p>
+</blockquote>
+<p>It appears that the guidelines are reasoning that, since <code>span</code> is provided to replace pointers when used as iterators, the only use left for <code>T*</code> is as a reference to single objects, so by process of elimination this must be <em>the</em> single appropriate use for <code>T*</code> in modern C++ code. Again, this ignores the fact that the defined semantics of <code>T*</code> are too general for something that represents a &quot;single object&quot;. For example, pointer arithmetic operations are <em>always</em> wrong if <code>T*</code> points to a single object. Of course, static analysis tools <em>could</em> flag uses of <code>T*</code> that make no sense for a &quot;single object&quot;, but this relies on the ubiquity and reliable operation of static analysis tools, the development of which has only recently begun. There is no good reason to reject what the compiler can offer us, and forego the good design practices that the guidelines themselves recommend.</p>
+<h3><a name="intent"></a> Documentation of intent</h3>
+<p>If type-safety is not a compelling enough reason to provide strongly typed replacements for <code>T*</code> in all situations, consider that the guidelines still recommend the use of <code>T*</code> as a &quot;single object&quot; for two <em>conceptually distinct</em> purposes. Moreover, the semantics of <code>T*</code> are not a good fit for either purpose; in fact, the ideal semantics for the two purposes are diametrically opposed. Thus, there is no way to provide a single high-level type to perform both functions.</p>
+<h4><a name="optrefparam"></a> &quot;Optional reference&quot; parameters</h4>
+<p>The first use of <code>T*</code> is described in rule <a href="https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#Rf-ptr-ref">F.60</a>, which tells us to, <em>&quot;Prefer <code>T*</code> over <code>T&amp;</code> when &quot;no argument&quot; is a valid option&quot;</em>, explaining:</p>
+<blockquote>
+<p>A pointer (<code>T*</code>) can be a <code>nullptr</code> and a reference (<code>T&amp;</code>) cannot, there is no valid &quot;null reference&quot;. Sometimes having <code>nullptr</code> as an alternative to indicated &quot;no object&quot; is useful, but if it is not, a reference is notationally simpler and might yield better code.</p>
+</blockquote>
+<p>Thus, we might implement such an &quot;optional reference&quot; parameter like so:</p>
+<pre><code>void frobnicate(widget const* ow);
+</code></pre>
+
+<p>Aside from the aforementioned type-safety issues, the use of <code>T*</code> as an optional <code>T&amp;</code> is unnatural, as the semantics of pointers and references are very different. In particular, one would expect to be able to pass temporary arguments to &quot;optional reference&quot; parameters, but it is illegal to take the address of an rvalue:</p>
+<pre><code>frobnicate(&amp;widget()); // error: cannot take address of rvalue
+</code></pre>
+
+<p>Ideally, one would be able to pass arguments to &quot;optional reference&quot; parameters using the same syntax as with <code>T&amp;</code> parameters:</p>
+<pre><code>frobnicate(widget()); // ideal
+</code></pre>
+
+<h4><a name="retained"></a> Retained, non-owning references</h4>
+<p>The second use of <code>T*</code> is not explicitly described by the guidelines, but can be identified by considering how best to <em>store</em> a non-owning reference. If <code>T&amp;</code> is the appropriate way to represent a non-optional reference parameter, we might consider using a <code>T&amp;</code> data member to <em>store</em> a reference:</p>
+<pre><code>class foo {
+public:
+    explicit foo(bar const&amp; b) : b(b) {}
+    …
+private:
+    bar const&amp; b;
+};
+</code></pre>
+
+<p>Unfortunately, <code>T&amp;</code> data members make their containing class non-copy assignable by default. In addition, they cannot be stored in STL containers. Instead, we could use <code>T*</code>, but our reference is non-optional, so we had better use <code>not_null&lt;T*&gt;</code>:</p>
+<pre><code>class foo {
+public:
+    explicit foo(bar const&amp; b) : b(&amp;b) {}
+    …
+private:
+    not_null&lt;bar const*&gt; b;
+};
+</code></pre>
+
+<p>However, there are still a number of problems with this approach. Firstly, it is not generally expected that a function taking a <code>T&amp;</code> parameter will retain a pointer to its argument. The intent to retain is unclear from looking at either the function signature <em>or</em> the calling code:</p>
+<pre><code>foo f{b}; // looks like &quot;pass by value&quot;
+</code></pre>
+
+<p>Rule <a href="https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#Rf-conventional">F.15</a> tells us to, <em>&quot;Prefer simple and conventional ways of passing information&quot;</em>, explaining:</p>
+<blockquote>
+<p>Using &quot;unusual and clever&quot; techniques causes surprises, slows understanding by other programmers, and encourages bugs.</p>
+</blockquote>
+<p>Storing a pointer to a <code>T const&amp;</code> parameter could be considered &quot;unusual&quot; and is arguably an example of a violation of this rule, as conventionally, a <code>T const&amp;</code> parameter is behaviourally similar to a <code>T</code> parameter (a copy of the argument may or may not be retained). Furthermore, it is possible to pass temporaries to <code>T const&amp;</code> parameters, which in this case will inevitably result in dangling pointers.</p>
+<pre><code>foo f{bar()}; // `f.b` is left dangling
+</code></pre>
+
+<p>We could instead take a <code>not_null&lt;T*&gt;</code> parameter, but then we would lose the compile-time enforcement of the &quot;not null&quot; condition (this is also a disadvantage of using <code>not_null&lt;T*&gt;</code> as a data member, though in this case the member is private, so opportunities for bugs to arise are encapsulated within the class). In addition, the calling code is indistinguishable from that of a <code>T*</code> &quot;optional reference&quot; parameter, and it is <em>still</em> likely to be surprising that a copy of the pointer is retained. If a function is going to store a copy of a reference or pointer parameter, the intent to do so should be made <em>explicitly clear</em> in both the function signature <em>and</em> at the call site, so that the caller is made aware that they must personally manage the lifetimes of both objects. Currently, there is no conventional way to do this in C++.</p>
+<h2><a name="solution"></a> The solution</h2>
+<p>We have identified the two uses of <code>T*</code> for which the guidelines do not give strongly typed alternatives:</p>
+<ol>
+<li>Retained, non-owning references</li>
+<li>&quot;Optional reference&quot; parameters</li>
+</ol>
+<p>Proposed here are two class templates, <code>observer&lt;T&gt;</code> and <code>optional_ref&lt;T&gt;</code>, that can be used in place of <code>T*</code> in these two situations respectively.</p>
+<h3><a name="observer"></a> The <code>observer&lt;T&gt;</code> class template</h3>
+<p>The <a href="api/gsl/observer.hpp"><code>observer&lt;T&gt;</code></a> class template is a pointer-like type designed to replace <code>T*</code> wherever it is used as a non-owning &quot;observer&quot; of an object of type <code>T</code>.</p>
+<pre><code>class foo {
+public:
+    explicit foo(observer&lt;bar const&gt; b) : b(b) {}
+    …
+private:
+    observer&lt;bar const&gt; b;
+};
+</code></pre>
+
+<p>Because <code>observer&lt;T&gt;</code> is only <em>explicitly</em> constructible from <code>T&amp;</code>, the intention to retain a copy of the reference has to be explicitly documented at the call site, usually via the <code>make_observer</code> factory function:</p>
+<pre><code>foo f{make_observer(b)}; 
+</code></pre>
+
+<p>In addition, <code>observer&lt;T&gt;</code> disables construction from <code>T&amp;&amp;</code>, so it cannot be constructed from temporary objects.</p>
+<pre><code>foo f{make_observer{bar()}}; // error: `make_observer(T&amp;&amp;)` is deleted
+</code></pre>
+
+<p>As a zero-overhead replacement for <code>T*</code>, <code>observer&lt;T&gt;</code> does not manage or track the lifetime of what it observes. If automatic lifetime tracking is required, alternative approaches such as a signals and slots implementation (e.g. <a href="www.boost.org/doc/libs/release/doc/html/signals2.html">Boost.Signals2</a>) or <a href="http://en.cppreference.com/w/cpp/memory/weak_ptr"><code>std::weak_ptr</code></a> may be used.</p>
+<p>An <code>observer&lt;T&gt;</code> has no &quot;null&quot; state and must therefore always point to an object. Thus, it enforces the &quot;not null&quot; condition at compile-time, just like <code>T&amp;</code>. If the ability to represent &quot;no object&quot; is required, <code>observer&lt;T&gt;</code> can be combined with <code>optional&lt;T&gt;</code>:</p>
+<pre><code>class foo {
+public:
+    foo() = default;
+    explicit foo(observer&lt;bar const&gt; b) : b(b) {}
+    …
+private:
+    optional&lt;observer&lt;bar const&gt;&gt; b;
+};
+</code></pre>
+
+<p>Or alternatively:</p>
+<pre><code>class foo {
+public:
+    explicit foo(optional&lt;observer&lt;bar const&gt;&gt; b = nullopt) : b(b) {}
+    …
+private:
+    optional&lt;observer&lt;bar const&gt;&gt; b;
+};
+</code></pre>
+
+<h4><a name="overhead"></a> Zero-overhead optimizations</h4>
+<p>A naive implementation of <code>optional&lt;observer&lt;T&gt;&gt;</code> will not have zero-overhead (most notably, it usually occupies twice as much memory as <code>T*</code>). However, the <a href="http://en.cppreference.com/w/cpp/language/as_if">as-if rule</a> <em>should</em> allow a zero-overhead implementation in practice if an <code>optional&lt;observer&lt;T&gt;&gt;</code> specialization is given &quot;back-door&quot; access to the pointer member internal to <code>observer&lt;T&gt;</code>, the unused null pointer state of which it can use to represent its <em>disengaged</em> state.</p>
+<h3><a name="optional_ref"></a> The <code>optional_ref&lt;T&gt;</code> class template</h3>
+<p>There is a soon to be standardized way to represent the concept of &quot;optional&quot; values in C++: <a href="http://en.cppreference.com/w/cpp/utility/optional"><code>std::optional&lt;T&gt;</code></a>. Ideally, we would be able to use the <code>optional&lt;T&amp;&gt;</code> specialization instead of <code>T*</code> as a way to represent &quot;optional reference&quot; parameters. Unfortunately, although <code>optional&lt;T&amp;&gt;</code> was included as an auxiliary proposal to <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2013/n3527.html">N3527</a>, it doesn't look like it will be accepted into the standard.</p>
+<p>The <a href="api/gsl/optional_ref.hpp"><code>optional_ref&lt;T&gt;</code></a> class template is an &quot;optional&quot; reference-like type, and is essentially a slightly modified version of <code>optional&lt;T&amp;&gt;</code> as described in N3527.</p>
+<pre><code>void frobnicate_default();
+void frobnicate_widget(widget const&amp; w);
+
+void frobnicate(optional_ref&lt;widget const&gt; ow) {
+    if (ow) {
+        frobnicate_widget(*ow);
+    } else {
+        frobnicate_default();
+    }
+}
+</code></pre>
+
+<p>Since <code>T&amp;</code> converts implicitly to <code>optional_ref&lt;T&gt;</code>, it is possible to pass temporaries to <code>optional_ref&lt;T const&gt;</code> parameters just as with <code>T const&amp;</code> parameters:</p>
+<pre><code>frobnicate(widget());
+frobnicate(nullopt);
+</code></pre>
+
+<p>However, the design differs somewhat from the proposed version of <code>optional&lt;T&amp;&gt;</code>.</p>
+<h4><a name="rvalue"></a> Construction from <code>T&amp;&amp;</code></h4>
+<p>Allowing construction from <code>T&amp;&amp;</code> is essential to allow passing of temporary arguments to <code>optional_ref&lt;T&gt;</code> parameters. The <code>optional</code> proposal decided to disable construction from <code>T&amp;&amp;</code> to prevent the accidental formation of dangling references by programmers who mistakenly expect <code>optional&lt;T const&amp;&gt;</code> to extend the lifetime of temporaries as <code>T const&amp;</code> does. However, we believe this is a price worth paying to enable temporaries to be passed as <code>optional_ref&lt;T const&gt;</code> parameters, especially given that <code>string_view</code>, a reference-like type with similar semantics, make the exact same compromise.</p>
+<h4><a name="copy"></a> Copy assignment</h4>
+<p>The <code>optional&lt;T&amp;&gt;</code> auxiliary proposal discusses how the semantics for copy assignment proved controversial. They ultimately chose <em>reference</em> copy assignment semantics somewhat arbitrarily, copying the behaviour of <a href="http://en.cppreference.com/w/cpp/utility/functional/reference_wrapper"><code>std::reference_wrapper</code></a> and <a href="www.boost.org/doc/libs/release/libs/optional/doc/html/index.html"><code>boost::optional</code></a>. The proposal mentions that most people insisted that <code>optional&lt;T&amp;&gt;</code> be copy assignable, but no rationale is given. We speculate that this is because <code>optional&lt;T&gt;</code> is viewed by most people as inheriting the operations supported by <code>T</code>. Since <code>T&amp;</code> is copy assignable (although copy assignment for <code>T&amp;</code> has <em>value</em> semantics, not reference semantics), they reason that <code>optional&lt;T&amp;&gt;</code> should be copy assignable as well.</p>
+<p>In contrast, we believe it is more helpful to think of <code>optional&lt;T&gt;</code> as a <em>container</em> of <code>T</code> than as inheriting the interface of <code>T</code>; after all, <code>optional&lt;T&gt;</code> doesn't inherit other member functions from <code>T</code>, nor would it be correct to try and do so (despite it being suggested in <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n4173.pdf">N4173</a>). Thus, we have disabled copy assignment for <code>optional_ref&lt;T&gt;</code>, as classes that contain <code>T&amp;</code> are <em>not</em> copy assignable. The desire to implement value semantic copy assignment may also be in part due to the misconception that the inability to rebind <code>T&amp;</code> is a &quot;flaw&quot; in its design. On the contrary, the inability to rebind <code>T&amp;</code> is a feature that is <em>intrinsic</em> to its nature (hence the apparent dilemma of value vs. reference semantics for copy assignment of a reference-like type). The behaviour of the <code>optional&lt;T&amp;&gt;</code> suggested in the auxiliary proposal can be closely reproduced by <code>optional&lt;reference_wrapper&lt;T&gt;&gt;</code>.</p>
+<h3><a name="optional"></a> An <code>optional&lt;T&gt;</code> class template</h3>
+<p>Currently, nowhere in the guidelines is <code>optional&lt;T&gt;</code> mentioned. This is understandable, given that C++17 is still a work in progress. However, even when this new version of the standard is released, it will be some time before everyone following the guidelines has access to a production-ready implementation. Given the fundamental role that <code>optional&lt;T&gt;</code> plays in accurately representing the concept of an &quot;optional&quot; value—an extremely common requirement—we suggest adding an implementation <code>optional&lt;T&gt;</code> to the GSL. Note that we still suggest adding <code>optional_ref&lt;T&gt;</code> as opposed to implementing <code>optional&lt;T&amp;&gt;</code>, since any implementation of <code>optional&lt;T&gt;</code> should ideally be standard-conforming. If and when <code>optional&lt;T&amp;&gt;</code> is standardized, the guidelines can be updated and instances of <code>optional_ref&lt;T&gt;</code> can easily be find-and-replaced (providing <code>optional&lt;T&amp;&gt;</code> has roughly the same semantics as <code>optional_ref&lt;T&gt;</code>).</p>
+<h2><a name="annotation"></a> Pointer annotations</h2>
+<p>Introducing <code>observer&lt;T&gt;</code> and <code>optional_ref&lt;T&gt;</code> to the GSL and guidelines would not remove the need for pointer annotations such as <code>owner&lt;T&gt;</code> and <code>not_null&lt;T&gt;</code>. Annotations are necessary to help static analysis tools verify the integrity of code that must use pointers for whatever reason. However, there are a number of things to be said about the current approach.</p>
+<p>Pointer types, as explained in this document, are multi-purpose, and thus support far to broad a range of operations for any one use case:</p>
+<ul>
+<li>Arithmetic operations make sense only for pointers to elements of an array</li>
+<li>Assigning and checking for null makes sense only for pointers that can be null</li>
+<li>Calling <code>delete</code> makes sense only for pointers returned by <code>new</code></li>
+<li>Calling <code>delete[]</code> makes sense only for pointers returned by <code>new[]</code></li>
+</ul>
+<p>We suggest that a <em>bare</em> <code>T*</code> (i.e. one without any annotations) <em>should</em> only represent a non-owning pointer to a single object when pointers must be used. However, <code>T*</code> should also be implicitly &quot;not null&quot;. This allows individual &quot;features&quot; of pointers to be <em>enabled</em> using annotations, in the vein of <code>owner&lt;T&gt;</code>, rather than the approach taken by <code>not_null&lt;T&gt;</code>, which is to <em>disable</em> a potentially unsafe &quot;feature&quot; that <code>T*</code> is assumed to have by default. Therefore, we suggest supporting the following annotations, one to enable each of the &quot;features&quot; listed above:</p>
+<ul>
+<li><code>array&lt;T&gt;</code> enables array subscription</li>
+<li><code>iterator&lt;T&gt;</code> enables pointer arithmetic operations</li>
+<li><code>nullable&lt;T&gt;</code> enables the null pointer state</li>
+<li><code>owner&lt;T&gt;</code> enables use of either <code>delete</code> or <code>delete[]</code> (when combined with <code>array&lt;T&gt;</code>) </li>
+</ul>
+<p>Note the distinction between owners of objects and owners of arrays, something the guidelines currently do not account for. We designated <code>array&lt;T&gt;</code> for this purpose as it would be error-prone to do something like <code>p++</code> on an <code>owner&lt;iterator&lt;T&gt;&gt;</code>. An example of correct use of these annotations is:</p>
+<pre><code>               T*   p1 = &amp;t;
+         array&lt;T*&gt;  p2 = &amp;arr;
+nullable&lt;owner&lt;T*&gt;&gt; p3 = new (nothrow) T;
+         owner&lt;T*&gt;  p4 = new T;
+   owner&lt;array&lt;T*&gt;&gt; p5 = new T[n];
+      iterator&lt;T*&gt;  p6 = p5;
+</code></pre>
+
+<p>This approach will allow static analysis tools to enable a small subset of operations for <code>T*</code> by default, allowing certain &quot;dangerous&quot; features to be enabled one-by-one via annotations. Static analysis tools can warn wherever a &quot;feature&quot; is used without its corresponding annotation. For example:</p>
+<pre><code>T t1 = p1[1]; // warning: array subscription without `array` or `iterator`
+p2++;         // warning: pointer arithmetic without `iterator`
+T t2 = *p3;   // warning: dereferencing `nullable` without null check
+if (p4) { … } // warning: checking for null without `nullable`
+delete p5;    // warning: calling `delete` with `array`
+p6 = nullptr; // warning: setting to null without `nullable`
+</code></pre>
+
+<p>Of course, such warnings are likely to be ubiquitous in old C++ code, but there is really no way around this if your goal to make your code safer, more explicit and free of bugs. Static analysis tools could potentially implicitly annotate certain variables, especially in function scope. For example:</p>
+<pre><code>template &lt;typename T, typename N&gt;
+T* find(T (&amp;a)[N], T const&amp; t) {
+    T* it = begin(a);            // `it` is implicitly `iterator&lt;T*&gt;`
+    for (; it != end(a); ++it) { // `++it` is okay
+        if (*it == t) break;
+    }
+    return it;                   // warning: discarding `iterator`
+}
+</code></pre>
+
+<p>This could automatically reduce the number of warnings by only flagging violations on API boundaries. In addition, static analysis tools could provide ways to disable particular categories of warning, or show warnings only for particular files or sections of code. Updating old code is messy business, but there are a variety of ways to make it more manageable.</p>
+<h3><a name="not_null"></a> The purpose of <code>not_null&lt;T&gt;</code></h3>
+<p>The <code>nullable&lt;T&gt;</code> annotation, as a mere template type alias, lacks the ability to enforce the &quot;not null&quot; condition at run-time like <code>not_null&lt;T&gt;</code>. This may seem like a loss of functionality, but considering that debug builds are likely to be able to catch attempts to dereference null pointers at run-time, and that run-time checks will probably be turned off for release builds, along with the fact that use of <code>T&amp;</code>, <code>observer&lt;T&gt;</code> and <code>span&lt;T&gt;</code> allows the &quot;not null&quot; condition to be enforced at <em>compile-time</em>, <code>not_null&lt;T&gt;</code> may actually provide little additional value.</p>
+<p>One <em>could</em> argue that <code>not_null&lt;T&gt;</code> could be used in situations where switching to a higher-level abstraction would break too much client code. However, <code>not_null&lt;T&gt;</code> explicitly disables pointer arithmetic, which means that it already breaks code where <code>T*</code> is used as an iterator. In fact, it seems that <code>not_null&lt;T&gt;</code> is actually a cross between an annotation and a high-level type. It is simultaneously trying to facilitate the job of static analysis tools <em>and</em> itself perform safety checks at run-time. In addition, the question arises, how would one annotate <code>not_null&lt;T&gt;</code> to verify that <em>its</em> implementation is correct?</p>
+<p>Given that the introduction of <code>observer&lt;T&gt;</code> and <code>optional_ref&lt;T&gt;</code> would all but replace use of <code>not_null&lt;T*&gt;</code> in high-level code, and that <code>not_null&lt;T*&gt;</code> seems to be inherent incompatibility with smart pointer types, it seems reasonable to replace it with the <code>nullable&lt;T&gt;</code> annotation. It would not be necessary to remove <code>not_null&lt;T&gt;</code> from the GSL immediately, if there is concern that doing so would break a lot of existing code.</p>
+<h2><a name="conclusion"></a> Conclusion</h2>
+<p>The aim of the C++ Core Guidelines is to facilitate writing of modern C++ code. At the core of modern C++ is <em>type-safety</em>, and pointers are <em>not</em> type-safe. Rather than inventing arbitrary rules about how <code>T*</code> should be used in modern, high-level C++ code, we should provide <em>type-safe</em>, modern abstractions to replace <em>all</em> of the old, unsafe uses of <code>T*</code>. In addition, a full range of type alias pointer annotations should be provided to allow the features of pointers to be enabled one-by-one wherever it is not possible to replace <code>T*</code> with higher-level abstractions. This will allow effective static validation of low-level and legacy code that still uses pointer, including standard library and GSL implementations.</p>
+
+</body>
+</html>
+<!-- This document was created with MarkdownPad, the Markdown editor for Windows (http://markdownpad.com) -->
