@@ -7,9 +7,29 @@ _Joseph Thomson (<joseph.thomson@gmail.com>)_<br>
 
 This document outlines why the the [C++ Core Guidelines](https://github.com/isocpp/CppCoreGuidelines)' current recommendations regarding the use of pointers in modern C++ code are not ideal. It goes on to argue for the addition of two types, [`observer<T>`](api/gsl/observer.hpp), and [`optional_ref<T>`](api/gsl/optional_ref.hpp), to the [Guideline Support Library](https://github.com/Microsoft/GSL). Finally, it discusses the role of `owner<T>` and `not_null<T>` in the validation of code by static analysis tools, and suggests an alternative approach to pointer annotation.
 
-## The problem
+Working implementations of the proposed classes can be found [here](https://github.com/hpesoj/gsl-pointers/tree/master/api/gsl), and a full test suite can be found [here](https://github.com/hpesoj/gsl-pointers/tree/master/tests).
 
-### Type-safety
+## Contents
+
+* [The problem](#problem)
+  * [Type-safety](#safety)
+  * [Documentation of intent](#intent)
+     * ["Optional reference" parameters](#optrefparam)
+     * [Retained, non-owning references](#retained)
+* [The solution](#solution)
+  * [The `observer<T>` class template](#observer)
+     * [Zero-overhead optimizations](#overhead)
+  * [The `optional_ref<T>` class template](#optional_ref)
+     * [Construction from `T&&`](#rvalue)
+     * [Copy assignment](#copy)
+  * [An `optional<T>` implementation](#optional)
+* [Pointer annotations](#annotation)
+  * [The purpose of `not_null<T>`](#not_null)
+* [Conclusion](#conclusion)
+
+## <a name="problem"></a> The problem
+
+### <a name="safety"></a> Type-safety
 
 Pointer types define a large range of operations. However, many of these operations have well-defined behaviour only in specific circumstances. For example (given a pointer, `p`, and an integral, `n`):
 
@@ -26,7 +46,7 @@ It also violates rule [P.1](https://github.com/isocpp/CppCoreGuidelines/blob/mas
 
 > Compilers don't read comments (or design documents) and neither do many programmers (consistently). What is expressed in code has defined semantics and can (in principle) be checked by compilers and other tools.
 
-By using `T*`, we fail to document our intent to the detriment of both the programmer and the compiler. `T*` has overly broad semantics, and our code would become both safer and clearer if instances of `T*` in high-level code were replaced with _strongly typed_ alternatives. The guidelines currently recommend various such types—`unique_ptr`, `shared_ptr`, `array`, `stack_array`—but there are still places where the guidelines recommend the use of `T*`. Rule [F.22](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#f22-use-t-or-ownert-to-designate-a-single-object) advises us to, _"Use `T*` or `owner<T*>` to designate a single object"_, giving the reasoning:
+By using `T*`, we fail to document our intent to the detriment of both the programmer and the compiler. `T*` has overly broad semantics, and our code would become both safer and clearer if instances of `T*` in high-level code were replaced with _strongly typed_ alternatives. The guidelines currently recommend various such types—`std::unique_ptr`, `std::shared_ptr`, `std::array`, `stack_array`—but there are still places where the guidelines recommend the use of `T*`. Rule [F.22](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#f22-use-t-or-ownert-to-designate-a-single-object) advises us to, _"Use `T*` or `owner<T*>` to designate a single object"_, giving the reasoning:
 
 > Readability: it makes the meaning of a plain pointer clear. Enables significant tool support.
 
@@ -36,11 +56,11 @@ Designating `T*` to represent _only_ single objects does indeed make the meaning
 
 It appears that the guidelines are reasoning that, since `span` is provided to replace pointers when used as iterators, the only use left for `T*` is as a reference to single objects, so by process of elimination this must be _the_ single appropriate use for `T*` in modern C++ code. Again, this ignores the fact that the defined semantics of `T*` are too general for something that represents a "single object". For example, pointer arithmetic operations are _always_ wrong if `T*` points to a single object. Of course, static analysis tools _could_ flag uses of `T*` that make no sense for a "single object", but this relies on the ubiquity and reliable operation of static analysis tools, the development of which has only recently begun. There is no good reason to reject what the compiler can offer us, and forego the good design practices that the guidelines themselves recommend.
 
-### Documentation of intent
+### <a name="intent"></a> Documentation of intent
 
 If type-safety is not a compelling enough reason to provide strongly typed replacements for `T*` in all situations, consider that the guidelines still recommend the use of `T*` as a "single object" for two _conceptually distinct_ purposes. Moreover, the semantics of `T*` are not a good fit for either purpose; in fact, the ideal semantics for the two purposes are diametrically opposed. Thus, there is no way to provide a single high-level type to perform both functions.
 
-#### "Optional reference" parameters
+#### <a name="optrefparam"></a> "Optional reference" parameters
 
 The first use of `T*` is described in rule [F.60](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#Rf-ptr-ref), which tells us to, _"Prefer `T*` over `T&` when "no argument" is a valid option"_, explaining:
 
@@ -58,7 +78,7 @@ Ideally, one would be able to pass arguments to "optional reference" parameters 
 
     frobnicate(widget()); // ideal
 
-#### Retained, non-owning references
+#### <a name="retained"></a> Retained, non-owning references
 
 The second use of `T*` is not explicitly described by the guidelines, but can be identified by considering how best to _store_ a non-owning reference. If `T&` is the appropriate way to represent a non-optional reference parameter, we might consider using a `T&` data member to _store_ a reference:
 
@@ -94,7 +114,7 @@ Storing a pointer to a `T const&` parameter could be considered "unusual" and is
 
 We could instead take a `not_null<T*>` parameter, but then we would lose the compile-time enforcement of the "not null" condition (this is also a disadvantage of using `not_null<T*>` as a data member, though in this case the member is private, so opportunities for bugs to arise are encapsulated within the class). In addition, the calling code is indistinguishable from that of a `T*` "optional reference" parameter, and it is _still_ likely to be surprising that a copy of the pointer is retained. If a function is going to store a copy of a reference or pointer parameter, the intent to do so should be made _explicitly clear_ in both the function signature _and_ at the call site, so that the caller is made aware that they must personally manage the lifetimes of both objects. Currently, there is no conventional way to do this in C++.
 
-## The solution
+## <a name="solution"></a> The solution
 
 We have identified the two uses of `T*` for which the guidelines do not give strongly typed alternatives:
 
@@ -103,7 +123,7 @@ We have identified the two uses of `T*` for which the guidelines do not give str
 
 Proposed here are two class templates, `observer<T>` and `optional_ref<T>`, that can be used in place of `T*` in these two situations respectively.
 
-### `observer<T>`
+### <a name="observer"></a> The `observer<T>` class template
 
 The [`observer<T>`](api/gsl/observer.hpp) class template is a pointer-like type designed to replace `T*` wherever it is used as a non-owning "observer" of an object of type `T`.
 
@@ -123,7 +143,7 @@ In addition, `observer<T>` disables construction from `T&&`, so it cannot be con
 
     foo f{make_observer{bar()}}; // error: `make_observer(T&&)` is deleted
 
-As a zero-overhead replacement for `T*`, `observer<T>` does not manage or track the lifetime of what it observes. If automatic lifetime tracking is required, alternative approaches such as a signals and slots implementation (e.g. [Boost.Signals2](www.boost.org/doc/libs/release/doc/html/signals2.html)) or `weak_ptr` may be used.
+As a zero-overhead replacement for `T*`, `observer<T>` does not manage or track the lifetime of what it observes. If automatic lifetime tracking is required, alternative approaches such as a signals and slots implementation (e.g. [Boost.Signals2](www.boost.org/doc/libs/release/doc/html/signals2.html)) or [`std::weak_ptr`](http://en.cppreference.com/w/cpp/memory/weak_ptr) may be used.
 
 An `observer<T>` has no "null" state and must therefore always point to an object. Thus, it enforces the "not null" condition at compile-time, just like `T&`. If the ability to represent "no object" is required, `observer<T>` can be combined with `optional<T>`:
 
@@ -146,15 +166,15 @@ Or alternatively:
         optional<observer<bar const>> b;
     };
 
-#### Zero-overhead optimizations
+#### <a name="overhead"></a> Zero-overhead optimizations
 
 A naive implementation of `optional<observer<T>>` will not have zero-overhead (most notably, it usually occupies twice as much memory as `T*`). However, the [as-if rule](http://en.cppreference.com/w/cpp/language/as_if) _should_ allow a zero-overhead implementation in practice if an `optional<observer<T>>` specialization is given "back-door" access to the pointer member internal to `observer<T>`, the unused null pointer state of which it can use to represent its _disengaged_ state.
 
-### `optional_ref<T>`
+### <a name="optional_ref"></a> The `optional_ref<T>` class template
 
-There is a soon to be standardized way to represent the concept of "optional" values in C++: `optional<T>`. Ideally, we would be able to use the `optional<T&>` specialization instead of `T*` as a way to represent "optional reference" parameters. Unfortunately, although `optional<T&>` was included as an auxiliary proposal to the main `optional<T>` proposal, it doesn't look like it will be accepted into the standard.
+There is a soon to be standardized way to represent the concept of "optional" values in C++: [`std::optional<T>`](http://en.cppreference.com/w/cpp/utility/optional). Ideally, we would be able to use the `optional<T&>` specialization instead of `T*` as a way to represent "optional reference" parameters. Unfortunately, although `optional<T&>` was included as an auxiliary proposal to [N3527](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2013/n3527.html), it doesn't look like it will be accepted into the standard.
 
-The [`optional_ref<T>`](api/gsl/optional_ref.hpp) class template is an "optional" reference-like type, and is essentially a slightly modified version of `optional<T&>` as described by the auxiliary proposal in [N3527](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2013/n3527.html).
+The [`optional_ref<T>`](api/gsl/optional_ref.hpp) class template is an "optional" reference-like type, and is essentially a slightly modified version of `optional<T&>` as described in N3527.
 
     void frobnicate_default();
     void frobnicate_widget(widget const& w);
@@ -174,21 +194,21 @@ Since `T&` converts implicitly to `optional_ref<T>`, it is possible to pass temp
 
 However, the design differs somewhat from the proposed version of `optional<T&>`.
 
-#### Construction from `T&&`
+#### <a name="rvalue"></a> Construction from `T&&`
 
 Allowing construction from `T&&` is essential to allow passing of temporary arguments to `optional_ref<T>` parameters. The `optional` proposal decided to disable construction from `T&&` to prevent the accidental formation of dangling references by programmers who mistakenly expect `optional<T const&>` to extend the lifetime of temporaries as `T const&` does. However, we believe this is a price worth paying to enable temporaries to be passed as `optional_ref<T const>` parameters, especially given that `string_view`, a reference-like type with similar semantics, make the exact same compromise.
 
-#### Copy assignment
+#### <a name="copy"></a> Copy assignment
 
-The `optional<T&>` auxiliary proposal discusses how the semantics for copy assignment proved controversial. They ultimately chose _reference_ copy assignment semantics somewhat arbitrarily, copying the behaviour of `reference_wrapper` and `boost::optional`. The proposal mentions that most people insisted that `optional<T&>` be copy assignable, but no rationale is given. We speculate that this is because `optional<T>` is viewed by most people as inheriting the operations supported by `T`. Since `T&` is copy assignable (although copy assignment for `T&` has _value_ semantics, not reference semantics), they reason that `optional<T&>` should be copy assignable as well.
+The `optional<T&>` auxiliary proposal discusses how the semantics for copy assignment proved controversial. They ultimately chose _reference_ copy assignment semantics somewhat arbitrarily, copying the behaviour of [`std::reference_wrapper`](http://en.cppreference.com/w/cpp/utility/functional/reference_wrapper) and [`boost::optional`](www.boost.org/doc/libs/release/libs/optional/doc/html/index.html). The proposal mentions that most people insisted that `optional<T&>` be copy assignable, but no rationale is given. We speculate that this is because `optional<T>` is viewed by most people as inheriting the operations supported by `T`. Since `T&` is copy assignable (although copy assignment for `T&` has _value_ semantics, not reference semantics), they reason that `optional<T&>` should be copy assignable as well.
 
 In contrast, we believe it is more helpful to think of `optional<T>` as a _container_ of `T` than as inheriting the interface of `T`; after all, `optional<T>` doesn't inherit other member functions from `T`, nor would it be correct to try and do so (despite it being suggested in [N4173](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n4173.pdf)). Thus, we have disabled copy assignment for `optional_ref<T>`, as classes that contain `T&` are _not_ copy assignable. The desire to implement value semantic copy assignment may also be in part due to the misconception that the inability to rebind `T&` is a "flaw" in its design. On the contrary, the inability to rebind `T&` is a feature that is _intrinsic_ to its nature (hence the apparent dilemma of value vs. reference semantics for copy assignment of a reference-like type). The behaviour of the `optional<T&>` suggested in the auxiliary proposal can be closely reproduced by `optional<reference_wrapper<T>>`.
 
-### `optional<T>`
+### <a name="optional"></a> An `optional<T>` class template
 
 Currently, nowhere in the guidelines is `optional<T>` mentioned. This is understandable, given that C++17 is still a work in progress. However, even when this new version of the standard is released, it will be some time before everyone following the guidelines has access to a production-ready implementation. Given the fundamental role that `optional<T>` plays in accurately representing the concept of an "optional" value—an extremely common requirement—we suggest adding an implementation `optional<T>` to the GSL. Note that we still suggest adding `optional_ref<T>` as opposed to implementing `optional<T&>`, since any implementation of `optional<T>` should ideally be standard-conforming. If and when `optional<T&>` is standardized, the guidelines can be updated and instances of `optional_ref<T>` can easily be find-and-replaced (providing `optional<T&>` has roughly the same semantics as `optional_ref<T>`).
 
-## Pointer annotations
+## <a name="annotation"></a> Pointer annotations
 
 Introducing `observer<T>` and `optional_ref<T>` to the GSL and guidelines would not remove the need for pointer annotations such as `owner<T>` and `not_null<T>`. Annotations are necessary to help static analysis tools verify the integrity of code that must use pointers for whatever reason. However, there are a number of things to be said about the current approach.
 
@@ -237,7 +257,7 @@ Of course, such warnings are likely to be ubiquitous in old C++ code, but there 
 
 This could automatically reduce the number of warnings by only flagging violations on API boundaries. In addition, static analysis tools could provide ways to disable particular categories of warning, or show warnings only for particular files or sections of code. Updating old code is messy business, but there are a variety of ways to make it more manageable.
 
-### `nullable<T>` vs `not_null<T>`
+### <a name="not_null"></a> The purpose of `not_null<T>`
 
 The `nullable<T>` annotation, as a mere template type alias, lacks the ability to enforce the "not null" condition at run-time like `not_null<T>`. This may seem like a loss of functionality, but considering that debug builds are likely to be able to catch attempts to dereference null pointers at run-time, and that run-time checks will probably be turned off for release builds, along with the fact that use of `T&`, `observer<T>` and `span<T>` allows the "not null" condition to be enforced at _compile-time_, `not_null<T>` may actually provide little additional value.
 
@@ -245,6 +265,6 @@ One _could_ argue that `not_null<T>` could be used in situations where switching
 
 Given that the introduction of `observer<T>` and `optional_ref<T>` would all but replace use of `not_null<T*>` in high-level code, and that `not_null<T*>` seems to be inherent incompatibility with smart pointer types, it seems reasonable to replace it with the `nullable<T>` annotation. It would not be necessary to remove `not_null<T>` from the GSL immediately, if there is concern that doing so would break a lot of existing code.
 
-## In summary
+## <a name="conclusion"></a> Conclusion
 
 The aim of the C++ Core Guidelines is to facilitate writing of modern C++ code. At the core of modern C++ is _type-safety_, and pointers are _not_ type-safe. Rather than inventing arbitrary rules about how `T*` should be used in modern, high-level C++ code, we should provide _type-safe_, modern abstractions to replace _all_ of the old, unsafe uses of `T*`. In addition, a full range of type alias pointer annotations should be provided to allow the features of pointers to be enabled one-by-one wherever it is not possible to replace `T*` with higher-level abstractions. This will allow effective static validation of low-level and legacy code that still uses pointer, including standard library and GSL implementations.
