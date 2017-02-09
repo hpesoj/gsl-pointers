@@ -60,7 +60,7 @@ Designating `T*` to represent _only_ single objects does indeed make the meaning
 
 > Pointers should only refer to single objects, and pointer arithmetic is fragile and easy to get wrong. `span` is a bounds-checked, safe type for accessing arrays of data.
 
-It appears that the guidelines are reasoning that, since `span` is provided to replace pointers when used as iterators, the only use left for `T*` is as a reference to single objects, so by process of elimination this must be _the_ single appropriate use for `T*` in modern C++ code. Again, this ignores the fact that the defined semantics of `T*` are too general for something that represents a "single object". For example, pointer arithmetic operations make little sense if `T*` is meant to point to a single object. Of course, static analysis tools _could_ flag uses of `T*` that make no sense for a "single object", but this relies on the ubiquity and reliable operation of static analysis tools, the development of which has only recently begun. There is no good reason to reject what the compiler can offer us, and forego the good design practices that the guidelines themselves recommend.
+It appears that the guidelines are reasoning that, since `span` is provided as a substitute for pointers when used as iterators, the only use left for `T*` is as a reference to single objects, so by process of elimination this must be _the_ single appropriate use for `T*` in modern C++ code. Again, this ignores the fact that the defined semantics of `T*` are too general for something that represents a "single object". For example, pointer arithmetic operations make little sense if `T*` is meant to point to a single object. Of course, static analysis tools _could_ flag uses of `T*` that make no sense for a "single object", but this relies on the ubiquity and reliable operation of static analysis tools, the development of which has only recently begun. There is no good reason to reject what the compiler can offer us, and forego the good design practices that the guidelines themselves recommend.
 
 ### <a name="intent"></a> Documentation of intent
 
@@ -131,7 +131,7 @@ Proposed here are two class templates, `observer<T>` and `optional_ref<T>`, that
 
 ### <a name="observer"></a> The `observer<T>` class template
 
-The [`observer<T>`](api/gsl/observer.hpp) class template is a pointer-like type designed to replace `T*` wherever it is used as a non-owning "observer" of an object of type `T`.
+The [`observer<T>`](api/gsl/observer.hpp) class template is a pointer-like type designed as a substitute for `T*` wherever it is used as a non-owning "observer" of an object of type `T`.
 
     class foo {
     public:
@@ -273,4 +273,4 @@ Given that the introduction of `observer<T>` would all but replace use of `not_n
 
 ## <a name="conclusion"></a> Conclusion
 
-The aim of the C++ Core Guidelines is to facilitate writing of modern C++ code. At the core of modern C++ is _type-safety_, and pointers are _not_ type-safe. Rather than inventing arbitrary rules about how `T*` should be used in modern, high-level C++ code, we should provide _type-safe_, modern abstractions to replace _all_ of the old, unsafe uses of `T*`. In addition, a full range of type alias pointer annotations could be provided to allow the features of pointers to be enabled one-by-one wherever it is not possible to replace `T*` with higher-level abstractions. This would allow effective static validation of low-level and legacy code that still uses pointers, including standard library and GSL implementations.
+The aim of the C++ Core Guidelines is to facilitate writing of modern C++ code. At the core of modern C++ is _type-safety_, and pointers are _not_ type-safe. Rather than inventing arbitrary rules about how `T*` should be used in modern, high-level C++ code, we should provide strongly typed alternatives to the old, unsafe uses of `T*`. In addition, a full range of type alias pointer annotations could be provided to allow the features of pointers to be enabled one-by-one wherever it is not possible to replace `T*` with higher-level abstractions. This would allow effective static validation of low-level and legacy code that still uses pointers, including standard library and GSL implementations.
