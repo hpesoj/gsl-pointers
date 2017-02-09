@@ -3,6 +3,8 @@
 Joseph Thomson &lt;<joseph.thomson@gmail.com>&gt;<br>
 9 February 2017
 
+_Note: This document is in draft form so its contents may change._
+
 ## Introduction
 
 This document outlines why the the [C++ Core Guidelines](https://github.com/isocpp/CppCoreGuidelines)' current recommendations regarding the use of pointers in modern C++ code are not ideal. It goes on to argue for the addition of two types, [`observer<T>`](api/gsl/observer.hpp), and [`optional_ref<T>`](api/gsl/optional_ref.hpp), to the [Guideline Support Library](https://github.com/Microsoft/GSL). Finally, it discusses the role of `owner<T>` and `not_null<T>` in the validation of code by static analysis tools, and suggests an alternative approach to pointer annotation.
