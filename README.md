@@ -11,6 +11,10 @@ This document outlines why the the [C++ Core Guidelines](https://github.com/isoc
 
 Working implementations of the proposed classes can be found [here](https://github.com/hpesoj/gsl-pointers/tree/master/api/gsl), and a full test suite can be found [here](https://github.com/hpesoj/gsl-pointers/tree/master/tests).
 
+### Disclaimer
+
+This proposal does _not_ suggest that the replacement of _all_ uses of pointers in modern C++ should be recommended. Low-level implementations and legacy code bases will inevitably still use pointers. We are instead proposing that _strongly typed_ alternatives to `T*` should be provided and recommended by the guidelines. However, we do not recommend that static analysis tools flag all instances of `T*` for replacement. In fact, in the discussion of [pointer annotation](#annotation), we suggest that a bare `T*` _should_ be understood by static analysis tools to represent a single object.
+
 ## Contents
 
 * [The problem with pointers](#problem)
@@ -35,8 +39,8 @@ Working implementations of the proposed classes can be found [here](https://gith
 
 Pointer types define a large range of operations. However, many of these operations have well-defined behaviour only in specific circumstances. For example (given a pointer, `p`, and an integral, `n`):
 
-* The expression `p + n` has undefined behaviour (for `n != 0`) if `p` points to a single object.
-* The expression `*p` has undefined behaviour if `p` is a null pointer.
+* The expression `p + n` has only has defined behaviour the resulting pointer is within the bounds of an array object (including one past the end of the array).
+* The expression `*p` has undefined behaviour if `p` is a null pointer or a past-the-end iterator.
 * The expression `delete p` has undefined behaviour if `p` points to an object not allocated with `new`.
 * The expression `delete[] p` has undefined behaviour if `p` points to an object not allocated with `new[]`.
 
@@ -56,7 +60,7 @@ Designating `T*` to represent _only_ single objects does indeed make the meaning
 
 > Pointers should only refer to single objects, and pointer arithmetic is fragile and easy to get wrong. `span` is a bounds-checked, safe type for accessing arrays of data.
 
-It appears that the guidelines are reasoning that, since `span` is provided to replace pointers when used as iterators, the only use left for `T*` is as a reference to single objects, so by process of elimination this must be _the_ single appropriate use for `T*` in modern C++ code. Again, this ignores the fact that the defined semantics of `T*` are too general for something that represents a "single object". For example, pointer arithmetic operations are _always_ wrong if `T*` points to a single object. Of course, static analysis tools _could_ flag uses of `T*` that make no sense for a "single object", but this relies on the ubiquity and reliable operation of static analysis tools, the development of which has only recently begun. There is no good reason to reject what the compiler can offer us, and forego the good design practices that the guidelines themselves recommend.
+It appears that the guidelines are reasoning that, since `span` is provided to replace pointers when used as iterators, the only use left for `T*` is as a reference to single objects, so by process of elimination this must be _the_ single appropriate use for `T*` in modern C++ code. Again, this ignores the fact that the defined semantics of `T*` are too general for something that represents a "single object". For example, pointer arithmetic operations make little sense if `T*` is meant to point to a single object. Of course, static analysis tools _could_ flag uses of `T*` that make no sense for a "single object", but this relies on the ubiquity and reliable operation of static analysis tools, the development of which has only recently begun. There is no good reason to reject what the compiler can offer us, and forego the good design practices that the guidelines themselves recommend.
 
 ### <a name="intent"></a> Documentation of intent
 
