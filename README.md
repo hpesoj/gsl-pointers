@@ -265,7 +265,7 @@ The `nullable<T>` annotation, as a mere template type alias, lacks the ability t
 
 One _could_ argue that `not_null<T>` could be used in situations where switching to a higher-level abstraction would break too much client code. However, `not_null<T>` explicitly disables pointer arithmetic, which means that it already breaks code where `T*` is used as an iterator. In fact, it seems that `not_null<T>` is actually a cross between an annotation and a high-level type. It is simultaneously trying to facilitate the job of static analysis tools _and_ itself perform safety checks at run-time and compile-time. In addition, the question arises, how would one annotate `not_null<T>` to verify that _its_ implementation is correct?
 
-Given that the introduction of `observer<T>` would all but replace use of `not_null<T*>` in high-level code, and that `not_null<T*>` seems to be [inherent incompatibility](https://github.com/Microsoft/GSL/issues/415) with smart pointer types, it seems reasonable to replace it with the `nullable<T>` annotation. It would not be necessary to remove `not_null<T>` from the GSL immediately, if there is concern that doing so would break a lot of existing code.
+Given that the introduction of `observer<T>` would all but replace use of `not_null<T*>` in high-level code, and that `not_null<T*>` seems to be [inherently incompatible](https://github.com/Microsoft/GSL/issues/415) with smart pointer types, it seems reasonable to replace it with the `nullable<T>` annotation. It would not be necessary to remove `not_null<T>` from the GSL immediately, if there is concern that doing so would break a lot of existing code.
 
 ## <a name="conclusion"></a> Conclusion
 
