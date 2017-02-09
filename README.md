@@ -1,7 +1,7 @@
 # Pointers and the C++ Core Guidelines
 
-_Joseph Thomson (<joseph.thomson@gmail.com>)_<br>
-8 February 2017
+Joseph Thomson &lt;<joseph.thomson@gmail.com>&gt;<br>
+9 February 2017
 
 ## Introduction
 
