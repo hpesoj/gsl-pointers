@@ -164,6 +164,17 @@ SCENARIO("`optional_ref` can be constructed from other references")
             CHECK(&*p == &d);
         }
     }
+
+    GIVEN("an `optional_ref` constructed using `make_optional_ref`")
+    {
+        int i = {};
+
+        optional_ref<int> o = make_optional_ref(i);
+
+        CHECK(o);
+        CHECK(o.has_value());
+        CHECK(&*o == &i);
+    }
 }
 
 SCENARIO("`optional_ref` can be accessed via the throwing `value` function")
