@@ -23,7 +23,7 @@ This proposal does _not_ recommend the replacement of _all_ uses of pointers in 
   * [Type-safety](#safety)
   * [Documentation of intent](#intent)
      * ["Optional reference" parameters](#optrefparam)
-     * [Retained, non-owning references](#retained)
+     * [Retained, non-owning references](#retainedref)
 * [The proposed solution](#solution)
   * [The `retained<T>` class template](#retained)
      * [Zero-overhead optimizations](#overhead)
@@ -86,7 +86,7 @@ Ideally, one would be able to pass arguments to "optional reference" parameters 
 
     frobnicate(widget()); // ideal
 
-#### <a name="retained"></a> Retained, non-owning references
+#### <a name="retainedref"></a> Retained, non-owning references
 
 The second use of `T*` is not explicitly described by the guidelines, but can be identified by considering how best to _store_ a non-owning reference. If `T&` is the appropriate way to represent a non-optional reference parameter, we might consider using a `T&` data member to _store_ a reference:
 
