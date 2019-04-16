@@ -81,16 +81,6 @@ namespace gsl
       return m_ptr;
     }
 
-    constexpr T const* operator->() const noexcept
-    {
-      return m_ptr;
-    }
-
-    constexpr operator T*() noexcept
-    {
-      return m_ptr;
-    }
-
     constexpr operator T const*() const noexcept
     {
       return m_ptr;
@@ -124,7 +114,7 @@ namespace gsl
   template <typename T1, typename T2>
   constexpr bool operator==(retained<T1> const& lhs, retained<T2> const& rhs) noexcept
   {
-    return static_cast<T1 const*>(lhs) == static_cast<T2 const*>(rhs);
+    return &*lhs == &*rhs;
   }
 
   template <typename T1, typename T2>
@@ -143,7 +133,7 @@ namespace std
     constexpr bool operator()(gsl::retained<T> const& lhs, gsl::retained<T> const& rhs)
         const noexcept
     {
-      return less<T const*>()(static_cast<T const*>(lhs), static_cast<T const*>(rhs));
+      return less<T const*>()(&*lhs, &*rhs);
     }
   };
 
@@ -152,7 +142,7 @@ namespace std
   {
     constexpr std::size_t operator()(gsl::retained<T> const& r) const noexcept
     {
-      return hash<T const*>()(static_cast<T const*>(r));
+      return hash<T const*>()(&*r);
     }
   };
 } // namespace std

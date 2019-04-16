@@ -63,23 +63,6 @@ SCENARIO("`retained`s can be constructed")
   }
 }
 
-SCENARIO("`retained`s convert to pointers")
-{
-  int i = {};
-
-  GIVEN("an `retained` constructed from an reference")
-  {
-    retained<int> v = make_retained(i);
-
-    WHEN("the `retained` is converted to a pointer")
-    {
-      int* p = static_cast<int*>(v);
-
-      REQUIRE(p == &i);
-    }
-  }
-}
-
 SCENARIO("`retained`s cannot be copied")
 {
   CHECK_FALSE(std::is_copy_constructible_v<retained<int>>);
