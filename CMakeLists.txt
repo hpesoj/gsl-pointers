@@ -1,4 +1,28 @@
-cmake_minimum_required(VERSION 2.6)
-project(gsl_unit_tests)
-include_directories(${PROJECT_SOURCE_DIR}/tests ${PROJECT_SOURCE_DIR}/api)
-add_executable(unit_tests tests/unit_tests.cpp)
+cmake_minimum_required(VERSION 3.14)
+
+project(gsl-pointers)
+
+include(CTest)
+
+add_executable(tests
+  tests/test.cpp
+  tests/test_optional_ref.cpp
+  tests/test_retained.cpp
+)
+
+
+target_compile_features(tests
+  PUBLIC
+  cxx_std_17
+)
+
+target_include_directories(tests
+  PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/api
+  ${CMAKE_CURRENT_SOURCE_DIR}/tests
+)
+
+add_test(
+  NAME "tests"
+  COMMAND "tests"
+)
